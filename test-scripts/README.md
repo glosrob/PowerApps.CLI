@@ -13,9 +13,12 @@ This directory contains test scripts for development and testing purposes.
 
 ## Credential Test Scripts (Git-Ignored)
 
-- `test-interactive.ps1` - Test with interactive browser authentication
-- `test-service-principal.ps1` - Test with client ID/secret authentication
-- `test-connection-string.ps1` - Test with connection string authentication
+For schema-export command:
+- `test-schema-interactive.ps1` - Test with interactive browser authentication
+- `test-schema-service-principal.ps1` - Test with client ID/secret authentication  
+- `test-schema-service-principal-json.ps1` - Test with service principal from JSON config
+- `test-schema-connection-string.ps1` - Test with connection string authentication
+- `test-schema-env-vars.ps1` - Test with environment variables
 
 ## Usage
 
