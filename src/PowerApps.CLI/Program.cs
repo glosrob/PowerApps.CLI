@@ -12,6 +12,9 @@ public class Program
         // Add schema-export command
         rootCommand.AddCommand(SchemaCommand.CreateCommand());
 
+        // Add constants-generate command
+        rootCommand.AddCommand(ConstantsCommand.CreateCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }

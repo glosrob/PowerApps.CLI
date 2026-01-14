@@ -133,6 +133,7 @@ public class MetadataMapperTests
         var optionSet = new OptionSetMetadata
         {
             Name = "statecode",
+            DisplayName = new Label(new LocalizedLabel("State Code", 1033), Array.Empty<LocalizedLabel>()),
             IsGlobal = false
         };
         optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Active", 1033), Array.Empty<LocalizedLabel>()), 0));
@@ -150,6 +151,7 @@ public class MetadataMapperTests
         // Assert
         Assert.NotNull(result);
         Assert.Equal("statecode", result!.Name);
+        Assert.Equal("State Code", result.DisplayName);
         Assert.False(result.IsGlobal);
         Assert.Equal(2, result.Options.Count);
         Assert.Equal(0, result.Options[0].Value);
