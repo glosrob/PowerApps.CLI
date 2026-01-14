@@ -115,7 +115,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         {
             // Extract just the class definition (remove namespace wrapper)
             var lines = content.Split(Environment.NewLine);
-            var classLines = lines.Skip(2).SkipLast(1);
+            var classLines = lines.Skip(2).SkipLast(2); // Skip first 2 lines (namespace + {) and last 2 lines (} + })
             sb.AppendLine(string.Join(Environment.NewLine, classLines));
             sb.AppendLine();
         }

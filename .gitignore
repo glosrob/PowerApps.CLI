@@ -94,6 +94,9 @@ test-scripts/*.ps1
 !test-scripts/run-coverage.ps1
 !test-scripts/run-tests.ps1
 !test-scripts/test-constants-command.ps1
+
+# Generated constants output
+Generated/
 test-schema*.json
 test-schema*.xlsx
 test-schema*.csv
