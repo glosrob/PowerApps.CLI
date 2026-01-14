@@ -108,7 +108,7 @@ public class ConstantsGenerator : IConstantsGenerator
 
             foreach (var optionSet in globalOptionSets)
             {
-                var className = formatter.ToIdentifier(optionSet.Name ?? "UnknownOptionSet");
+                var className = formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet");
                 var fileName = $"{className}.cs";
                 var content = _templateGenerator.GenerateGlobalOptionSetClass(optionSet, $"{outputConfig.Namespace}.Choices");
                 await _fileWriter.WriteTextAsync(Path.Combine(optionSetsPath, fileName), content);

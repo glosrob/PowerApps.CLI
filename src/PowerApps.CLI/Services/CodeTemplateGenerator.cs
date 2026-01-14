@@ -82,7 +82,9 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
     public string GenerateGlobalOptionSetClass(OptionSetSchema optionSet, string namespaceName)
     {
         var sb = new StringBuilder();
-        var className = _formatter.ToIdentifier(optionSet.Name ?? "UnknownOptionSet");
+        
+        // Use DisplayName for the class name, fall back to Name if not available
+        var className = _formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet");
 
         sb.AppendLine($"namespace {namespaceName}");
         sb.AppendLine("{");

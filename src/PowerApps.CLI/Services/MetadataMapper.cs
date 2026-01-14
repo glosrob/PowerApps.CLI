@@ -93,6 +93,7 @@ public class MetadataMapper : IMetadataMapper
             return new OptionSetSchema
             {
                 Name = optionSet.Name,
+                DisplayName = optionSet.DisplayName?.UserLocalizedLabel?.Label,
                 IsGlobal = optionSet.IsGlobal ?? false,
                 Options = optionSet.Options.Select(o => new OptionSchema
                 {
@@ -107,6 +108,7 @@ public class MetadataMapper : IMetadataMapper
             return new OptionSetSchema
             {
                 Name = stateAttr.OptionSet.Name,
+                DisplayName = stateAttr.OptionSet.DisplayName?.UserLocalizedLabel?.Label,
                 IsGlobal = false,
                 Options = stateAttr.OptionSet.Options.Select(o => new OptionSchema
                 {
@@ -121,6 +123,7 @@ public class MetadataMapper : IMetadataMapper
             return new OptionSetSchema
             {
                 Name = statusAttr.OptionSet.Name,
+                DisplayName = statusAttr.OptionSet.DisplayName?.UserLocalizedLabel?.Label,
                 IsGlobal = false,
                 Options = statusAttr.OptionSet.Options.Select(o => new OptionSchema
                 {
