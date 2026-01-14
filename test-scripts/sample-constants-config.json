@@ -1,0 +1,20 @@
+{
+  "SingleFile": true,
+  "IncludeEntities": true,
+  "PascalCaseConversion": true,
+  "IncludeReferenceData": false,
+  "ExcludeEntities": [
+    "systemuser",
+    "team",
+    "businessunit"
+  ],
+  "IncludeGlobalOptionSets": true,
+  "AttributePrefix": "rob_",
+  "ExcludeAttributes": [
+    "createdon",
+    "createdby",
+    "modifiedon",
+    "modifiedby",
+    "ownerid"
+  ]
+}
