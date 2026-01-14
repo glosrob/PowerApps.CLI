@@ -59,21 +59,21 @@ public class ConstantsGenerator : IConstantsGenerator
         // Generate entities file
         if (outputConfig.IncludeEntities && entities.Count > 0)
         {
-            logger.LogInfo($"  Generating Entities.cs with {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}...");
+            logger.LogInfo($"  Generating Tables.cs with {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}...");
             var classContents = entities.Select(e => 
                 _templateGenerator.GenerateEntityClass(e, outputConfig.Namespace));
             var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
-            await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Entities.cs"), content);
+            await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Tables.cs"), content);
         }
 
         // Generate global option sets file
         if (outputConfig.IncludeGlobalOptionSets && globalOptionSets != null && globalOptionSets.Count > 0)
         {
-            logger.LogInfo($"  Generating OptionSets.cs with {globalOptionSets.Count} option set(s)...");
+            logger.LogInfo($"  Generating Choices.cs with {globalOptionSets.Count} option set(s)...");
             var classContents = globalOptionSets.Select(o =>
                 _templateGenerator.GenerateGlobalOptionSetClass(o, outputConfig.Namespace));
             var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
-            await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "OptionSets.cs"), content);
+            await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Choices.cs"), content);
         }
     }
 

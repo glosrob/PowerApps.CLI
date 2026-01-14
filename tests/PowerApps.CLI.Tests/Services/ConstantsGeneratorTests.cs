@@ -44,7 +44,7 @@ public class ConstantsGeneratorTests
 
         // Assert
         mockFileWriter.Verify(x => x.WriteTextAsync(
-            It.Is<string>(path => path.EndsWith("Entities.cs")),
+            It.Is<string>(path => path.EndsWith("Tables.cs")),
             "combined content"), Times.Once);
     }
 
@@ -89,7 +89,7 @@ public class ConstantsGeneratorTests
 
         // Assert
         mockFileWriter.Verify(x => x.WriteTextAsync(
-            It.Is<string>(path => path.EndsWith("OptionSets.cs")),
+            It.Is<string>(path => path.EndsWith("Choices.cs")),
             "combined optionsets"), Times.Once);
     }
 
@@ -250,7 +250,7 @@ public class ConstantsGeneratorTests
 
         // Assert
         mockLogger.Verify(x => x.LogInfo(It.Is<string>(s => s.Contains("./output"))), Times.AtLeastOnce);
-        mockLogger.Verify(x => x.LogInfo(It.Is<string>(s => s.Contains("Entities.cs"))), Times.Once);
+        mockLogger.Verify(x => x.LogInfo(It.Is<string>(s => s.Contains("Tables.cs"))), Times.Once);
     }
 
     [Fact]
