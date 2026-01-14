@@ -6,18 +6,35 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 
 ## Features
 
-- 🔍 **Schema Extraction** - Extract entity, attribute, and relationship metadata from Dataverse environments
+### Schema Extraction
+- 🔍 **Metadata Export** - Extract entity, attribute, and relationship metadata from Dataverse environments
 - 🎯 **Solution Filtering** - Filter by one or multiple solutions (comma-separated)
 - 📊 **Multiple Export Formats**:
   - **JSON** - Complete schema with full metadata
   - **XLSX** - Excel workbook with filterable tables and interactive navigation
-- 🔐 **Flexible Authentication**:
+- ✅ **Audit Information** - Includes audit enablement status at entity and attribute levels
+- 🔗 **Entity Deduplication** - Tracks which solutions contain each entity
+
+### Constants Generation
+- 🎨 **C# Constants** - Generate strongly-typed C# constants from Dataverse metadata
+- 📋 **Tables & Choices** - Modern terminology (Tables instead of Entities, Choices instead of OptionSets)
+- 🗂️ **Flexible Output**:
+  - Single file mode: Tables.cs and Choices.cs
+  - Multiple files mode: Tables/*.cs and Choices/*.cs
+- 🎯 **Smart Filtering**:
+  - Solution-based filtering
+  - Entity exclusions
+  - Attribute exclusions
+  - Prefix-based filtering
+- 🏷️ **Clean Naming** - Uses DisplayName for readable class names without publisher prefixes
+- 📝 **Rich Documentation** - XML comments and metadata comments in generated code
+
+### Authentication
+- 🔐 **Multiple Auth Methods**:
   - Service Principal (Client ID/Secret)
   - Connection String
   - Interactive OAuth
   - Environment Variables
-- ✅ **Audit Information** - Includes audit enablement status at entity and attribute levels
-- 🔗 **Entity Deduplication** - Tracks which solutions contain each entity
 
 ## Installation
 
@@ -36,7 +53,11 @@ dotnet build -c Release
 
 ## Usage
 
-### Using Pre-built Executable (Recommended)
+### Schema Export
+
+Extract metadata schema from Dataverse environments.
+
+#### Using Pre-built Executable (Recommended)
 
 After building or downloading a release, run directly:
 
@@ -48,7 +69,7 @@ After building or downloading a release, run directly:
 ./powerapps-cli schema-export --url "https://yourorg.crm.dynamics.com" --output "schema.xlsx"
 ```
 
-### Using dotnet run (Development)
+#### Using dotnet run (Development)
 
 When developing or if you prefer to run from source:
 
@@ -56,7 +77,7 @@ When developing or if you prefer to run from source:
 dotnet run --project src/PowerApps.CLI -- schema-export --url "https://yourorg.crm.dynamics.com" --output "schema.xlsx"
 ```
 
-### With Service Principal Authentication
+#### With Service Principal Authentication
 
 ```bash
 powerapps-cli schema-export \
@@ -68,7 +89,7 @@ powerapps-cli schema-export \
   --format xlsx
 ```
 
-### Multiple Solutions
+#### Multiple Solutions
 
 ```bash
 powerapps-cli schema-export \
@@ -78,23 +99,76 @@ powerapps-cli schema-export \
   --format json
 ```
 
-### Using Environment Variables
+### Constants Generation
+
+Generate C# constants from Dataverse metadata.
+
+#### Basic Usage
 
 ```bash
-export DATAVERSE_CLIENT_ID="your-client-id"
-export DATAVERSE_CLIENT_SECRET="your-client-secret"
-
-powerapps-cli schema-export \
+powerapps-cli constants-generate \
   --url "https://yourorg.crm.dynamics.com" \
-  --output "schema.xlsx"
+  --solution "YourSolution" \
+  --namespace "MyCompany.Model" \
+  --output "./Generated"
 ```
 
-### Using Connection String
+#### Using Connection String
 
 ```bash
-powerapps-cli schema-export \
+powerapps-cli constants-generate \
   --connection-string "AuthType=ClientSecret;Url=https://yourorg.crm.dynamics.com;ClientId=...;ClientSecret=..." \
-  --output "schema.json"
+  --solution "YourSolution" \
+  --namespace "MyCompany.Model" \
+  --output "./Generated"
+```
+
+#### Single File Mode
+
+```bash
+powerapps-cli constants-generate \
+  --url "https://yourorg.crm.dynamics.com" \
+  --solution "YourSolution" \
+  --namespace "MyCompany.Model" \
+  --output "./Generated" \
+  --single-file
+```
+
+#### With Filtering
+
+```bash
+powerapps-cli constants-generate \
+  --url "https://yourorg.crm.dynamics.com" \
+  --solution "YourSolution" \
+  --namespace "MyCompany.Model" \
+  --output "./Generated" \
+  --exclude-entities "systemuser,team" \
+  --exclude-attributes "createdon,modifiedon,createdby,modifiedby" \
+  --attribute-prefix "rob_"
+```
+
+#### Using Configuration File
+
+```bash
+powerapps-cli constants-generate \
+  --url "https://yourorg.crm.dynamics.com" \
+  --solution "YourSolution" \
+  --config "./constants-config.json"
+```
+
+Example configuration file:
+```json
+{
+  "SingleFile": false,
+  "IncludeEntities": true,
+  "IncludeGlobalOptionSets": true,
+  "IncludeComments": true,
+  "IncludeRelationships": true,
+  "PascalCaseConversion": true,
+  "AttributePrefix": "rob_",
+  "ExcludeAttributes": ["createdon", "modifiedon", "createdby", "modifiedby"],
+  "ExcludeEntities": ["systemuser", "team"]
+}
 ```
 
 ## Command Reference
@@ -115,12 +189,43 @@ Extracts metadata schema from PowerApps/Dataverse environments.
 | `--client-id` | Azure AD Application Client ID | No | - |
 | `--client-secret` | Azure AD Application Client Secret | No | - |
 | `-v, --verbose` | Enable verbose output | No | `false` |
+| `--attribute-prefix` | Only include attributes with this prefix | No | - |
+| `--exclude-attributes` | Comma-separated attribute names to exclude | No | - |
+
+\* Either `--url` or `--connection-string` must be provided.
+
+### constants-generate
+
+Generates C# constants from Dataverse metadata.
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `-u, --url` | PowerApps environment URL | Yes* | - |
+| `-s, --solution` | Solution unique name(s) to filter by | No | All entities |
+| `-o, --output` | Output directory path | No | `./Generated` |
+| `-n, --namespace` | Root namespace for generated code | Yes | - |
+| `--single-file` | Generate single Tables.cs and Choices.cs files | No | `false` |
+| `--config` | Path to JSON configuration file | No | - |
+| `-c, --connection-string` | Dataverse connection string | No | - |
+| `--client-id` | Azure AD Application Client ID | No | - |
+| `--client-secret` | Azure AD Application Client Secret | No | - |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+| `--include-entities` | Include entity constants (Tables) | No | `true` |
+| `--include-optionsets` | Include option set constants (Choices) | No | `true` |
+| `--exclude-entities` | Comma-separated entity logical names to exclude | No | - |
+| `--exclude-attributes` | Comma-separated attribute logical names to exclude | No | - |
+| `--attribute-prefix` | Only include attributes with this prefix | No | - |
+| `--pascal-case` | Convert identifiers to PascalCase | No | `true` |
 
 \* Either `--url` or `--connection-string` must be provided.
 
 ## Output Formats
 
-### JSON
+### Schema Export
+
+#### JSON
 
 Complete schema export with all metadata including:
 - Entity definitions with audit settings
@@ -129,7 +234,7 @@ Complete schema export with all metadata including:
 - OptionSets with all options
 - Solution provenance information
 
-### XLSX (Excel)
+#### XLSX (Excel)
 
 Interactive Excel workbook featuring:
 - **Summary Sheet**: 
@@ -142,8 +247,6 @@ Interactive Excel workbook featuring:
 - **Attributes Sheet**: Complete list of all attributes across all entities
 - **Relationships Sheet**: All entity relationships
 
-## Excel Features
-
 The XLSX export includes:
 - ✅ **Excel Tables** with filter dropdowns on all data sheets
 - 🔗 **Interactive Navigation** - Click entity names to jump to detail sheets
@@ -151,15 +254,91 @@ The XLSX export includes:
 - 🎨 **Professional Formatting** - Color-coded headers and styled tables
 - 🔍 **Audit Information** - "Is Audit Enabled" columns for entities and attributes
 
+### Constants Generation
+
+#### Multiple Files Mode (Default)
+
+Generated structure:
+```
+Generated/
+├── Tables/
+│   ├── Account.cs
+│   ├── Contact.cs
+│   └── ... (one file per entity)
+└── Choices/
+    ├── AccountType.cs
+    ├── StatusCode.cs
+    └── ... (one file per global option set)
+```
+
+Example generated file:
+```csharp
+namespace MyCompany.Model.Tables
+{
+    /// <summary>
+    /// Constants for the Account entity.
+    /// </summary>
+    public static class Account
+    {
+        /// <summary>
+        /// Logical name of the entity.
+        /// </summary>
+        public const string EntityLogicalName = "account";
+
+        /// <summary>
+        /// Primary ID attribute.
+        /// </summary>
+        public const string PrimaryIdAttribute = "accountid";
+
+        /// <summary>
+        /// name (String) - MaxLength: 160
+        /// </summary>
+        public const string Name = "name";
+
+        /// <summary>
+        /// accountcategorycode (Picklist) - Uses local option set
+        /// </summary>
+        public const string Category = "accountcategorycode";
+
+        /// <summary>
+        /// Category option set values.
+        /// </summary>
+        public static class CategoryOptions
+        {
+            /// <summary>
+            /// Preferred Customer
+            /// </summary>
+            public const int PreferredCustomer = 1;
+
+            /// <summary>
+            /// Standard
+            /// </summary>
+            public const int Standard = 2;
+        }
+    }
+}
+```
+
+#### Single File Mode
+
+Generates two files:
+- `Tables.cs` - All entity constants in one file
+- `Choices.cs` - All global option set constants in one file
+
 ## Architecture
 
 ```
 Commands/
-  └── SchemaCommand.cs          # CLI command definition
+  ├── SchemaCommand.cs          # Schema export CLI command
+  └── ConstantsCommand.cs       # Constants generation CLI command
 Services/
-  ├── SchemaService.cs          # Main orchestration service
+  ├── SchemaService.cs          # Schema export orchestration
   ├── SchemaExtractor.cs        # Metadata extraction with solution filtering
   ├── SchemaExporter.cs         # Export to JSON/XLSX formats
+  ├── ConstantsGenerator.cs     # Constants generation orchestration
+  ├── CodeTemplateGenerator.cs  # C# code template generation
+  ├── ConstantsFilter.cs        # Entity/attribute filtering logic
+  ├── IdentifierFormatter.cs    # C# identifier formatting (PascalCase, sanitization)
   └── MetadataMapper.cs         # SDK to model mapping
 Infrastructure/
   ├── DataverseClient.cs        # Dataverse connection management
@@ -170,12 +349,14 @@ Models/
   ├── EntitySchema.cs           # Entity metadata
   ├── AttributeSchema.cs        # Attribute metadata
   ├── RelationshipSchema.cs     # Relationship metadata
-  └── OptionSetSchema.cs        # OptionSet metadata
+  ├── OptionSetSchema.cs        # OptionSet metadata
+  ├── ConstantsConfig.cs        # Constants generation configuration
+  └── ConstantsOutputConfig.cs  # Constants output settings
 ```
 
 ## Testing
 
-The project includes comprehensive unit tests with over 100 test cases.
+The project includes comprehensive unit tests covering both schema extraction and constants generation.
 
 ### Run Tests
 
@@ -186,23 +367,40 @@ dotnet test
 ### Run Tests with Coverage
 
 ```bash
+# Using test-scripts helper
+.\test-scripts\run-coverage.ps1
+
+# Or manually
 dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
 reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertura.xml" \
   -targetdir:"TestResults/CoverageReport" -reporttypes:"Html;TextSummary"
 ```
 
 Current test coverage:
-- Line coverage: 58.7%
-- Branch coverage: 55.1%
-- 100 passing tests
+- **162 passing tests** (100% pass rate)
+- Line coverage: 60%+
+- Branch coverage: 55%+
+
+Test coverage includes:
+- ✅ Schema extraction and export (JSON/XLSX)
+- ✅ Constants generation (single/multiple file modes)
+- ✅ Code template generation
+- ✅ Identifier formatting and sanitization
+- ✅ Entity/attribute filtering
+- ✅ Metadata mapping
+- ✅ Model validation
 
 ## Development
 
 ### Project Structure
 
 - `src/PowerApps.CLI/` - Main application code
+  - `Commands/` - CLI command definitions
+  - `Services/` - Business logic and orchestration
+  - `Infrastructure/` - External integrations and utilities
+  - `Models/` - Data models and schemas
 - `tests/PowerApps.CLI.Tests/` - Unit tests
-- `test-scripts/` - Local test scripts (not committed)
+- `test-scripts/` - Local test scripts with sample usage (not committed)
 
 ### Dependencies
 
@@ -218,8 +416,9 @@ Current test coverage:
 
 The `.gitignore` is configured to exclude:
 - Test scripts containing credentials (`test-scripts/*.ps1`)
+- Generated constants output (`Generated/`)
 - Generated schema files (`test-schema*.json`, `test-schema*.xlsx`)
-- Coverage reports (`coverage/`)
+- Coverage reports (`coverage/`, `TestResults/`)
 
 Use environment variables or Azure Key Vault for production credentials.
 
