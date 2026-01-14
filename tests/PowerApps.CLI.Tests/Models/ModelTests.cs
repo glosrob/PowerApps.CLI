@@ -271,4 +271,113 @@ public class ModelTests
         Assert.Contains("Unknown", result);
         Assert.Contains("Custom: False", result);
     }
+
+    [Fact]
+    public void ConstantsConfig_ToString_WithAllOptionsEnabled_ShouldListAllTypes()
+    {
+        // Arrange
+        var config = new ConstantsConfig
+        {
+            IncludeEntities = true,
+            IncludeGlobalOptionSets = true,
+            IncludeReferenceData = true
+        };
+
+        // Act
+        var result = config.ToString();
+
+        // Assert
+        Assert.Equal("Entities, OptionSets, RefData", result);
+    }
+
+    [Fact]
+    public void ConstantsConfig_ToString_WithOnlyEntities_ShouldReturnEntitiesOnly()
+    {
+        // Arrange
+        var config = new ConstantsConfig
+        {
+            IncludeEntities = true,
+            IncludeGlobalOptionSets = false,
+            IncludeReferenceData = false
+        };
+
+        // Act
+        var result = config.ToString();
+
+        // Assert
+        Assert.Equal("Entities", result);
+    }
+
+    [Fact]
+    public void ConstantsConfig_ToString_WithNoOptionsEnabled_ShouldReturnNoGeneration()
+    {
+        // Arrange
+        var config = new ConstantsConfig
+        {
+            IncludeEntities = false,
+            IncludeGlobalOptionSets = false,
+            IncludeReferenceData = false
+        };
+
+        // Act
+        var result = config.ToString();
+
+        // Assert
+        Assert.Equal("No generation configured", result);
+    }
+
+    [Fact]
+    public void ConstantsConfig_DefaultValues_ShouldHaveCorrectDefaults()
+    {
+        // Arrange & Act
+        var config = new ConstantsConfig();
+
+        // Assert
+        Assert.False(config.SingleFile);
+        Assert.True(config.IncludeEntities);
+        Assert.True(config.IncludeGlobalOptionSets);
+        Assert.False(config.IncludeReferenceData);
+        Assert.True(config.IncludeComments);
+        Assert.True(config.IncludeRelationships);
+        Assert.True(config.PascalCaseConversion);
+        Assert.Null(config.AttributePrefix);
+        Assert.Empty(config.ExcludeAttributes);
+        Assert.Empty(config.ExcludeEntities);
+    }
+
+    [Fact]
+    public void ConstantsOutputConfig_ToString_ShouldReturnNamespaceAndPath()
+    {
+        // Arrange
+        var outputConfig = new ConstantsOutputConfig
+        {
+            Namespace = "MyCompany.Constants",
+            OutputPath = "./Generated/Constants"
+        };
+
+        // Act
+        var result = outputConfig.ToString();
+
+        // Assert
+        Assert.Equal("MyCompany.Constants -> ./Generated/Constants", result);
+    }
+
+    [Fact]
+    public void ConstantsOutputConfig_DefaultValues_ShouldHaveCorrectDefaults()
+    {
+        // Arrange & Act
+        var config = new ConstantsOutputConfig();
+
+        // Assert
+        Assert.Equal(string.Empty, config.OutputPath);
+        Assert.Equal(string.Empty, config.Namespace);
+        Assert.False(config.SingleFile);
+        Assert.True(config.IncludeEntities);
+        Assert.True(config.IncludeGlobalOptionSets);
+        Assert.True(config.IncludeRelationships);
+        Assert.False(config.IncludeReferenceData);
+        Assert.True(config.IncludeComments);
+        Assert.True(config.PascalCaseConversion);
+        Assert.Empty(config.ExcludeAttributes);
+    }
 }
