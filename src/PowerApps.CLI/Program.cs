@@ -15,6 +15,9 @@ public class Program
         // Add constants-generate command
         rootCommand.AddCommand(ConstantsCommand.CreateCommand());
 
+        // Add refdata-compare command
+        rootCommand.AddCommand(RefDataCompareCommand.CreateCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }

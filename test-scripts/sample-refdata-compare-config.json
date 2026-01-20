@@ -1,0 +1,16 @@
+{
+  "excludeSystemFields": true,
+  "globalExcludeFields": [],
+  "tables": [
+    {
+      "logicalName": "account",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeFields": []
+    },
+    {
+      "logicalName": "contact",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeFields": []
+    }
+  ]
+}

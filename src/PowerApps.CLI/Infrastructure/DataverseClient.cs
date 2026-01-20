@@ -1,5 +1,7 @@
 using Microsoft.PowerPlatform.Dataverse.Client;
+using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Discovery;
+using Microsoft.Xrm.Sdk.Query;
 
 namespace PowerApps.CLI.Infrastructure;
 
@@ -93,5 +95,54 @@ public class DataverseClient : IDataverseClient
         }
 
         return serviceClient.IsReady;
+    }
+
+    public EntityCollection RetrieveRecords(ServiceClient serviceClient, string entityName, string? fetchXml = null)
+    {
+        if (serviceClient == null)
+        {
+            throw new ArgumentNullException(nameof(serviceClient));
+        }
+
+        if (string.IsNullOrWhiteSpace(entityName))
+        {
+            throw new ArgumentException("Entity name must be provided.", nameof(entityName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(fetchXml))
+        {
+            // Use provided FetchXML
+            return serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
+        }
+        else
+        {
+            // Retrieve all records with QueryExpression
+            var query = new QueryExpression(entityName)
+            {
+                ColumnSet = new ColumnSet(true), // Get all columns
+                PageInfo = new PagingInfo
+                {
+                    Count = 5000,
+                    PageNumber = 1
+                }
+            };
+
+            var results = new EntityCollection();
+            EntityCollection pageResults;
+
+            do
+            {
+                pageResults = serviceClient.RetrieveMultiple(query);
+                results.Entities.AddRange(pageResults.Entities);
+
+                if (pageResults.MoreRecords)
+                {
+                    query.PageInfo.PageNumber++;
+                    query.PageInfo.PagingCookie = pageResults.PagingCookie;
+                }
+            } while (pageResults.MoreRecords);
+
+            return results;
+        }
     }
 }
