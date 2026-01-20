@@ -159,22 +159,13 @@ public static class RefDataCompareCommand
                     }
 
                     // Retrieve records from both environments
-                    if (verbose)
-                    {
-                        logger.LogInfo($"  Retrieving source records...");
-                    }
+                    logger.LogInfoIfVerbose($"  Retrieving source records...");
                     var sourceRecords = dataverseClient.RetrieveRecords(sourceClient, tableConfig.LogicalName, fetchXml);
 
-                    if (verbose)
-                    {
-                        logger.LogInfo($"  Retrieving target records...");
-                    }
+                    logger.LogInfoIfVerbose($"  Retrieving target records...");
                     var targetRecords = dataverseClient.RetrieveRecords(targetClient, tableConfig.LogicalName, fetchXml);
 
-                    if (verbose)
-                    {
-                        logger.LogInfo($"  Source: {sourceRecords.Entities.Count} record(s), Target: {targetRecords.Entities.Count} record(s)");
-                    }
+                    logger.LogInfoIfVerbose($"  Source: {sourceRecords.Entities.Count} record(s), Target: {targetRecords.Entities.Count} record(s)");
 
                     // Build table-specific exclusions
                     var tableExcludeFields = new HashSet<string>(excludeFields, StringComparer.OrdinalIgnoreCase);
@@ -220,10 +211,7 @@ public static class RefDataCompareCommand
             catch (Exception ex)
             {
                 logger.LogError($"Error during comparison: {ex.Message}");
-                if (verbose)
-                {
-                    logger.LogError(ex.ToString());
-                }
+                logger.LogVerbose(ex.ToString());
                 context.ExitCode = 1;
             }
         });

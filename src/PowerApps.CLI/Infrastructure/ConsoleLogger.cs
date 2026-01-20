@@ -35,6 +35,30 @@ public class ConsoleLogger : IConsoleLogger
         }
     }
 
+    public void LogInfoIfVerbose(string message)
+    {
+        if (IsVerboseEnabled)
+        {
+            LogInfo(message);
+        }
+    }
+
+    public void LogWarningIfVerbose(string message)
+    {
+        if (IsVerboseEnabled)
+        {
+            LogWarning(message);
+        }
+    }
+
+    public void LogSuccessIfVerbose(string message)
+    {
+        if (IsVerboseEnabled)
+        {
+            LogSuccess(message);
+        }
+    }
+
     private static void WriteWithColor(string message, ConsoleColor color)
     {
         var previousColor = Console.ForegroundColor;
