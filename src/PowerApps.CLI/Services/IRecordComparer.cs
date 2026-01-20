@@ -15,10 +15,14 @@ public interface IRecordComparer
     /// <param name="sourceRecords">Records from source environment.</param>
     /// <param name="targetRecords">Records from target environment.</param>
     /// <param name="excludeFields">Field names to exclude from comparison.</param>
+    /// <param name="primaryNameField">Optional logical name of the primary name field for display.</param>
+    /// <param name="primaryIdField">Optional logical name of the primary ID field to exclude from comparison.</param>
     /// <returns>Comparison result with all differences.</returns>
     TableComparisonResult CompareRecords(
         string tableName,
         EntityCollection sourceRecords,
         EntityCollection targetRecords,
-        HashSet<string> excludeFields);
+        HashSet<string> excludeFields,
+        string? primaryNameField = null,
+        string? primaryIdField = null);
 }

@@ -105,7 +105,7 @@ public static class RefDataCompareCommand
 
                 // Load configuration
                 logger.LogInfo($"Loading configuration from: {configPath}");
-                var config = await LoadConfigAsync(configPath);
+                var config = await LoadConfigAsync(configPath, fileWriter);
 
                 if (config.Tables.Count == 0)
                 {
@@ -179,7 +179,9 @@ public static class RefDataCompareCommand
                         tableConfig.LogicalName,
                         sourceRecords,
                         targetRecords,
-                        tableExcludeFields);
+                        tableExcludeFields,
+                        tableConfig.PrimaryNameField,
+                        tableConfig.PrimaryIdField);
 
                     comparisonResult.TableResults.Add(tableResult);
 
@@ -219,14 +221,14 @@ public static class RefDataCompareCommand
         return command;
     }
 
-    private static async Task<RefDataCompareConfig> LoadConfigAsync(string configPath)
+    private static async Task<RefDataCompareConfig> LoadConfigAsync(string configPath, IFileWriter fileWriter)
     {
-        if (!File.Exists(configPath))
+        if (!fileWriter.FileExists(configPath))
         {
             throw new FileNotFoundException($"Configuration file not found: {configPath}");
         }
 
-        var json = await File.ReadAllTextAsync(configPath);
+        var json = await fileWriter.ReadTextAsync(configPath);
         var config = JsonSerializer.Deserialize<RefDataCompareConfig>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true

@@ -32,6 +32,18 @@ public class RefDataTableConfig
     public string LogicalName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional logical name of the primary name field to use for display (e.g., "name", "rob_name").
+    /// If not specified, common name attributes will be tried.
+    /// </summary>
+    public string? PrimaryNameField { get; set; }
+
+    /// <summary>
+    /// Optional logical name of the primary ID field (e.g., "accountid", "rob_categoryid").
+    /// If not specified, the field will be auto-detected.
+    /// </summary>
+    public string? PrimaryIdField { get; set; }
+
+    /// <summary>
     /// Optional FetchXML filter to apply when retrieving records.
     /// </summary>
     public string? Filter { get; set; }

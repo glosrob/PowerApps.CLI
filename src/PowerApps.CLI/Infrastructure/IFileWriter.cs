@@ -22,6 +22,13 @@ public interface IFileWriter
     Task WriteBytesAsync(string filePath, byte[] content);
 
     /// <summary>
+    /// Reads text content from a file asynchronously.
+    /// </summary>
+    /// <param name="filePath">The path to the file to read.</param>
+    /// <returns>The text content of the file.</returns>
+    Task<string> ReadTextAsync(string filePath);
+
+    /// <summary>
     /// Checks if a file exists.
     /// </summary>
     /// <param name="filePath">The path to the file to check.</param>

@@ -4,11 +4,15 @@
   "tables": [
     {
       "logicalName": "account",
+      "primaryIdField": "accountid",
+      "primaryNameField": "name",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": []
     },
     {
       "logicalName": "contact",
+      "primaryIdField": "contactid",
+      "primaryNameField": "fullname",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": []
     }

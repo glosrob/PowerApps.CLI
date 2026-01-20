@@ -1,4 +1,5 @@
 using Microsoft.Xrm.Sdk;
+using PowerApps.CLI.Infrastructure;
 using PowerApps.CLI.Models;
 
 namespace PowerApps.CLI.Services;
@@ -21,7 +22,9 @@ public class RecordComparer : IRecordComparer
         string tableName,
         EntityCollection sourceRecords,
         EntityCollection targetRecords,
-        HashSet<string> excludeFields)
+        HashSet<string> excludeFields,
+        string? primaryNameField = null,
+        string? primaryIdField = null)
     {
         var result = new TableComparisonResult
         {
@@ -41,7 +44,7 @@ public class RecordComparer : IRecordComparer
             result.Differences.Add(new RecordDifference
             {
                 RecordId = sourceId,
-                RecordName = GetRecordName(sourceEntity),
+                RecordName = sourceEntity.GetRecordName(primaryNameField),
                 DifferenceType = DifferenceType.New
             });
         }
@@ -53,7 +56,7 @@ public class RecordComparer : IRecordComparer
             result.Differences.Add(new RecordDifference
             {
                 RecordId = targetId,
-                RecordName = GetRecordName(targetEntity),
+                RecordName = targetEntity.GetRecordName(primaryNameField),
                 DifferenceType = DifferenceType.Deleted
             });
         }
@@ -64,14 +67,14 @@ public class RecordComparer : IRecordComparer
             var sourceEntity = sourceDict[commonId];
             var targetEntity = targetDict[commonId];
 
-            var fieldDifferences = CompareFields(sourceEntity, targetEntity, excludeFields);
+            var fieldDifferences = CompareFields(sourceEntity, targetEntity, excludeFields, primaryIdField);
 
             if (fieldDifferences.Any())
             {
                 result.Differences.Add(new RecordDifference
                 {
                     RecordId = commonId,
-                    RecordName = GetRecordName(sourceEntity),
+                    RecordName = sourceEntity.GetRecordName(primaryNameField),
                     DifferenceType = DifferenceType.Modified,
                     FieldDifferences = fieldDifferences
                 });
@@ -81,20 +84,20 @@ public class RecordComparer : IRecordComparer
         return result;
     }
 
-    private List<FieldDifference> CompareFields(Entity sourceEntity, Entity targetEntity, HashSet<string> excludeFields)
+    private List<FieldDifference> CompareFields(Entity sourceEntity, Entity targetEntity, HashSet<string> excludeFields, string? primaryIdField = null)
     {
         var differences = new List<FieldDifference>();
 
         // Combine all attribute names from both entities
         var allAttributes = sourceEntity.Attributes.Keys
             .Union(targetEntity.Attributes.Keys)
-            .Where(attr => !ShouldExcludeField(attr, excludeFields))
+            .Where(attr => !ShouldExcludeField(attr, excludeFields, primaryIdField))
             .ToList();
 
         foreach (var attributeName in allAttributes)
         {
-            var sourceValue = GetFormattedValue(sourceEntity, attributeName);
-            var targetValue = GetFormattedValue(targetEntity, attributeName);
+            var sourceValue = sourceEntity.GetFormattedValue(attributeName);
+            var targetValue = targetEntity.GetFormattedValue(attributeName);
 
             // Compare values (case-sensitive for precision)
             if (!string.Equals(sourceValue, targetValue, StringComparison.Ordinal))
@@ -111,7 +114,7 @@ public class RecordComparer : IRecordComparer
         return differences;
     }
 
-    private bool ShouldExcludeField(string fieldName, HashSet<string> excludeFields)
+    private bool ShouldExcludeField(string fieldName, HashSet<string> excludeFields, string? primaryIdField = null)
     {
         // Exclude if in custom exclude list
         if (excludeFields.Contains(fieldName))
@@ -125,8 +128,16 @@ public class RecordComparer : IRecordComparer
             return true;
         }
 
-        // Always exclude the primary ID attribute (handled separately)
-        if (fieldName.EndsWith("id", StringComparison.OrdinalIgnoreCase) && 
+        // Exclude the primary ID attribute if specified
+        if (!string.IsNullOrWhiteSpace(primaryIdField) && 
+            string.Equals(fieldName, primaryIdField, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        // Try to auto-detect primary ID if not specified
+        if (string.IsNullOrWhiteSpace(primaryIdField) &&
+            fieldName.EndsWith("id", StringComparison.OrdinalIgnoreCase) && 
             fieldName.Length > 2 && 
             !fieldName.Contains("_"))
         {
@@ -135,66 +146,5 @@ public class RecordComparer : IRecordComparer
         }
 
         return false;
-    }
-
-    private string? GetFormattedValue(Entity entity, string attributeName)
-    {
-        // Try to get formatted value first (for lookups, optionsets, dates)
-        if (entity.FormattedValues.ContainsKey(attributeName))
-        {
-            return entity.FormattedValues[attributeName];
-        }
-
-        // Fall back to raw value
-        if (entity.Attributes.ContainsKey(attributeName))
-        {
-            var value = entity.Attributes[attributeName];
-            
-            if (value == null)
-            {
-                return null;
-            }
-
-            // Handle specific types
-            if (value is EntityReference entityRef)
-            {
-                return entityRef.Name ?? entityRef.Id.ToString();
-            }
-
-            if (value is OptionSetValue optionSet)
-            {
-                return optionSet.Value.ToString();
-            }
-
-            if (value is Money money)
-            {
-                return money.Value.ToString("F2");
-            }
-
-            return value.ToString();
-        }
-
-        return null;
-    }
-
-    private string GetRecordName(Entity entity)
-    {
-        // Try common name attributes
-        var nameAttributes = new[] { "name", entity.LogicalName + "name", "fullname", "subject", "title" };
-        
-        foreach (var attr in nameAttributes)
-        {
-            if (entity.Attributes.ContainsKey(attr))
-            {
-                var value = entity.Attributes[attr];
-                if (value != null)
-                {
-                    return value.ToString() ?? entity.Id.ToString();
-                }
-            }
-        }
-
-        // Fall back to ID
-        return entity.Id.ToString();
     }
 }

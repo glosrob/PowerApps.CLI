@@ -215,11 +215,15 @@ powerapps-cli refdata-compare \
   "tables": [
     {
       "logicalName": "rob_category",
+      "primaryIdField": "rob_categoryid",
+      "primaryNameField": "rob_name",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": []
     },
     {
       "logicalName": "rob_priority",
+      "primaryIdField": "rob_priorityid",
+      "primaryNameField": "rob_priorityname",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": ["rob_temporaryfield"]
     }
