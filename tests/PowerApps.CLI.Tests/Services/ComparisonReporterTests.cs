@@ -97,7 +97,7 @@ public class ComparisonReporterTests : IDisposable
             {
                 new TableComparisonResult
                 {
-                    TableName = "Gender",
+                    TableName = "Category",
                     SourceRecordCount = 7,
                     TargetRecordCount = 8,
                     Differences =
@@ -135,9 +135,9 @@ public class ComparisonReporterTests : IDisposable
         Assert.True(File.Exists(outputPath));
 
         using var workbook = new XLWorkbook(outputPath);
-        Assert.Equal(2, workbook.Worksheets.Count); // Summary + Gender detail sheet
+        Assert.Equal(2, workbook.Worksheets.Count); // Summary + Category detail sheet
         Assert.True(workbook.Worksheets.Contains("Summary"));
-        Assert.True(workbook.Worksheets.Contains("Gender"));
+        Assert.True(workbook.Worksheets.Contains("Category"));
     }
 
     [Fact]
