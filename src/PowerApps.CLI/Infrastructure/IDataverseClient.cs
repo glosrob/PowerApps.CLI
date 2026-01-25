@@ -1,4 +1,5 @@
 using Microsoft.PowerPlatform.Dataverse.Client;
+using Microsoft.Xrm.Sdk;
 
 namespace PowerApps.CLI.Infrastructure;
 
@@ -37,4 +38,13 @@ public interface IDataverseClient
     /// <param name="serviceClient">The service client to validate.</param>
     /// <returns>True if connected and ready, false otherwise.</returns>
     bool IsConnected(ServiceClient serviceClient);
+
+    /// <summary>
+    /// Retrieves records from a table with optional FetchXML filter.
+    /// </summary>
+    /// <param name="serviceClient">The connected service client.</param>
+    /// <param name="entityName">The logical name of the table.</param>
+    /// <param name="fetchXml">Optional FetchXML query. If null, retrieves all records.</param>
+    /// <returns>Collection of entities matching the query.</returns>
+    EntityCollection RetrieveRecords(ServiceClient serviceClient, string entityName, string? fetchXml = null);
 }

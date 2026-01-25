@@ -90,6 +90,7 @@ Desktop.ini
 # Test scripts with credentials
 # Test scripts (except safe templates)
 test-scripts/*.ps1
+test-scripts/*-config.json
 !test-scripts/README.md
 !test-scripts/run-coverage.ps1
 !test-scripts/run-tests.ps1

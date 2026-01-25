@@ -37,6 +37,21 @@ public class FileWriter : IFileWriter
         await File.WriteAllBytesAsync(filePath, content);
     }
 
+    public async Task<string> ReadTextAsync(string filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            throw new ArgumentException("File path cannot be null or whitespace.", nameof(filePath));
+        }
+
+        if (!File.Exists(filePath))
+        {
+            throw new FileNotFoundException($"File not found: {filePath}", filePath);
+        }
+
+        return await File.ReadAllTextAsync(filePath);
+    }
+
     public bool FileExists(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath))

@@ -29,6 +29,15 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 🏷️ **Clean Naming** - Uses DisplayName for readable class names without publisher prefixes
 - 📝 **Rich Documentation** - XML comments and metadata comments in generated code
 
+### Reference Data Comparison
+- 🔄 **Environment Comparison** - Compare reference data tables between source and target environments
+- 📊 **Difference Detection** - Identifies new, modified, and deleted records
+- 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
+- 📝 **Smart Field Handling** - Uses FormattedValues for human-readable lookups and option sets
+- 🔍 **Flexible Filtering** - Per-table FetchXML filters and field exclusions
+- 📑 **Excel Reports** - Interactive Excel workbooks with summary and detail sheets
+- ⚙️ **Built-in Defaults** - Automatically excludes system fields (createdby, modifiedby, etc.)
+
 ### Authentication
 - 🔐 **Multiple Auth Methods**:
   - Service Principal (Client ID/Secret)
@@ -171,6 +180,62 @@ Example configuration file:
 }
 ```
 
+### Reference Data Comparison
+
+Compare reference data between source and target environments.
+
+#### Basic Usage
+
+```bash
+powerapps-cli refdata-compare \
+  --config refdata-config.json \
+  --source-url "https://dev.crm.dynamics.com" \
+  --target-url "https://test.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --output dev-vs-test.xlsx
+```
+
+#### Using Connection Strings
+
+```bash
+powerapps-cli refdata-compare \
+  --config refdata-config.json \
+  --source-connection "$DEV_CONNECTION_STRING" \
+  --target-connection "$TEST_CONNECTION_STRING" \
+  --output dev-vs-test.xlsx
+```
+
+#### Example Config File
+
+```json
+{
+  "excludeSystemFields": true,
+  "globalExcludeFields": ["custom_ignorefield"],
+  "tables": [
+    {
+      "logicalName": "rob_category",
+      "primaryIdField": "rob_categoryid",
+      "primaryNameField": "rob_name",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeFields": []
+    },
+    {
+      "logicalName": "rob_priority",
+      "primaryIdField": "rob_priorityid",
+      "primaryNameField": "rob_priorityname",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeFields": ["rob_temporaryfield"]
+    }
+  ]
+}
+```
+
+**Output**: Excel workbook with:
+- Summary sheet showing all tables and difference counts
+- Detail sheets for each table with differences (NEW/MODIFIED/DELETED records)
+- Field-level comparison using formatted values (human-readable lookups and option sets)
+
 ## Command Reference
 
 ### schema-export
@@ -220,6 +285,26 @@ Generates C# constants from Dataverse metadata.
 | `--pascal-case` | Convert identifiers to PascalCase | No | `true` |
 
 \* Either `--url` or `--connection-string` must be provided.
+
+### refdata-compare
+
+Compares reference data between source and target Dataverse environments.
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `--config` | Path to JSON configuration file | Yes | - |
+| `--source-url` | Source environment URL | Yes* | - |
+| `--target-url` | Target environment URL | Yes* | - |
+| `--source-connection` | Source environment connection string | No | - |
+| `--target-connection` | Target environment connection string | No | - |
+| `--client-id` | Azure AD Client ID (for both environments) | No | - |
+| `--client-secret` | Azure AD Client Secret (for both environments) | No | - |
+| `-o, --output` | Output Excel file path | No | `refdata-comparison.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--source-url`/`--target-url` or `--source-connection`/`--target-connection` must be provided.
 
 ## Output Formats
 

@@ -31,6 +31,21 @@ public interface IConsoleLogger
     void LogVerbose(string message);
 
     /// <summary>
+    /// Logs an informational message only if verbose mode is enabled.
+    /// </summary>
+    void LogInfoIfVerbose(string message);
+
+    /// <summary>
+    /// Logs a warning message only if verbose mode is enabled.
+    /// </summary>
+    void LogWarningIfVerbose(string message);
+
+    /// <summary>
+    /// Logs a success message only if verbose mode is enabled.
+    /// </summary>
+    void LogSuccessIfVerbose(string message);
+
+    /// <summary>
     /// Gets or sets whether verbose logging is enabled.
     /// </summary>
     bool IsVerboseEnabled { get; set; }
