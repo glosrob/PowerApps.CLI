@@ -32,6 +32,11 @@ public class RefDataTableConfig
     public string LogicalName { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional display name for the table (e.g., "Gender"). If not specified, logical name will be used.
+    /// </summary>
+    public string? DisplayName { get; set; }
+
+    /// <summary>
     /// Optional logical name of the primary name field to use for display (e.g., "name", "rob_name").
     /// If not specified, common name attributes will be tried.
     /// </summary>

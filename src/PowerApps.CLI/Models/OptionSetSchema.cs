@@ -9,6 +9,6 @@ public class OptionSetSchema
 
     public override string ToString()
     {
-        return string.IsNullOrEmpty(DisplayName ?? Name) ? "Unknown OptionSet" : (DisplayName ?? Name);
+        return string.IsNullOrEmpty(DisplayName ?? Name) ? "Unknown OptionSet" : (DisplayName ?? Name ?? "Unknown OptionSet");
     }
 }

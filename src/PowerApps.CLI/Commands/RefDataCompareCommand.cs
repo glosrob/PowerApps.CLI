@@ -183,6 +183,12 @@ public static class RefDataCompareCommand
                         tableConfig.PrimaryNameField,
                         tableConfig.PrimaryIdField);
 
+                    // Use display name if provided
+                    if (!string.IsNullOrWhiteSpace(tableConfig.DisplayName))
+                    {
+                        tableResult.TableName = tableConfig.DisplayName;
+                    }
+
                     comparisonResult.TableResults.Add(tableResult);
 
                     if (tableResult.HasDifferences)

@@ -74,7 +74,6 @@ public class ComparisonReporter : IComparisonReporter
 
             var headerRow = worksheet.Range(row, 1, row, 7);
             headerRow.Style.Font.Bold = true;
-            headerRow.Style.Fill.BackgroundColor = XLColor.LightBlue;
             headerRow.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
 
             row++;
@@ -148,7 +147,6 @@ public class ComparisonReporter : IComparisonReporter
 
         var headerRow = worksheet.Range(row, 1, row, 6);
         headerRow.Style.Font.Bold = true;
-        headerRow.Style.Fill.BackgroundColor = XLColor.LightBlue;
         headerRow.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
 
         row++;
@@ -164,8 +162,7 @@ public class ComparisonReporter : IComparisonReporter
                 {
                     worksheet.Cell(row, 1).Value = difference.RecordId.ToString();
                     worksheet.Cell(row, 2).Value = difference.RecordName;
-                    worksheet.Cell(row, 3).Value = "MODIFIED";
-                    worksheet.Cell(row, 3).Style.Fill.BackgroundColor = XLColor.LightYellow;
+                    worksheet.Cell(row, 3).Value = "Modified";
                     worksheet.Cell(row, 4).Value = fieldDiff.FieldName;
                     worksheet.Cell(row, 5).Value = fieldDiff.SourceValue ?? "(null)";
                     worksheet.Cell(row, 6).Value = fieldDiff.TargetValue ?? "(null)";
@@ -177,16 +174,7 @@ public class ComparisonReporter : IComparisonReporter
                 // New or Deleted records - single row
                 worksheet.Cell(row, 1).Value = difference.RecordId.ToString();
                 worksheet.Cell(row, 2).Value = difference.RecordName;
-                worksheet.Cell(row, 3).Value = difference.DifferenceType.ToString().ToUpper();
-                
-                if (difference.DifferenceType == DifferenceType.New)
-                {
-                    worksheet.Cell(row, 3).Style.Fill.BackgroundColor = XLColor.LightGreen;
-                }
-                else if (difference.DifferenceType == DifferenceType.Deleted)
-                {
-                    worksheet.Cell(row, 3).Style.Fill.BackgroundColor = XLColor.LightCoral;
-                }
+                worksheet.Cell(row, 3).Value = difference.DifferenceType.ToString();
 
                 row++;
             }

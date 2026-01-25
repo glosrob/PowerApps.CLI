@@ -3,16 +3,18 @@
   "globalExcludeFields": [],
   "tables": [
     {
-      "logicalName": "account",
-      "primaryIdField": "accountid",
-      "primaryNameField": "name",
+      "logicalName": "anc_alerttype",
+      "displayName": "Alert Type",
+      "primaryIdField": "anc_alerttypeid",
+      "primaryNameField": "anc_name",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": []
     },
     {
-      "logicalName": "contact",
-      "primaryIdField": "contactid",
-      "primaryNameField": "fullname",
+      "logicalName": "anc_gender",
+      "displayName": "Gender",
+      "primaryIdField": "anc_genderid",
+      "primaryNameField": "anc_name",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": []
     }
