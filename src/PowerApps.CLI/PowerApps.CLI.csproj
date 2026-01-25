@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AssemblyName>powerapps-cli</AssemblyName>
-    <Version>0.1.0</Version>
+    <Version>1.0.0</Version>
     <Authors>glosrob</Authors>
     <Description>CLI tool for PowerApps utilities</Description>
   </PropertyGroup>
