@@ -55,7 +55,7 @@ test-scripts/               # PowerShell test/demo scripts
 
 ### Dependency Injection
 - Uses `Microsoft.Extensions.DependencyInjection`
-- All services registered in [Program.cs](../src/PowerApps.CLI/Program.cs)
+- All services registered in `src/PowerApps.CLI/Program.cs`
 - Interface-based design for testability (I-prefixed interfaces)
 
 ### Authentication Methods (Priority Order)
@@ -132,7 +132,7 @@ test-scripts/               # PowerShell test/demo scripts
 ### Adding a New Command
 1. Create command class in `Commands/`
 2. Implement handler using System.CommandLine
-3. Register in [Program.cs](../src/PowerApps.CLI/Program.cs)
+3. Register in `src/PowerApps.CLI/Program.cs`
 4. Add tests in corresponding test file
 5. Update README.md with usage examples
 
@@ -184,6 +184,6 @@ View the report by opening the HTML file in a browser.
 
 ## Additional Resources
 
-- [README.md](../README.md) - User documentation and examples
-- [test-scripts/README.md](../test-scripts/README.md) - Test script documentation
-- Solution file: [PowerApps.CLI.sln](../PowerApps.CLI.sln)
+- `README.md` - User documentation and examples
+- `test-scripts/README.md` - Test script documentation
+- Solution file: `PowerApps.CLI.sln`

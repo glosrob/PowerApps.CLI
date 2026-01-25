@@ -48,7 +48,7 @@ public class ComparisonReporterTests : IDisposable
     #region GenerateReportAsync - No Differences Tests
 
     [Fact]
-    public async Task GenerateReportAsync_WithNoDifferences_CreatesSummarySheetOnly()
+    public async Task GenerateReportAsync_WithNoDifferences_CreatesSummarySheetOnlyAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "no-differences.xlsx");
@@ -84,7 +84,7 @@ public class ComparisonReporterTests : IDisposable
     #region GenerateReportAsync - With Differences Tests
 
     [Fact]
-    public async Task GenerateReportAsync_WithDifferences_CreatesDetailSheets()
+    public async Task GenerateReportAsync_WithDifferences_CreatesDetailSheetsAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "with-differences.xlsx");
@@ -141,7 +141,7 @@ public class ComparisonReporterTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateReportAsync_DetailSheet_ContainsCorrectDifferenceData()
+    public async Task GenerateReportAsync_DetailSheet_ContainsCorrectDifferenceDataAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "detail-data.xlsx");
@@ -194,7 +194,7 @@ public class ComparisonReporterTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateReportAsync_MultipleTablesWithDifferences_CreatesAllDetailSheets()
+    public async Task GenerateReportAsync_MultipleTablesWithDifferences_CreatesAllDetailSheetsAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "multiple-tables.xlsx");
@@ -253,7 +253,7 @@ public class ComparisonReporterTests : IDisposable
     #region Summary Sheet Tests
 
     [Fact]
-    public async Task GenerateReportAsync_SummarySheet_ContainsEnvironmentInfo()
+    public async Task GenerateReportAsync_SummarySheet_ContainsEnvironmentInfoAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "summary-env.xlsx");
@@ -284,7 +284,7 @@ public class ComparisonReporterTests : IDisposable
     #region Difference Type Tests
 
     [Fact]
-    public async Task GenerateReportAsync_WithNewRecord_ShowsCorrectStatus()
+    public async Task GenerateReportAsync_WithNewRecord_ShowsCorrectStatusAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "new-record.xlsx");
@@ -301,7 +301,7 @@ public class ComparisonReporterTests : IDisposable
     }
 
     [Fact]
-    public async Task GenerateReportAsync_WithDeletedRecord_ShowsCorrectStatus()
+    public async Task GenerateReportAsync_WithDeletedRecord_ShowsCorrectStatusAsync()
     {
         // Arrange
         var outputPath = Path.Combine(_tempDirectory, "deleted-record.xlsx");

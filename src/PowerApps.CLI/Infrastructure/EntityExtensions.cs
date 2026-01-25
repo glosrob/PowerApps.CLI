@@ -26,36 +26,28 @@ public static class EntityExtensions
             return entity.FormattedValues[attributeName];
         }
 
-        // Fall back to raw value
-        if (entity.Attributes.ContainsKey(attributeName))
+        // Return null if attribute doesn't exist
+        if (!entity.Attributes.ContainsKey(attributeName))
         {
-            var value = entity.Attributes[attributeName];
-            
-            if (value == null)
-            {
-                return null;
-            }
-
-            // Handle specific types
-            if (value is EntityReference entityRef)
-            {
-                return entityRef.Name ?? entityRef.Id.ToString();
-            }
-
-            if (value is OptionSetValue optionSet)
-            {
-                return optionSet.Value.ToString();
-            }
-
-            if (value is Money money)
-            {
-                return money.Value.ToString("F2");
-            }
-
-            return value.ToString();
+            return null;
         }
 
-        return null;
+        var value = entity.Attributes[attributeName];
+        
+        // Return null for null values
+        if (value == null)
+        {
+            return null;
+        }
+
+        // Handle specific types with pattern matching
+        return value switch
+        {
+            EntityReference entityRef => entityRef.Name ?? entityRef.Id.ToString(),
+            OptionSetValue optionSet => optionSet.Value.ToString(),
+            Money money => money.Value.ToString("F2"),
+            _ => value.ToString()
+        };
     }
 
     /// <summary>
@@ -71,13 +63,13 @@ public static class EntityExtensions
             throw new ArgumentNullException(nameof(entity));
         }
 
-        // If specific field provided, try that first
-        if (!string.IsNullOrWhiteSpace(primaryNameField) && entity.Attributes.ContainsKey(primaryNameField))
+        // Try specific field if provided
+        if (!string.IsNullOrWhiteSpace(primaryNameField))
         {
-            var value = entity.Attributes[primaryNameField];
-            if (value != null)
+            var nameFromPrimary = TryGetAttributeValue(entity, primaryNameField);
+            if (nameFromPrimary != null)
             {
-                return value.ToString() ?? entity.Id.ToString();
+                return nameFromPrimary;
             }
         }
 
@@ -86,17 +78,25 @@ public static class EntityExtensions
         
         foreach (var attr in nameAttributes)
         {
-            if (entity.Attributes.ContainsKey(attr))
+            var nameValue = TryGetAttributeValue(entity, attr);
+            if (nameValue != null)
             {
-                var value = entity.Attributes[attr];
-                if (value != null)
-                {
-                    return value.ToString() ?? entity.Id.ToString();
-                }
+                return nameValue;
             }
         }
 
         // Fall back to ID
         return entity.Id.ToString();
+    }
+
+    private static string? TryGetAttributeValue(Entity entity, string attributeName)
+    {
+        if (!entity.Attributes.ContainsKey(attributeName))
+        {
+            return null;
+        }
+
+        var value = entity.Attributes[attributeName];
+        return value?.ToString();
     }
 }
