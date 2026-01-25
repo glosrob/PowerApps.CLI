@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version number (e.g., 0.1.0)'
+        required: true
+        type: string
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Determine version
+      id: version
+      shell: pwsh
+      run: |
+        if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+          $version = '${{ inputs.version }}'
+        } else {
+          $version = '${{ github.ref_name }}'.TrimStart('v')
+        }
+        echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+        echo "Building version: $version"
+
+    - name: Restore dependencies
+      run: dotnet restore src/PowerApps.CLI/PowerApps.CLI.csproj
+
+    - name: Run tests
+      run: dotnet test --no-restore --verbosity normal
+
+    - name: Build Framework-Dependent (win-x64)
+      run: |
+        dotnet publish src/PowerApps.CLI/PowerApps.CLI.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained false `
+          -p:Version=${{ steps.version.outputs.VERSION }} `
+          -o artifacts/framework-dependent
+
+    - name: Build Self-Contained (win-x64)
+      run: |
+        dotnet publish src/PowerApps.CLI/PowerApps.CLI.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:Version=${{ steps.version.outputs.VERSION }} `
+          -o artifacts/self-contained
+
+    - name: Package Framework-Dependent
+      shell: pwsh
+      run: |
+        Compress-Archive -Path artifacts/framework-dependent/* `
+          -DestinationPath powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
+
+    - name: Package Self-Contained
+      shell: pwsh
+      run: |
+        Compress-Archive -Path artifacts/self-contained/* `
+          -DestinationPath powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip
+
+    - name: Generate Release Notes
+      id: release_notes
+      shell: pwsh
+      run: |
+        $version = "v${{ steps.version.outputs.VERSION }}"
+        $notes = @"
+        ## PowerApps.CLI $version
+        
+        ### Installation
+        
+        **Framework-Dependent** (requires .NET 8.0 Runtime):
+        - Download ``powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip``
+        - Extract and add to PATH
+        - Requires [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+        
+        **Standalone** (no dependencies):
+        - Download ``powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip``
+        - Extract and run ``powerapps-cli.exe``
+        
+        ### Usage
+        ``````
+        powerapps-cli --help
+        ``````
+        "@
+        
+        # Save to file for GitHub Release
+        $notes | Out-File -FilePath release_notes.md -Encoding utf8
+        echo "NOTES_FILE=release_notes.md" >> $env:GITHUB_OUTPUT
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: v${{ steps.version.outputs.VERSION }}
+        name: Release v${{ steps.version.outputs.VERSION }}
+        body_path: ${{ steps.release_notes.outputs.NOTES_FILE }}
+        files: |
+          powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
+          powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
