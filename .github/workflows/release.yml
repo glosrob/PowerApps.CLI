@@ -39,10 +39,10 @@ jobs:
         echo "Building version: $version"
 
     - name: Restore dependencies
-      run: dotnet restore src/PowerApps.CLI/PowerApps.CLI.csproj
+      run: dotnet restore
 
     - name: Run tests
-      run: dotnet test --no-restore --verbosity normal
+      run: dotnet test --verbosity normal
 
     - name: Build Framework-Dependent (win-x64)
       run: |
