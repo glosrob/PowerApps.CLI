@@ -13,7 +13,6 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
   - **JSON** - Complete schema with full metadata
   - **XLSX** - Excel workbook with filterable tables and interactive navigation
 - ✅ **Audit Information** - Includes audit enablement status at entity and attribute levels
-- 🔗 **Entity Deduplication** - Tracks which solutions contain each entity
 
 ### Constants Generation
 - 🎨 **C# Constants** - Generate strongly-typed C# constants from Dataverse metadata
@@ -26,24 +25,12 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
   - Entity exclusions
   - Attribute exclusions
   - Prefix-based filtering
-- 🏷️ **Clean Naming** - Uses DisplayName for readable class names without publisher prefixes
 - 📝 **Rich Documentation** - XML comments and metadata comments in generated code
 
 ### Reference Data Comparison
 - 🔄 **Environment Comparison** - Compare reference data tables between source and target environments
 - 📊 **Difference Detection** - Identifies new, modified, and deleted records
 - 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
-- 📝 **Smart Field Handling** - Uses FormattedValues for human-readable lookups and option sets
-- 🔍 **Flexible Filtering** - Per-table FetchXML filters and field exclusions
-- 📑 **Excel Reports** - Interactive Excel workbooks with summary and detail sheets
-- ⚙️ **Built-in Defaults** - Automatically excludes system fields (createdby, modifiedby, etc.)
-
-### Authentication
-- 🔐 **Multiple Auth Methods**:
-  - Service Principal (Client ID/Secret)
-  - Connection String
-  - Interactive OAuth
-  - Environment Variables
 
 ## Installation
 
@@ -441,7 +428,7 @@ Models/
 
 ## Testing
 
-The project includes comprehensive unit tests covering both schema extraction and constants generation.
+The project includes unit tests covering both schema extraction and constants generation.
 
 ### Run Tests
 
@@ -494,18 +481,6 @@ Test coverage includes:
 - **System.CommandLine** - CLI framework
 - **xUnit** - Testing framework
 - **Moq** - Mocking library
-
-## Security Notes
-
-⚠️ **Never commit credentials to source control**
-
-The `.gitignore` is configured to exclude:
-- Test scripts containing credentials (`test-scripts/*.ps1`)
-- Generated constants output (`Generated/`)
-- Generated schema files (`test-schema*.json`, `test-schema*.xlsx`)
-- Coverage reports (`coverage/`, `TestResults/`)
-
-Use environment variables or Azure Key Vault for production credentials.
 
 ## Contributing
 
