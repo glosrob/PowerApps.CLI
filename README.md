@@ -223,6 +223,68 @@ powerapps-cli refdata-compare \
 - Detail sheets for each table with differences (NEW/MODIFIED/DELETED records)
 - Field-level comparison using formatted values (human-readable lookups and option sets)
 
+### Process Management
+
+Manage Dataverse process states (workflows, cloud flows, business rules, actions) to ensure correct activation/deactivation post-deployment.
+
+#### Basic Usage
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --url "https://prod.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --output process-report.xlsx
+```
+
+#### Dry Run (Preview Changes)
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --url "https://prod.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --dry-run \
+  --output process-preview.xlsx
+```
+
+#### Using Connection String
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --connection-string "$PROD_CONNECTION_STRING" \
+  --output process-report.xlsx
+```
+
+#### Example Config File
+
+```json
+{
+  "solutions": ["Solution1", "Solution2"],
+  "inactivePatterns": [
+    "ZZ*",
+    "Test - *",
+    "Specific Process Name"
+  ],
+  "maxRetries": 3
+}
+```
+
+**Behavior**:
+- Processes matching `inactivePatterns` are **deactivated**
+- All other processes are **activated**
+- Retry logic handles parent-child dependencies
+- Wildcards supported in patterns (* matches any characters)
+
+**Output**: Excel report with:
+- Summary showing total, activated, deactivated, unchanged, and failed processes
+- Detailed list of all processes with name, type, expected state, actual state, and action taken
+
+**Use Case**: Run in CI/CD pipelines after deployment to ensure processes are in the correct state.
+
 ## Command Reference
 
 ### schema-export
@@ -292,6 +354,25 @@ Compares reference data between source and target Dataverse environments.
 | `-v, --verbose` | Enable verbose output | No | `false` |
 
 \* Either `--source-url`/`--target-url` or `--source-connection`/`--target-connection` must be provided.
+
+### process-manage
+
+Manages Dataverse process states (workflows, cloud flows, business rules, actions).
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `--config` | Path to JSON configuration file | Yes | - |
+| `--url` | Environment URL | Yes* | - |
+| `--connection-string` | Environment connection string | No | - |
+| `--client-id` | Azure AD Application Client ID | No | - |
+| `--client-secret` | Azure AD Application Client Secret | No | - |
+| `--dry-run` | Preview changes without modifying states | No | `false` |
+| `-o, --output` | Output Excel report file path | No | `process-report.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--url` or `--connection-string` must be provided.
 
 ## Output Formats
 

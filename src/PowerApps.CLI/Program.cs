@@ -18,6 +18,9 @@ public class Program
         // Add refdata-compare command
         rootCommand.AddCommand(RefDataCompareCommand.CreateCommand());
 
+        // Add process-manage command
+        rootCommand.AddCommand(ProcessManageCommand.CreateCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }
