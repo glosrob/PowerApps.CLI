@@ -23,8 +23,13 @@ public class ComparisonReporter : IComparisonReporter
         // Add summary sheet
         AddSummarySheet(workbook, result);
 
-        // Add detail sheets only for tables with differences
-        foreach (var tableResult in result.TableResults.Where(t => t.HasDifferences))
+        // Add detail sheets only for tables with differences, sorted alphabetically by TableName
+        var sortedTableResults = result.TableResults
+            .Where(t => t.HasDifferences)
+            .OrderBy(t => t.TableName)
+            .ToList();
+
+        foreach (var tableResult in sortedTableResults)
         {
             AddTableDetailSheet(workbook, tableResult);
         }
