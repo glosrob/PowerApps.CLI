@@ -47,36 +47,21 @@ jobs:
     - name: Run tests
       run: dotnet test --verbosity normal
 
-    - name: Build Framework-Dependent (win-x64)
-      run: |
-        dotnet publish src/PowerApps.CLI/PowerApps.CLI.csproj `
-          -c Release `
-          -r win-x64 `
-          --self-contained false `
-          -p:Version=${{ steps.version.outputs.VERSION }} `
-          -o artifacts/framework-dependent
-
-    - name: Build Self-Contained (win-x64)
+    - name: Build Self-Contained Single-File Executable (win-x64)
       run: |
         dotnet publish src/PowerApps.CLI/PowerApps.CLI.csproj `
           -c Release `
           -r win-x64 `
           --self-contained true `
-          -p:PublishSingleFile=true `
           -p:Version=${{ steps.version.outputs.VERSION }} `
           -o artifacts/self-contained
 
-    - name: Package Framework-Dependent
+    - name: Package Single-File Executable
       shell: pwsh
       run: |
-        Compress-Archive -Path artifacts/framework-dependent/* `
+        # Create a standalone zip with just the exe
+        Compress-Archive -Path artifacts/self-contained/powerapps-cli.exe `
           -DestinationPath powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
-
-    - name: Package Self-Contained
-      shell: pwsh
-      run: |
-        Compress-Archive -Path artifacts/self-contained/* `
-          -DestinationPath powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip
 
     - name: Generate Release Notes
       id: release_notes
@@ -88,18 +73,21 @@ jobs:
         
         ### Installation
         
-        **Framework-Dependent** (requires .NET 8.0 Runtime):
-        - Download ``powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip``
-        - Extract and add to PATH
-        - Requires [.NET 8.0 Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+        Download ``powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip`` and extract.
         
-        **Standalone** (no dependencies):
-        - Download ``powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip``
-        - Extract and run ``powerapps-cli.exe``
+        This is a **self-contained single-file executable** (~40 MB):
+        - ✅ No .NET Runtime required
+        - ✅ No dependencies
+        - ✅ Just extract and run ``powerapps-cli.exe``
+        - ✅ Works on any Windows x64 machine
         
         ### Usage
-        ``````
+        ``````powershell
         powerapps-cli --help
+        powerapps-cli schema-export --help
+        powerapps-cli constants-generate --help
+        powerapps-cli refdata-compare --help
+        powerapps-cli process-manage --help
         ``````
         "@
         
@@ -115,7 +103,6 @@ jobs:
         body_path: ${{ steps.release_notes.outputs.NOTES_FILE }}
         files: |
           powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
-          powerapps-cli-win-x64-standalone-v${{ steps.version.outputs.VERSION }}.zip
         draft: false
         prerelease: false
         generate_release_notes: true
