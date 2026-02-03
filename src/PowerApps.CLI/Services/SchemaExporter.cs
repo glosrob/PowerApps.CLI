@@ -61,9 +61,11 @@ public class SchemaExporter : ISchemaExporter
         // Create individual entity worksheets
         if (schema.Entities != null)
         {
-            foreach (var entity in schema.Entities.OrderBy(e => e.LogicalName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
-                var safeSheetName = GetSafeSheetName(entity.LogicalName ?? "Entity");
+                var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
                 var entitySheet = workbook.Worksheets.Add(safeSheetName);
                 CreateEntitySheet(entitySheet, entity);
             }
@@ -152,16 +154,18 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(headerRow, 1, headerRow, 7);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         // Data rows
         int lastRow = headerRow;
         if (schema.Entities != null)
         {
             int row = headerRow + 1;
-            foreach (var entity in schema.Entities.OrderBy(e => e.LogicalName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
-                var safeSheetName = GetSafeSheetName(entity.LogicalName ?? "Entity");
+                var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
                 
                 // Logical Name with hyperlink to entity sheet
                 sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
@@ -222,17 +226,21 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(1, 1, 1, 16);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         // Data rows
         if (schema.Entities != null)
         {
             int row = 2;
-            foreach (var entity in schema.Entities.OrderBy(e => e.LogicalName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
                 if (entity.Attributes != null)
                 {
-                    foreach (var attr in entity.Attributes.OrderBy(a => a.LogicalName))
+                    foreach (var attr in entity.Attributes
+                        .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
+                        .ThenBy(a => a.DisplayName ?? a.LogicalName))
                     {
                         sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
                         sheet.Cell(row, 2).Value = attr.LogicalName ?? string.Empty;
@@ -277,7 +285,7 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(1, 1, 1, 8);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightYellow;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         int row = 2;
 
@@ -409,13 +417,15 @@ public class SchemaExporter : ISchemaExporter
             
             var headerRange = sheet.Range(row, 1, row, 7);
             headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+            headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
             var attributeHeaderRow = row;
             row++;
 
             // Attribute data
             var attributeStartRow = row;
-            foreach (var attr in entity.Attributes.OrderBy(a => a.LogicalName))
+            foreach (var attr in entity.Attributes
+                .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
+                .ThenBy(a => a.DisplayName ?? a.LogicalName))
             {
                 sheet.Cell(row, 1).Value = attr.LogicalName ?? string.Empty;
                 sheet.Cell(row, 2).Value = attr.DisplayName ?? string.Empty;
