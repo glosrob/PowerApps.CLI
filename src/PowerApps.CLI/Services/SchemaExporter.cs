@@ -61,7 +61,9 @@ public class SchemaExporter : ISchemaExporter
         // Create individual entity worksheets
         if (schema.Entities != null)
         {
-            foreach (var entity in schema.Entities.OrderBy(e => e.DisplayName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
                 var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
                 var entitySheet = workbook.Worksheets.Add(safeSheetName);
@@ -159,7 +161,9 @@ public class SchemaExporter : ISchemaExporter
         if (schema.Entities != null)
         {
             int row = headerRow + 1;
-            foreach (var entity in schema.Entities.OrderBy(e => e.DisplayName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
                 var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
                 
@@ -228,11 +232,15 @@ public class SchemaExporter : ISchemaExporter
         if (schema.Entities != null)
         {
             int row = 2;
-            foreach (var entity in schema.Entities.OrderBy(e => e.DisplayName))
+            foreach (var entity in schema.Entities
+                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+                .ThenBy(e => e.DisplayName ?? e.LogicalName))
             {
                 if (entity.Attributes != null)
                 {
-                    foreach (var attr in entity.Attributes.OrderBy(a => a.DisplayName))
+                    foreach (var attr in entity.Attributes
+                        .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
+                        .ThenBy(a => a.DisplayName ?? a.LogicalName))
                     {
                         sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
                         sheet.Cell(row, 2).Value = attr.LogicalName ?? string.Empty;
@@ -415,7 +423,9 @@ public class SchemaExporter : ISchemaExporter
 
             // Attribute data
             var attributeStartRow = row;
-            foreach (var attr in entity.Attributes.OrderBy(a => a.DisplayName))
+            foreach (var attr in entity.Attributes
+                .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
+                .ThenBy(a => a.DisplayName ?? a.LogicalName))
             {
                 sheet.Cell(row, 1).Value = attr.LogicalName ?? string.Empty;
                 sheet.Cell(row, 2).Value = attr.DisplayName ?? string.Empty;
