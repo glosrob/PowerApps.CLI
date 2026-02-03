@@ -1,8 +1,4 @@
-using Microsoft.PowerPlatform.Dataverse.Client;
-using Microsoft.Xrm.Sdk;
-using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
-using Microsoft.Xrm.Sdk.Query;
 using PowerApps.CLI.Infrastructure;
 using PowerApps.CLI.Models;
 
@@ -21,8 +17,6 @@ public class SchemaExtractor : ISchemaExtractor
 
     public async Task<PowerAppsSchema> ExtractSchemaAsync(string? solutionNames = null)
     {
-        var serviceClient = _dataverseClient.GetServiceClient();
-        
         var schema = new PowerAppsSchema
         {
             ExtractedDate = DateTime.UtcNow,
@@ -36,14 +30,14 @@ public class SchemaExtractor : ISchemaExtractor
 
         // Get entities from solutions or all entities
         var entityLogicalNames = solutions.Count > 0
-            ? await GetEntitiesFromSolutionsAsync(serviceClient, solutions)
-            : await GetAllEntityNamesAsync(serviceClient);
+            ? await GetEntitiesFromSolutionsAsync(solutions)
+            : await _dataverseClient.GetAllEntityMetadataAsync();
 
         // Retrieve entity metadata
         var entities = new Dictionary<string, EntitySchema>();
         foreach (var entityName in entityLogicalNames.Keys)
         {
-            var entityMetadata = await RetrieveEntityMetadataAsync(serviceClient, entityName);
+            var entityMetadata = await _dataverseClient.GetEntityMetadataAsync(entityName, EntityFilters.Entity | EntityFilters.Attributes);
             if (entityMetadata != null)
             {
                 var entity = _metadataMapper.MapEntity(entityMetadata);
@@ -67,7 +61,7 @@ public class SchemaExtractor : ISchemaExtractor
         schema.Entities = entities.Values.ToList();
 
         // Retrieve relationships
-        var relationships = await RetrieveRelationshipsAsync(serviceClient, entityLogicalNames.Keys.ToList());
+        var relationships = await RetrieveRelationshipsAsync(entityLogicalNames.Keys.ToList());
         schema.Relationships = relationships;
 
         return schema;
@@ -88,179 +82,64 @@ public class SchemaExtractor : ISchemaExtractor
     }
 
     private async Task<Dictionary<string, List<string>>> GetEntitiesFromSolutionsAsync(
-        ServiceClient serviceClient, 
         List<string> solutionNames)
     {
         var entitySolutions = new Dictionary<string, List<string>>();
 
         foreach (var solutionName in solutionNames)
         {
-            // Query solution components for entities
-            var query = new QueryExpression("solutioncomponent")
+            var solutionEntities = await _dataverseClient.GetEntitiesFromSolutionAsync(solutionName);
+            
+            foreach (var kvp in solutionEntities)
             {
-                ColumnSet = new ColumnSet("objectid", "componenttype"),
-                Criteria = new FilterExpression
+                if (!entitySolutions.ContainsKey(kvp.Key))
                 {
-                    Conditions =
-                    {
-                        new ConditionExpression("componenttype", ConditionOperator.Equal, 1) // 1 = Entity
-                    }
-                },
-                LinkEntities =
-                {
-                    new LinkEntity
-                    {
-                        LinkFromEntityName = "solutioncomponent",
-                        LinkFromAttributeName = "solutionid",
-                        LinkToEntityName = "solution",
-                        LinkToAttributeName = "solutionid",
-                        LinkCriteria = new FilterExpression
-                        {
-                            Conditions =
-                            {
-                                new ConditionExpression("uniquename", ConditionOperator.Equal, solutionName)
-                            }
-                        }
-                    }
+                    entitySolutions[kvp.Key] = new List<string>();
                 }
-            };
-
-            var results = await Task.Run(() => serviceClient.RetrieveMultiple(query));
-
-            foreach (var component in results.Entities)
-            {
-                var objectId = component.GetAttributeValue<Guid>("objectid");
                 
-                // Get entity metadata to find logical name
-                var metadataRequest = new RetrieveEntityRequest
-                {
-                    MetadataId = objectId,
-                    EntityFilters = EntityFilters.Entity
-                };
-
-                try
-                {
-                    var response = await Task.Run(() => 
-                        (RetrieveEntityResponse)serviceClient.Execute(metadataRequest));
-                    
-                    var logicalName = response.EntityMetadata.LogicalName;
-
-                    if (!entitySolutions.ContainsKey(logicalName))
-                    {
-                        entitySolutions[logicalName] = new List<string>();
-                    }
-
-                    if (!entitySolutions[logicalName].Contains(solutionName))
-                    {
-                        entitySolutions[logicalName].Add(solutionName);
-                    }
-                }
-                catch
-                {
-                    // Skip if entity cannot be retrieved
-                    continue;
-                }
+                entitySolutions[kvp.Key].Add(solutionName);
             }
         }
 
         return entitySolutions;
     }
 
-    private async Task<Dictionary<string, List<string>>> GetAllEntityNamesAsync(ServiceClient serviceClient)
-    {
-        var request = new RetrieveAllEntitiesRequest
-        {
-            EntityFilters = EntityFilters.Entity,
-            RetrieveAsIfPublished = false
-        };
-
-        var response = await Task.Run(() => (RetrieveAllEntitiesResponse)serviceClient.Execute(request));
-
-        var entities = new Dictionary<string, List<string>>();
-        foreach (var entity in response.EntityMetadata)
-        {
-            if (!string.IsNullOrEmpty(entity.LogicalName))
-            {
-                entities[entity.LogicalName] = new List<string>();
-            }
-        }
-
-        return entities;
-    }
-
-    private async Task<EntityMetadata?> RetrieveEntityMetadataAsync(
-        ServiceClient serviceClient, 
-        string entityLogicalName)
-    {
-        try
-        {
-            var request = new RetrieveEntityRequest
-            {
-                LogicalName = entityLogicalName,
-                EntityFilters = EntityFilters.Entity | EntityFilters.Attributes,
-                RetrieveAsIfPublished = false
-            };
-
-            var response = await Task.Run(() => (RetrieveEntityResponse)serviceClient.Execute(request));
-            return response.EntityMetadata;
-        }
-        catch
-        {
-            return null;
-        }
-    }
-
     private async Task<List<RelationshipSchema>> RetrieveRelationshipsAsync(
-        ServiceClient serviceClient, 
         List<string> entityLogicalNames)
     {
         var relationships = new List<RelationshipSchema>();
 
         foreach (var entityName in entityLogicalNames)
         {
-            try
+            var entityMetadata = await _dataverseClient.GetEntityMetadataAsync(entityName, EntityFilters.Relationships);
+            if (entityMetadata == null) continue;
+
+            // OneToMany relationships
+            if (entityMetadata.OneToManyRelationships != null)
             {
-                var request = new RetrieveEntityRequest
+                foreach (var relationship in entityMetadata.OneToManyRelationships)
                 {
-                    LogicalName = entityName,
-                    EntityFilters = EntityFilters.Relationships,
-                    RetrieveAsIfPublished = false
-                };
-
-                var response = await Task.Run(() => (RetrieveEntityResponse)serviceClient.Execute(request));
-
-                // OneToMany relationships
-                if (response.EntityMetadata.OneToManyRelationships != null)
-                {
-                    foreach (var relationship in response.EntityMetadata.OneToManyRelationships)
+                    var rel = _metadataMapper.MapOneToManyRelationship(relationship);
+                    // Deduplicate by SchemaName
+                    if (!relationships.Any(r => r.SchemaName == rel.SchemaName))
                     {
-                        var rel = _metadataMapper.MapOneToManyRelationship(relationship);
-                        // Deduplicate by SchemaName
-                        if (!relationships.Any(r => r.SchemaName == rel.SchemaName))
-                        {
-                            relationships.Add(rel);
-                        }
-                    }
-                }
-
-                // ManyToMany relationships
-                if (response.EntityMetadata.ManyToManyRelationships != null)
-                {
-                    foreach (var relationship in response.EntityMetadata.ManyToManyRelationships)
-                    {
-                        var rel = _metadataMapper.MapManyToManyRelationship(relationship);
-                        // Deduplicate by SchemaName
-                        if (!relationships.Any(r => r.SchemaName == rel.SchemaName))
-                        {
-                            relationships.Add(rel);
-                        }
+                        relationships.Add(rel);
                     }
                 }
             }
-            catch
+
+            // ManyToMany relationships
+            if (entityMetadata.ManyToManyRelationships != null)
             {
-                // Skip if entity relationships cannot be retrieved
-                continue;
+                foreach (var relationship in entityMetadata.ManyToManyRelationships)
+                {
+                    var rel = _metadataMapper.MapManyToManyRelationship(relationship);
+                    // Deduplicate by SchemaName
+                    if (!relationships.Any(r => r.SchemaName == rel.SchemaName))
+                    {
+                        relationships.Add(rel);
+                    }
+                }
             }
         }
 

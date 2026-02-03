@@ -449,7 +449,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **162 passing tests** (100% pass rate)
+- **193 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 

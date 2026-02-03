@@ -86,16 +86,20 @@ public static class SchemaCommand
             var excludeAttributes = context.ParseResult.GetValueForOption(excludeAttributesOption);
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
-            var dataverseClient = new DataverseClient();
             var fileWriter = new FileWriter();
+            var schemaExporter = new SchemaExporter(fileWriter);
+            
+            // Create Dataverse client
+            var dataverseClient = new DataverseClient(url ?? string.Empty, clientId, clientSecret, connectionString);
+            
+            // Create schema extractor
             var metadataMapper = new MetadataMapper();
             var schemaExtractor = new SchemaExtractor(metadataMapper, dataverseClient);
-            var schemaExporter = new SchemaExporter(fileWriter);
-            var schemaService = new SchemaService(dataverseClient, logger, schemaExtractor, schemaExporter);
+            
+            var schemaService = new SchemaService(logger, schemaExporter, dataverseClient, schemaExtractor);
 
             await ExecuteExportAsync(
                 schemaService,
-                fileWriter,
                 logger,
                 url,
                 solution,
@@ -113,7 +117,6 @@ public static class SchemaCommand
 
     private static async Task ExecuteExportAsync(
         ISchemaService schemaService,
-        IFileWriter fileWriter,
         IConsoleLogger logger,
         string? url,
         string? solution,

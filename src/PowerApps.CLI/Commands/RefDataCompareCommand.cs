@@ -79,8 +79,8 @@ public static class RefDataCompareCommand
 
             // Create service instances
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
-            var sourceDataverseClient = new DataverseClient();
-            var targetDataverseClient = new DataverseClient();
+            var sourceDataverseClient = new DataverseClient(sourceUrl ?? string.Empty, clientId, clientSecret, sourceConnection);
+            var targetDataverseClient = new DataverseClient(targetUrl ?? string.Empty, clientId, clientSecret, targetConnection);
             var recordComparer = new RecordComparer();
             var fileWriter = new FileWriter();
             var comparisonReporter = new ComparisonReporter(fileWriter);
@@ -119,21 +119,11 @@ public static class RefDataCompareCommand
 
                 // Connect to source environment
                 logger.LogInfo("Connecting to source environment...");
-                await sourceDataverseClient.ConnectAsync(
-                    sourceUrl ?? string.Empty,
-                    clientId,
-                    clientSecret,
-                    sourceConnection);
                 var sourceEnv = sourceDataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to source: {sourceEnv}");
 
                 // Connect to target environment
                 logger.LogInfo("Connecting to target environment...");
-                await targetDataverseClient.ConnectAsync(
-                    targetUrl ?? string.Empty,
-                    clientId,
-                    clientSecret,
-                    targetConnection);
                 var targetEnv = targetDataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to target: {targetEnv}");
 

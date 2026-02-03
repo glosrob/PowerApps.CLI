@@ -11,63 +11,54 @@ namespace PowerApps.CLI.Tests.Services;
 /// </summary>
 public class SchemaServiceTests
 {
-    private readonly Mock<IDataverseClient> _mockDataverseClient;
     private readonly Mock<IConsoleLogger> _mockLogger;
-    private readonly Mock<ISchemaExtractor> _mockSchemaExtractor;
     private readonly Mock<ISchemaExporter> _mockSchemaExporter;
+    private readonly Mock<IDataverseClient> _mockDataverseClient;
+    private readonly Mock<ISchemaExtractor> _mockSchemaExtractor;
     private readonly SchemaService _service;
 
     public SchemaServiceTests()
     {
-        _mockDataverseClient = new Mock<IDataverseClient>();
         _mockLogger = new Mock<IConsoleLogger>();
-        _mockSchemaExtractor = new Mock<ISchemaExtractor>();
         _mockSchemaExporter = new Mock<ISchemaExporter>();
+        _mockDataverseClient = new Mock<IDataverseClient>();
+        _mockSchemaExtractor = new Mock<ISchemaExtractor>();
+        
         _service = new SchemaService(
-            _mockDataverseClient.Object,
             _mockLogger.Object,
-            _mockSchemaExtractor.Object,
-            _mockSchemaExporter.Object);
+            _mockSchemaExporter.Object,
+            _mockDataverseClient.Object,
+            _mockSchemaExtractor.Object);
     }
 
     #region Constructor Tests
 
     [Fact]
-    public void Constructor_WithNullDataverseClient_ShouldThrowArgumentNullException()
-    {
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SchemaService(null!, _mockLogger.Object, _mockSchemaExtractor.Object, _mockSchemaExporter.Object));
-        
-        Assert.Equal("dataverseClient", exception.ParamName);
-    }
-
-    [Fact]
     public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
     {
+        // Arrange
+        var mockSchemaExporter = new Mock<ISchemaExporter>();
+        var mockDataverseClient = new Mock<IDataverseClient>();
+        var mockSchemaExtractor = new Mock<ISchemaExtractor>();
+        
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SchemaService(_mockDataverseClient.Object, null!, _mockSchemaExtractor.Object, _mockSchemaExporter.Object));
+            new SchemaService(null!, mockSchemaExporter.Object, mockDataverseClient.Object, mockSchemaExtractor.Object));
         
         Assert.Equal("logger", exception.ParamName);
     }
 
     [Fact]
-    public void Constructor_WithNullSchemaExtractor_ShouldThrowArgumentNullException()
-    {
-        // Act & Assert
-        var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SchemaService(_mockDataverseClient.Object, _mockLogger.Object, null!, _mockSchemaExporter.Object));
-        
-        Assert.Equal("schemaExtractor", exception.ParamName);
-    }
-
-    [Fact]
     public void Constructor_WithNullSchemaExporter_ShouldThrowArgumentNullException()
     {
+        // Arrange
+        var mockLogger = new Mock<IConsoleLogger>();
+        var mockDataverseClient = new Mock<IDataverseClient>();
+        var mockSchemaExtractor = new Mock<ISchemaExtractor>();
+        
         // Act & Assert
         var exception = Assert.Throws<ArgumentNullException>(() => 
-            new SchemaService(_mockDataverseClient.Object, _mockLogger.Object, _mockSchemaExtractor.Object, null!));
+            new SchemaService(mockLogger.Object, null!, mockDataverseClient.Object, mockSchemaExtractor.Object));
         
         Assert.Equal("schemaExporter", exception.ParamName);
     }
@@ -75,49 +66,21 @@ public class SchemaServiceTests
     [Fact]
     public void Constructor_WithValidDependencies_ShouldSucceed()
     {
+        // Arrange
+        var mockLogger = new Mock<IConsoleLogger>();
+        var mockSchemaExporter = new Mock<ISchemaExporter>();
+        var mockDataverseClient = new Mock<IDataverseClient>();
+        var mockSchemaExtractor = new Mock<ISchemaExtractor>();
+        
         // Act
         var service = new SchemaService(
-            _mockDataverseClient.Object,
-            _mockLogger.Object,
-            _mockSchemaExtractor.Object,
-            _mockSchemaExporter.Object);
+            mockLogger.Object,
+            mockSchemaExporter.Object,
+            mockDataverseClient.Object,
+            mockSchemaExtractor.Object);
 
         // Assert
         Assert.NotNull(service);
-    }
-
-    #endregion
-
-    #region URL/ConnectionString Guard Clause Tests
-
-    [Fact]
-    public async Task ExportSchemaAsync_WithNoUrlAndNoConnectionString_ShouldThrowArgumentExceptionAsync()
-    {
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync(null, "output.json", "json"));
-
-        Assert.Contains("Either URL or connection string must be provided", exception.Message);
-    }
-
-    [Fact]
-    public async Task ExportSchemaAsync_WithEmptyUrlAndEmptyConnectionString_ShouldThrowArgumentExceptionAsync()
-    {
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("", "output.json", "json", connectionString: ""));
-
-        Assert.Contains("Either URL or connection string must be provided", exception.Message);
-    }
-
-    [Fact]
-    public async Task ExportSchemaAsync_WithWhitespaceUrlAndWhitespaceConnectionString_ShouldThrowArgumentExceptionAsync()
-    {
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("   ", "output.json", "json", connectionString: "   "));
-
-        Assert.Contains("Either URL or connection string must be provided", exception.Message);
     }
 
     #endregion

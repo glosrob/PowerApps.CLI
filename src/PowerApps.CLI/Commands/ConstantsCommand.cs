@@ -127,10 +127,8 @@ public static class ConstantsCommand
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
 
             // Create services
-            var dataverseClient = new DataverseClient();
             var fileWriter = new FileWriter();
             var metadataMapper = new MetadataMapper();
-            var schemaExtractor = new SchemaExtractor(metadataMapper, dataverseClient);
             var identifierFormatter = new IdentifierFormatter(pascalCase);
             var templateGenerator = new CodeTemplateGenerator(true, true, identifierFormatter);
             var constantsFilter = new ConstantsFilter();
@@ -150,8 +148,6 @@ public static class ConstantsCommand
             }
 
             await ExecuteGenerateAsync(
-                dataverseClient,
-                schemaExtractor,
                 constantsFilter,
                 constantsGenerator,
                 logger,
@@ -212,8 +208,6 @@ public static class ConstantsCommand
     }
 
     private static async Task ExecuteGenerateAsync(
-        IDataverseClient dataverseClient,
-        ISchemaExtractor schemaExtractor,
         IConstantsFilter constantsFilter,
         IConstantsGenerator constantsGenerator,
         IConsoleLogger logger,
@@ -258,11 +252,12 @@ public static class ConstantsCommand
             logger.LogInfo("Connecting to Dataverse...");
 
             // Connect to Dataverse
-            await dataverseClient.ConnectAsync(
+            var dataverseClient = new DataverseClient(
                 url ?? string.Empty,
                 clientId,
                 clientSecret,
                 connectionString);
+            var schemaExtractor = new SchemaExtractor(new MetadataMapper(), dataverseClient);
 
             logger.LogInfo("Extracting metadata...");
 
@@ -284,10 +279,10 @@ public static class ConstantsCommand
             {
                 // Create config from CLI options
                 var excludeEntitiesList = string.IsNullOrWhiteSpace(excludeEntities)
-                    ? new List<string>()
+                    ? []
                     : excludeEntities.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()).ToList();
                 var excludeAttributesList = string.IsNullOrWhiteSpace(excludeAttributes)
-                    ? new List<string>()
+                    ? []
                     : excludeAttributes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
 
                 filterConfig = new ConstantsConfig

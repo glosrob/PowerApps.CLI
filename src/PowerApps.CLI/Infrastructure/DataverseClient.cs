@@ -1,6 +1,8 @@
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Discovery;
+using Microsoft.Xrm.Sdk.Messages;
+using Microsoft.Xrm.Sdk.Metadata;
 using Microsoft.Xrm.Sdk.Query;
 
 namespace PowerApps.CLI.Infrastructure;
@@ -13,22 +15,216 @@ public class DataverseClient : IDataverseClient
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
 
-    private ServiceClient? _serviceClient;
+    private string _url { get; set; } = string.Empty;
+    private string _clientId {get;set; } = string.Empty;
+    private string _clientSecret {get;set;} = string.Empty;
+    private string _connectionString {get;set;} = string.Empty;
+    private readonly ServiceClient _serviceClient;
 
-    /// <summary>
-    /// Gets the connected ServiceClient, throwing if not connected.
-    /// </summary>
-    private ServiceClient ServiceClient =>
-        _serviceClient ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+    public DataverseClient(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
+    {
+        _url = url;
+        _clientId = clientId ?? string.Empty;
+        _clientSecret = clientSecret ?? string.Empty;
+        _connectionString = connectionString ?? string.Empty;
+        _serviceClient = Connect(_url, _clientId, _clientSecret, _connectionString);
+    }
 
-    /// <summary>
-    /// Gets the current ServiceClient instance for advanced operations.
-    /// </summary>
-    /// <returns>The connected ServiceClient.</returns>
-    /// <exception cref="InvalidOperationException">Thrown if not connected.</exception>
-    public ServiceClient GetServiceClient() => ServiceClient;
+    public string GetOrganizationName()
+    {
+        return _serviceClient.ConnectedOrgFriendlyName ?? string.Empty;
+    }
 
-    public async Task<ServiceClient> ConnectAsync(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
+    public string GetEnvironmentUrl()
+    {
+        if (_serviceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
+        {
+            return _serviceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
+        }
+        return _serviceClient.ConnectedOrgUriActual?.ToString() ?? string.Empty;
+    }
+
+    public EntityCollection RetrieveRecords(string entityName, string? fetchXml = null)
+    {
+        if (string.IsNullOrWhiteSpace(entityName))
+        {
+            throw new ArgumentException("Entity name must be provided.", nameof(entityName));
+        }
+
+        if (!string.IsNullOrWhiteSpace(fetchXml))
+        {
+            // Use provided FetchXML
+            return _serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
+        }
+        else
+        {
+            // Retrieve all records with QueryExpression
+            var query = new QueryExpression(entityName)
+            {
+                ColumnSet = new ColumnSet(true), // Get all columns
+                PageInfo = new PagingInfo
+                {
+                    Count = 5000,
+                    PageNumber = 1
+                }
+            };
+
+            var results = new EntityCollection();
+            EntityCollection pageResults;
+
+            do
+            {
+                pageResults = _serviceClient.RetrieveMultiple(query);
+                results.Entities.AddRange(pageResults.Entities);
+
+                if (pageResults.MoreRecords)
+                {
+                    query.PageInfo.PageNumber++;
+                    query.PageInfo.PagingCookie = pageResults.PagingCookie;
+                }
+            } while (pageResults.MoreRecords);
+
+            return results;
+        }
+    }
+
+    public EntityCollection RetrieveMultiple(QueryExpression query)
+    {
+        if (query == null)
+        {
+            throw new ArgumentNullException(nameof(query));
+        }
+
+        return _serviceClient.RetrieveMultiple(query);
+    }
+
+    public OrganizationResponse Execute(OrganizationRequest request)
+    {
+        if (request == null)
+        {
+            throw new ArgumentNullException(nameof(request));
+        }
+
+        return _serviceClient.Execute(request);
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetAllEntityMetadataAsync()
+    {
+        var request = new RetrieveAllEntitiesRequest
+        {
+            EntityFilters = EntityFilters.Entity,
+            RetrieveAsIfPublished = false
+        };
+
+        var response = await Task.Run(() => (RetrieveAllEntitiesResponse)_serviceClient.Execute(request));
+
+        var entities = new Dictionary<string, List<string>>();
+        foreach (var entity in response.EntityMetadata)
+        {
+            if (!string.IsNullOrEmpty(entity.LogicalName))
+            {
+                entities[entity.LogicalName] = new List<string>();
+            }
+        }
+
+        return entities;
+    }
+
+    public async Task<Dictionary<string, List<string>>> GetEntitiesFromSolutionAsync(string solutionName)
+    {
+        var entitySolutions = new Dictionary<string, List<string>>();
+
+        // Query solution components for entities
+        var query = new QueryExpression("solutioncomponent")
+        {
+            ColumnSet = new ColumnSet("objectid", "componenttype"),
+            Criteria = new FilterExpression
+            {
+                Conditions =
+                {
+                    new ConditionExpression("componenttype", ConditionOperator.Equal, 1) // 1 = Entity
+                }
+            },
+            LinkEntities =
+            {
+                new LinkEntity
+                {
+                    LinkFromEntityName = "solutioncomponent",
+                    LinkFromAttributeName = "solutionid",
+                    LinkToEntityName = "solution",
+                    LinkToAttributeName = "solutionid",
+                    LinkCriteria = new FilterExpression
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression("uniquename", ConditionOperator.Equal, solutionName)
+                        }
+                    }
+                }
+            }
+        };
+
+        var results = await Task.Run(() => _serviceClient.RetrieveMultiple(query));
+
+        foreach (var component in results.Entities)
+        {
+            var objectId = component.GetAttributeValue<Guid>("objectid");
+            
+            // Get entity metadata to find logical name
+            var metadataRequest = new RetrieveEntityRequest
+            {
+                MetadataId = objectId,
+                EntityFilters = EntityFilters.Entity
+            };
+
+            try
+            {
+                var response = await Task.Run(() => 
+                    (RetrieveEntityResponse)_serviceClient.Execute(metadataRequest));
+                
+                var logicalName = response.EntityMetadata.LogicalName;
+
+                if (!entitySolutions.ContainsKey(logicalName))
+                {
+                    entitySolutions[logicalName] = new List<string>();
+                }
+
+                if (!entitySolutions[logicalName].Contains(solutionName))
+                {
+                    entitySolutions[logicalName].Add(solutionName);
+                }
+            }
+            catch
+            {
+                // Skip if entity cannot be retrieved
+                continue;
+            }
+        }
+
+        return entitySolutions;
+    }
+
+    public async Task<EntityMetadata?> GetEntityMetadataAsync(string entityLogicalName, EntityFilters filters)
+    {
+        try
+        {
+            var request = new RetrieveEntityRequest
+            {
+                LogicalName = entityLogicalName,
+                EntityFilters = filters,
+                RetrieveAsIfPublished = false
+            };
+
+            var response = await Task.Run(() => (RetrieveEntityResponse)_serviceClient.Execute(request));
+            return response.EntityMetadata;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
         if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
         {
@@ -40,7 +236,6 @@ public class DataverseClient : IDataverseClient
         clientSecret ??= Environment.GetEnvironmentVariable("DATAVERSE_CLIENT_SECRET");
 
         ServiceClient serviceClient;
-
         if (!string.IsNullOrWhiteSpace(connectionString))
         {
             // Use provided connection string
@@ -74,71 +269,7 @@ public class DataverseClient : IDataverseClient
             throw new InvalidOperationException(errorMessage, serviceClient.LastException);
         }
 
-        _serviceClient = serviceClient;
-        return await Task.FromResult(serviceClient);
+        return serviceClient;
     }
 
-    public string GetOrganizationName()
-    {
-        return ServiceClient.ConnectedOrgFriendlyName ?? string.Empty;
-    }
-
-    public string GetEnvironmentUrl()
-    {
-        if (ServiceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
-        {
-            return ServiceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
-        }
-
-        return ServiceClient.ConnectedOrgUriActual?.ToString() ?? string.Empty;
-    }
-
-    public bool IsConnected()
-    {
-        return _serviceClient?.IsReady ?? false;
-    }
-
-    public EntityCollection RetrieveRecords(string entityName, string? fetchXml = null)
-    {
-        if (string.IsNullOrWhiteSpace(entityName))
-        {
-            throw new ArgumentException("Entity name must be provided.", nameof(entityName));
-        }
-
-        if (!string.IsNullOrWhiteSpace(fetchXml))
-        {
-            // Use provided FetchXML
-            return ServiceClient.RetrieveMultiple(new FetchExpression(fetchXml));
-        }
-        else
-        {
-            // Retrieve all records with QueryExpression
-            var query = new QueryExpression(entityName)
-            {
-                ColumnSet = new ColumnSet(true), // Get all columns
-                PageInfo = new PagingInfo
-                {
-                    Count = 5000,
-                    PageNumber = 1
-                }
-            };
-
-            var results = new EntityCollection();
-            EntityCollection pageResults;
-
-            do
-            {
-                pageResults = ServiceClient.RetrieveMultiple(query);
-                results.Entities.AddRange(pageResults.Entities);
-
-                if (pageResults.MoreRecords)
-                {
-                    query.PageInfo.PageNumber++;
-                    query.PageInfo.PagingCookie = pageResults.PagingCookie;
-                }
-            } while (pageResults.MoreRecords);
-
-            return results;
-        }
-    }
 }
