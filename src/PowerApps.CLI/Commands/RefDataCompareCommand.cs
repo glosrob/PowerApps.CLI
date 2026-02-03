@@ -79,7 +79,8 @@ public static class RefDataCompareCommand
 
             // Create service instances
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
-            var dataverseClient = new DataverseClient();
+            var sourceDataverseClient = new DataverseClient(sourceUrl ?? string.Empty, clientId, clientSecret, sourceConnection);
+            var targetDataverseClient = new DataverseClient(targetUrl ?? string.Empty, clientId, clientSecret, targetConnection);
             var recordComparer = new RecordComparer();
             var fileWriter = new FileWriter();
             var comparisonReporter = new ComparisonReporter(fileWriter);
@@ -118,22 +119,12 @@ public static class RefDataCompareCommand
 
                 // Connect to source environment
                 logger.LogInfo("Connecting to source environment...");
-                var sourceClient = await dataverseClient.ConnectAsync(
-                    sourceUrl ?? string.Empty,
-                    clientId,
-                    clientSecret,
-                    sourceConnection);
-                var sourceEnv = dataverseClient.GetEnvironmentUrl(sourceClient);
+                var sourceEnv = sourceDataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to source: {sourceEnv}");
 
                 // Connect to target environment
                 logger.LogInfo("Connecting to target environment...");
-                var targetClient = await dataverseClient.ConnectAsync(
-                    targetUrl ?? string.Empty,
-                    clientId,
-                    clientSecret,
-                    targetConnection);
-                var targetEnv = dataverseClient.GetEnvironmentUrl(targetClient);
+                var targetEnv = targetDataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to target: {targetEnv}");
 
                 // Build exclusion list
@@ -160,10 +151,10 @@ public static class RefDataCompareCommand
 
                     // Retrieve records from both environments
                     logger.LogInfoIfVerbose($"  Retrieving source records...");
-                    var sourceRecords = dataverseClient.RetrieveRecords(sourceClient, tableConfig.LogicalName, fetchXml);
+                    var sourceRecords = sourceDataverseClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
 
                     logger.LogInfoIfVerbose($"  Retrieving target records...");
-                    var targetRecords = dataverseClient.RetrieveRecords(targetClient, tableConfig.LogicalName, fetchXml);
+                    var targetRecords = targetDataverseClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
 
                     logger.LogInfoIfVerbose($"  Source: {sourceRecords.Entities.Count} record(s), Target: {targetRecords.Entities.Count} record(s)");
 

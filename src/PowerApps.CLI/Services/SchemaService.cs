@@ -7,21 +7,21 @@ namespace PowerApps.CLI.Services;
 /// </summary>
 public class SchemaService : ISchemaService
 {
-    private readonly IDataverseClient _dataverseClient;
     private readonly IConsoleLogger _logger;
-    private readonly ISchemaExtractor _schemaExtractor;
     private readonly ISchemaExporter _schemaExporter;
+    private readonly IDataverseClient _dataverseClient;
+    private readonly ISchemaExtractor _schemaExtractor;
 
     public SchemaService(
-        IDataverseClient dataverseClient,
         IConsoleLogger logger,
-        ISchemaExtractor schemaExtractor,
-        ISchemaExporter schemaExporter)
+        ISchemaExporter schemaExporter,
+        IDataverseClient dataverseClient,
+        ISchemaExtractor schemaExtractor)
     {
-        _dataverseClient = dataverseClient ?? throw new ArgumentNullException(nameof(dataverseClient));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _schemaExtractor = schemaExtractor ?? throw new ArgumentNullException(nameof(schemaExtractor));
         _schemaExporter = schemaExporter ?? throw new ArgumentNullException(nameof(schemaExporter));
+        _dataverseClient = dataverseClient ?? throw new ArgumentNullException(nameof(dataverseClient));
+        _schemaExtractor = schemaExtractor ?? throw new ArgumentNullException(nameof(schemaExtractor));
     }
 
     public async Task ExportSchemaAsync(
@@ -35,17 +35,6 @@ public class SchemaService : ISchemaService
         string? attributePrefix = null,
         string? excludeAttributes = null)
     {
-        if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
-        {
-            throw new ArgumentException("Either URL or connection string must be provided.");
-        }
-
-        if (!string.IsNullOrWhiteSpace(connectionString) && string.IsNullOrWhiteSpace(url))
-        {
-            // Extract URL from connection string for logging purposes
-            url = ExtractUrlFromConnectionString(connectionString);
-        }
-
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             throw new ArgumentException("Output path cannot be null or whitespace.", nameof(outputPath));
@@ -59,16 +48,12 @@ public class SchemaService : ISchemaService
             throw new ArgumentException($"Invalid format '{format}'. Supported formats: {string.Join(", ", validFormats)}", nameof(format));
         }
 
-        // Connect to Dataverse
-        var serviceClient = await _dataverseClient.ConnectAsync(url ?? string.Empty, clientId, clientSecret, connectionString);
-        
-        var orgName = _dataverseClient.GetOrganizationName(serviceClient);
+        var orgName = _dataverseClient.GetOrganizationName();
         _logger.LogSuccess($"✓ Connected to {orgName}");
 
         _logger.LogInfo("Extracting schema...");
 
-        // Extract schema from Dataverse
-        var schema = await _schemaExtractor.ExtractSchemaAsync(serviceClient, solutionName);
+        var schema = await _schemaExtractor.ExtractSchemaAsync(solutionName);
         
         _logger.LogSuccess($"✓ Extracted {schema.Entities?.Count ?? 0} entities");
 
