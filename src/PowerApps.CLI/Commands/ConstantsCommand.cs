@@ -258,7 +258,7 @@ public static class ConstantsCommand
             logger.LogInfo("Connecting to Dataverse...");
 
             // Connect to Dataverse
-            var serviceClient = await dataverseClient.ConnectAsync(
+            await dataverseClient.ConnectAsync(
                 url ?? string.Empty,
                 clientId,
                 clientSecret,
@@ -267,7 +267,7 @@ public static class ConstantsCommand
             logger.LogInfo("Extracting metadata...");
 
             // Extract schema from solution
-            var schema = await schemaExtractor.ExtractSchemaAsync(serviceClient, solution);
+            var schema = await schemaExtractor.ExtractSchemaAsync(solution);
             var entities = schema.Entities;
 
             logger.LogInfo($"Retrieved {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}");

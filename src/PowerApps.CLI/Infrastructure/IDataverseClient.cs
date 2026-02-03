@@ -19,32 +19,35 @@ public interface IDataverseClient
     Task<ServiceClient> ConnectAsync(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null);
 
     /// <summary>
-    /// Gets the organization name from the connected service client.
+    /// Gets the current ServiceClient instance for advanced operations.
     /// </summary>
-    /// <param name="serviceClient">The connected service client.</param>
+    /// <returns>The connected ServiceClient.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if not connected.</exception>
+    ServiceClient GetServiceClient();
+
+    /// <summary>
+    /// Gets the organization name from the connected environment.
+    /// </summary>
     /// <returns>The organization friendly name.</returns>
-    string GetOrganizationName(ServiceClient serviceClient);
+    string GetOrganizationName();
 
     /// <summary>
-    /// Gets the environment URL from the connected service client.
+    /// Gets the environment URL from the connected environment.
     /// </summary>
-    /// <param name="serviceClient">The connected service client.</param>
     /// <returns>The environment URL.</returns>
-    string GetEnvironmentUrl(ServiceClient serviceClient);
+    string GetEnvironmentUrl();
 
     /// <summary>
-    /// Validates that the service client is ready and connected.
+    /// Validates that the client is ready and connected.
     /// </summary>
-    /// <param name="serviceClient">The service client to validate.</param>
     /// <returns>True if connected and ready, false otherwise.</returns>
-    bool IsConnected(ServiceClient serviceClient);
+    bool IsConnected();
 
     /// <summary>
     /// Retrieves records from a table with optional FetchXML filter.
     /// </summary>
-    /// <param name="serviceClient">The connected service client.</param>
     /// <param name="entityName">The logical name of the table.</param>
     /// <param name="fetchXml">Optional FetchXML query. If null, retrieves all records.</param>
     /// <returns>Collection of entities matching the query.</returns>
-    EntityCollection RetrieveRecords(ServiceClient serviceClient, string entityName, string? fetchXml = null);
+    EntityCollection RetrieveRecords(string entityName, string? fetchXml = null);
 }

@@ -60,15 +60,15 @@ public class SchemaService : ISchemaService
         }
 
         // Connect to Dataverse
-        var serviceClient = await _dataverseClient.ConnectAsync(url ?? string.Empty, clientId, clientSecret, connectionString);
+        await _dataverseClient.ConnectAsync(url ?? string.Empty, clientId, clientSecret, connectionString);
         
-        var orgName = _dataverseClient.GetOrganizationName(serviceClient);
+        var orgName = _dataverseClient.GetOrganizationName();
         _logger.LogSuccess($"✓ Connected to {orgName}");
 
         _logger.LogInfo("Extracting schema...");
 
         // Extract schema from Dataverse
-        var schema = await _schemaExtractor.ExtractSchemaAsync(serviceClient, solutionName);
+        var schema = await _schemaExtractor.ExtractSchemaAsync(solutionName);
         
         _logger.LogSuccess($"✓ Extracted {schema.Entities?.Count ?? 0} entities");
 

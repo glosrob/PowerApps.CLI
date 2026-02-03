@@ -13,6 +13,21 @@ public class DataverseClient : IDataverseClient
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
 
+    private ServiceClient? _serviceClient;
+
+    /// <summary>
+    /// Gets the connected ServiceClient, throwing if not connected.
+    /// </summary>
+    private ServiceClient ServiceClient =>
+        _serviceClient ?? throw new InvalidOperationException("Not connected. Call ConnectAsync first.");
+
+    /// <summary>
+    /// Gets the current ServiceClient instance for advanced operations.
+    /// </summary>
+    /// <returns>The connected ServiceClient.</returns>
+    /// <exception cref="InvalidOperationException">Thrown if not connected.</exception>
+    public ServiceClient GetServiceClient() => ServiceClient;
+
     public async Task<ServiceClient> ConnectAsync(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
         if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
@@ -59,51 +74,32 @@ public class DataverseClient : IDataverseClient
             throw new InvalidOperationException(errorMessage, serviceClient.LastException);
         }
 
+        _serviceClient = serviceClient;
         return await Task.FromResult(serviceClient);
     }
 
-    public string GetOrganizationName(ServiceClient serviceClient)
+    public string GetOrganizationName()
     {
-        if (serviceClient == null)
-        {
-            throw new ArgumentNullException(nameof(serviceClient));
-        }
-
-        return serviceClient.ConnectedOrgFriendlyName ?? string.Empty;
+        return ServiceClient.ConnectedOrgFriendlyName ?? string.Empty;
     }
 
-    public string GetEnvironmentUrl(ServiceClient serviceClient)
+    public string GetEnvironmentUrl()
     {
-        if (serviceClient == null)
+        if (ServiceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
         {
-            throw new ArgumentNullException(nameof(serviceClient));
+            return ServiceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
         }
 
-        if (serviceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
-        {
-            return serviceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
-        }
-
-        return serviceClient.ConnectedOrgUriActual?.ToString() ?? string.Empty;
+        return ServiceClient.ConnectedOrgUriActual?.ToString() ?? string.Empty;
     }
 
-    public bool IsConnected(ServiceClient serviceClient)
+    public bool IsConnected()
     {
-        if (serviceClient == null)
-        {
-            return false;
-        }
-
-        return serviceClient.IsReady;
+        return _serviceClient?.IsReady ?? false;
     }
 
-    public EntityCollection RetrieveRecords(ServiceClient serviceClient, string entityName, string? fetchXml = null)
+    public EntityCollection RetrieveRecords(string entityName, string? fetchXml = null)
     {
-        if (serviceClient == null)
-        {
-            throw new ArgumentNullException(nameof(serviceClient));
-        }
-
         if (string.IsNullOrWhiteSpace(entityName))
         {
             throw new ArgumentException("Entity name must be provided.", nameof(entityName));
@@ -112,7 +108,7 @@ public class DataverseClient : IDataverseClient
         if (!string.IsNullOrWhiteSpace(fetchXml))
         {
             // Use provided FetchXML
-            return serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
+            return ServiceClient.RetrieveMultiple(new FetchExpression(fetchXml));
         }
         else
         {
@@ -132,7 +128,7 @@ public class DataverseClient : IDataverseClient
 
             do
             {
-                pageResults = serviceClient.RetrieveMultiple(query);
+                pageResults = ServiceClient.RetrieveMultiple(query);
                 results.Entities.AddRange(pageResults.Entities);
 
                 if (pageResults.MoreRecords)

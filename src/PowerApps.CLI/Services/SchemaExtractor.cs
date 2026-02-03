@@ -19,13 +19,15 @@ public class SchemaExtractor : ISchemaExtractor
         _dataverseClient = dataverseClient;
     }
 
-    public async Task<PowerAppsSchema> ExtractSchemaAsync(ServiceClient serviceClient, string? solutionNames = null)
+    public async Task<PowerAppsSchema> ExtractSchemaAsync(string? solutionNames = null)
     {
+        var serviceClient = _dataverseClient.GetServiceClient();
+        
         var schema = new PowerAppsSchema
         {
             ExtractedDate = DateTime.UtcNow,
-            EnvironmentUrl = _dataverseClient.GetEnvironmentUrl(serviceClient),
-            OrganisationName = _dataverseClient.GetOrganizationName(serviceClient)
+            EnvironmentUrl = _dataverseClient.GetEnvironmentUrl(),
+            OrganisationName = _dataverseClient.GetOrganizationName()
         };
 
         // Parse solution names
