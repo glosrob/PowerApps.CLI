@@ -154,7 +154,7 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(headerRow, 1, headerRow, 7);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightBlue;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         // Data rows
         int lastRow = headerRow;
@@ -226,7 +226,7 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(1, 1, 1, 16);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightGreen;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         // Data rows
         if (schema.Entities != null)
@@ -285,7 +285,7 @@ public class SchemaExporter : ISchemaExporter
         // Style headers
         var headerRange = sheet.Range(1, 1, 1, 8);
         headerRange.Style.Font.Bold = true;
-        headerRange.Style.Fill.BackgroundColor = XLColor.LightYellow;
+        headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         int row = 2;
 
@@ -417,7 +417,7 @@ public class SchemaExporter : ISchemaExporter
             
             var headerRange = sheet.Range(row, 1, row, 7);
             headerRange.Style.Font.Bold = true;
-            headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+            headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
             var attributeHeaderRow = row;
             row++;
 
