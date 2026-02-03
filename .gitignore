@@ -101,3 +101,5 @@ Generated/
 test-schema*.json
 test-schema*.xlsx
 test-schema*.csv
+refdata-comparison*.xlsx
+temp-schema.json
