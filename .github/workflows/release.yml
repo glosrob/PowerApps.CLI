@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   build:
@@ -53,8 +54,19 @@ jobs:
           -c Release `
           -r win-x64 `
           --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:PublishTrimmed=false `
+          -p:EnableCompressionInSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
           -p:Version=${{ steps.version.outputs.VERSION }} `
           -o artifacts/self-contained
+
+    - name: Pack .NET Tool (nupkg)
+      run: |
+        dotnet pack src/PowerApps.CLI/PowerApps.CLI.csproj `
+          -c Release `
+          -p:Version=${{ steps.version.outputs.VERSION }} `
+          -o artifacts/nupkg
 
     - name: Package Single-File Executable
       shell: pwsh
@@ -72,9 +84,15 @@ jobs:
         ## PowerApps.CLI $version
         
         ### Installation
-        
+
+        #### Option 1: .NET Tool (recommended for CI/CD pipelines)
+        ``````powershell
+        dotnet tool install --global XRT.PowerApps.CLI --version ${{ steps.version.outputs.VERSION }}
+        ``````
+
+        #### Option 2: Self-Contained Executable
         Download ``powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip`` and extract.
-        
+
         This is a **self-contained single-file executable** (~40 MB):
         - ✅ No .NET Runtime required
         - ✅ No dependencies
@@ -95,14 +113,27 @@ jobs:
         $notes | Out-File -FilePath release_notes.md -Encoding utf8
         echo "NOTES_FILE=release_notes.md" >> $env:GITHUB_OUTPUT
 
+    - name: NuGet login (Trusted Publishing)
+      uses: nuget/login@v1
+      id: nuget-login
+      with:
+        user: glosrob
+
+    - name: Publish to NuGet
+      run: >
+        dotnet nuget push artifacts/nupkg/XRT.PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
+        --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        --source https://api.nuget.org/v3/index.json
+
     - name: Create Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: v${{ steps.version.outputs.VERSION }}
         name: Release v${{ steps.version.outputs.VERSION }}
         body_path: ${{ steps.release_notes.outputs.NOTES_FILE }}
         files: |
           powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
+          artifacts/nupkg/XRT.PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
         draft: false
         prerelease: false
         generate_release_notes: true
