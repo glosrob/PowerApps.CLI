@@ -11,7 +11,7 @@
     <Description>CLI tool for PowerApps utilities</Description>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>powerapps-cli</ToolCommandName>
-    <PackageId>PowerApps.CLI</PackageId>
+    <PackageId>XRT.PowerApps.CLI</PackageId>
   </PropertyGroup>
 
   <!-- Single-file publish properties are passed via the dotnet publish command line -->

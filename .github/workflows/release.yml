@@ -87,7 +87,7 @@ jobs:
 
         #### Option 1: .NET Tool (recommended for CI/CD pipelines)
         ``````powershell
-        dotnet tool install --global PowerApps.CLI --version ${{ steps.version.outputs.VERSION }}
+        dotnet tool install --global XRT.PowerApps.CLI --version ${{ steps.version.outputs.VERSION }}
         ``````
 
         #### Option 2: Self-Contained Executable
@@ -121,7 +121,7 @@ jobs:
 
     - name: Publish to NuGet
       run: >
-        dotnet nuget push artifacts/nupkg/PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
+        dotnet nuget push artifacts/nupkg/XRT.PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
         --api-key ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         --source https://api.nuget.org/v3/index.json
 
@@ -133,7 +133,7 @@ jobs:
         body_path: ${{ steps.release_notes.outputs.NOTES_FILE }}
         files: |
           powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip
-          artifacts/nupkg/PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
+          artifacts/nupkg/XRT.PowerApps.CLI.${{ steps.version.outputs.VERSION }}.nupkg
         draft: false
         prerelease: false
         generate_release_notes: true
