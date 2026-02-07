@@ -12,10 +12,15 @@
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>powerapps-cli</ToolCommandName>
     <PackageId>XRT.PowerApps.CLI</PackageId>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
   <!-- Single-file publish properties are passed via the dotnet publish command line -->
   <!-- to avoid conflicts with PackAsTool (which requires framework-dependent output). -->
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
