@@ -10,16 +10,16 @@ public class Program
         var rootCommand = new RootCommand("PowerApps CLI - Utilities for PowerApps development");
 
         // Add schema-export command
-        rootCommand.AddCommand(SchemaCommand.CreateCommand());
+        rootCommand.AddCommand(SchemaCommand.CreateCliCommand());
 
         // Add constants-generate command
-        rootCommand.AddCommand(ConstantsCommand.CreateCommand());
+        rootCommand.AddCommand(ConstantsCommand.CreateCliCommand());
 
         // Add refdata-compare command
-        rootCommand.AddCommand(RefDataCompareCommand.CreateCommand());
+        rootCommand.AddCommand(RefDataCompareCommand.CreateCliCommand());
 
         // Add process-manage command
-        rootCommand.AddCommand(ProcessManageCommand.CreateCommand());
+        rootCommand.AddCommand(ProcessManageCommand.CreateCliCommand());
 
         return await rootCommand.InvokeAsync(args);
     }

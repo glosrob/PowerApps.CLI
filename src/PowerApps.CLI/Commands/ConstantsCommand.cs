@@ -9,9 +9,147 @@ namespace PowerApps.CLI.Commands;
 /// <summary>
 /// Handles the constants generation command.
 /// </summary>
-public static class ConstantsCommand
+public class ConstantsCommand
 {
-    public static Command CreateCommand()
+    private readonly IConsoleLogger _logger;
+    private readonly ISchemaExtractor _schemaExtractor;
+    private readonly IConstantsFilter _constantsFilter;
+    private readonly IConstantsGenerator _constantsGenerator;
+
+    public ConstantsCommand(
+        IConsoleLogger logger,
+        ISchemaExtractor schemaExtractor,
+        IConstantsFilter constantsFilter,
+        IConstantsGenerator constantsGenerator)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _schemaExtractor = schemaExtractor ?? throw new ArgumentNullException(nameof(schemaExtractor));
+        _constantsFilter = constantsFilter ?? throw new ArgumentNullException(nameof(constantsFilter));
+        _constantsGenerator = constantsGenerator ?? throw new ArgumentNullException(nameof(constantsGenerator));
+    }
+
+    public async Task<int> ExecuteAsync(
+        ConstantsConfig? config,
+        string? url,
+        string? solution,
+        string output,
+        string namespaceName,
+        bool singleFile,
+        string? connectionString,
+        bool includeEntities,
+        bool includeOptionSets,
+        string? excludeEntities,
+        string? excludeAttributes,
+        string? attributePrefix,
+        bool pascalCase)
+    {
+        try
+        {
+            // Validate that either URL or connection string is provided
+            if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
+            {
+                _logger.LogError("Either --url or --connection-string must be provided.");
+                return 1;
+            }
+
+            _logger.LogInfo("PowerApps Constants Generator");
+            _logger.LogInfo("============================\n");
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                _logger.LogVerbose($"Environment URL: {url}");
+            }
+            _logger.LogVerbose($"Solution: {solution ?? "(all metadata)"}");
+            _logger.LogVerbose($"Output: {output}");
+            _logger.LogVerbose($"Namespace: {namespaceName}");
+            _logger.LogVerbose($"Mode: {(singleFile ? "Single file" : "Multiple files")}");
+
+            _logger.LogInfo("Connecting to Dataverse...");
+
+            _logger.LogInfo("Extracting metadata...");
+
+            // Extract schema from solution
+            var schema = await _schemaExtractor.ExtractSchemaAsync(solution);
+            var entities = schema.Entities;
+
+            _logger.LogInfo($"Retrieved {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}");
+
+            // Apply filtering based on config or CLI options
+            ConstantsConfig filterConfig;
+
+            if (config != null)
+            {
+                // Use config file settings
+                filterConfig = config;
+            }
+            else
+            {
+                // Create config from CLI options
+                var excludeEntitiesList = string.IsNullOrWhiteSpace(excludeEntities)
+                    ? []
+                    : excludeEntities.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()).ToList();
+                var excludeAttributesList = string.IsNullOrWhiteSpace(excludeAttributes)
+                    ? []
+                    : excludeAttributes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
+
+                filterConfig = new ConstantsConfig
+                {
+                    ExcludeEntities = excludeEntitiesList,
+                    ExcludeAttributes = excludeAttributesList,
+                    AttributePrefix = attributePrefix,
+                    PascalCaseConversion = pascalCase,
+                    SingleFile = singleFile,
+                    IncludeEntities = includeEntities,
+                    IncludeGlobalOptionSets = includeOptionSets
+                };
+            }
+
+            // Filter entities
+            if (filterConfig.ExcludeEntities.Count > 0)
+            {
+                _logger.LogVerbose($"Excluding {filterConfig.ExcludeEntities.Count} entit{(filterConfig.ExcludeEntities.Count == 1 ? "y" : "ies")}");
+                entities = _constantsFilter.FilterEntities(entities, filterConfig);
+                _logger.LogInfo($"After filtering: {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}");
+            }
+
+            // Filter attributes on each entity
+            if (filterConfig.ExcludeAttributes.Count > 0 || !string.IsNullOrWhiteSpace(filterConfig.AttributePrefix))
+            {
+                for (int i = 0; i < entities.Count; i++)
+                {
+                    entities[i] = _constantsFilter.FilterAttributes(entities[i], filterConfig);
+                }
+            }
+
+            // Create output configuration
+            var outputConfig = new ConstantsOutputConfig
+            {
+                OutputPath = output,
+                Namespace = namespaceName,
+                SingleFile = filterConfig.SingleFile,
+                IncludeEntities = filterConfig.IncludeEntities,
+                IncludeGlobalOptionSets = filterConfig.IncludeGlobalOptionSets,
+                IncludeReferenceData = filterConfig.IncludeReferenceData,
+                PascalCaseConversion = filterConfig.PascalCaseConversion,
+                ExcludeAttributes = filterConfig.ExcludeAttributes
+            };
+
+            // Generate constants
+            await _constantsGenerator.GenerateAsync(entities, outputConfig, _logger);
+
+            _logger.LogSuccess($"\n✓ Constants generated successfully!");
+            _logger.LogInfo($"Output: {Path.GetFullPath(output)}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error: {ex.Message}");
+            _logger.LogVerbose($"\nStack trace:\n{ex.StackTrace}");
+            return 1;
+        }
+    }
+
+    public static Command CreateCliCommand()
     {
         var constantsGenerateCommand = new Command("constants-generate", "Generate C# constants from Dataverse metadata");
 
@@ -142,30 +280,24 @@ public static class ConstantsCommand
                 config = await LoadConfigAsync(configPath, logger);
                 if (config == null)
                 {
-                    Environment.Exit(1);
+                    context.ExitCode = 1;
                     return;
                 }
             }
 
-            await ExecuteGenerateAsync(
-                constantsFilter,
-                constantsGenerator,
-                logger,
-                config,
-                url,
-                solution,
-                output,
-                namespaceName,
-                singleFile,
-                connectionString,
+            // Create Dataverse client and schema extractor
+            var dataverseClient = new DataverseClient(
+                url ?? string.Empty,
                 clientId,
                 clientSecret,
-                includeEntities,
-                includeOptionSets,
-                excludeEntities,
-                excludeAttributes,
-                attributePrefix,
-                pascalCase);
+                connectionString);
+            var schemaExtractor = new SchemaExtractor(metadataMapper, dataverseClient);
+
+            var command = new ConstantsCommand(logger, schemaExtractor, constantsFilter, constantsGenerator);
+            context.ExitCode = await command.ExecuteAsync(
+                config, url, solution, output, namespaceName, singleFile,
+                connectionString, includeEntities, includeOptionSets,
+                excludeEntities, excludeAttributes, attributePrefix, pascalCase);
         });
 
         return constantsGenerateCommand;
@@ -204,140 +336,6 @@ public static class ConstantsCommand
         {
             logger.LogError($"Error loading configuration: {ex.Message}");
             return null;
-        }
-    }
-
-    private static async Task ExecuteGenerateAsync(
-        IConstantsFilter constantsFilter,
-        IConstantsGenerator constantsGenerator,
-        IConsoleLogger logger,
-        ConstantsConfig? config,
-        string? url,
-        string? solution,
-        string output,
-        string namespaceName,
-        bool singleFile,
-        string? connectionString,
-        string? clientId,
-        string? clientSecret,
-        bool includeEntities,
-        bool includeOptionSets,
-        string? excludeEntities,
-        string? excludeAttributes,
-        string? attributePrefix,
-        bool pascalCase)
-    {
-        try
-        {
-            // Validate that either URL or connection string is provided
-            if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
-            {
-                logger.LogError("Either --url or --connection-string must be provided.");
-                Environment.Exit(1);
-                return;
-            }
-
-            logger.LogInfo("PowerApps Constants Generator");
-            logger.LogInfo("============================\n");
-
-            if (!string.IsNullOrWhiteSpace(url))
-            {
-                logger.LogVerbose($"Environment URL: {url}");
-            }
-            logger.LogVerbose($"Solution: {solution ?? "(all metadata)"}");
-            logger.LogVerbose($"Output: {output}");
-            logger.LogVerbose($"Namespace: {namespaceName}");
-            logger.LogVerbose($"Mode: {(singleFile ? "Single file" : "Multiple files")}");
-
-            logger.LogInfo("Connecting to Dataverse...");
-
-            // Connect to Dataverse
-            var dataverseClient = new DataverseClient(
-                url ?? string.Empty,
-                clientId,
-                clientSecret,
-                connectionString);
-            var schemaExtractor = new SchemaExtractor(new MetadataMapper(), dataverseClient);
-
-            logger.LogInfo("Extracting metadata...");
-
-            // Extract schema from solution
-            var schema = await schemaExtractor.ExtractSchemaAsync(solution);
-            var entities = schema.Entities;
-
-            logger.LogInfo($"Retrieved {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}");
-
-            // Apply filtering based on config or CLI options
-            ConstantsConfig filterConfig;
-
-            if (config != null)
-            {
-                // Use config file settings
-                filterConfig = config;
-            }
-            else
-            {
-                // Create config from CLI options
-                var excludeEntitiesList = string.IsNullOrWhiteSpace(excludeEntities)
-                    ? []
-                    : excludeEntities.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(e => e.Trim()).ToList();
-                var excludeAttributesList = string.IsNullOrWhiteSpace(excludeAttributes)
-                    ? []
-                    : excludeAttributes.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(a => a.Trim()).ToList();
-
-                filterConfig = new ConstantsConfig
-                {
-                    ExcludeEntities = excludeEntitiesList,
-                    ExcludeAttributes = excludeAttributesList,
-                    AttributePrefix = attributePrefix,
-                    PascalCaseConversion = pascalCase,
-                    SingleFile = singleFile,
-                    IncludeEntities = includeEntities,
-                    IncludeGlobalOptionSets = includeOptionSets
-                };
-            }
-
-            // Filter entities
-            if (filterConfig.ExcludeEntities.Count > 0)
-            {
-                logger.LogVerbose($"Excluding {filterConfig.ExcludeEntities.Count} entit{(filterConfig.ExcludeEntities.Count == 1 ? "y" : "ies")}");
-                entities = constantsFilter.FilterEntities(entities, filterConfig);
-                logger.LogInfo($"After filtering: {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}");
-            }
-
-            // Filter attributes on each entity
-            if (filterConfig.ExcludeAttributes.Count > 0 || !string.IsNullOrWhiteSpace(filterConfig.AttributePrefix))
-            {
-                for (int i = 0; i < entities.Count; i++)
-                {
-                    entities[i] = constantsFilter.FilterAttributes(entities[i], filterConfig);
-                }
-            }
-
-            // Create output configuration
-            var outputConfig = new ConstantsOutputConfig
-            {
-                OutputPath = output,
-                Namespace = namespaceName,
-                SingleFile = filterConfig.SingleFile,
-                IncludeEntities = filterConfig.IncludeEntities,
-                IncludeGlobalOptionSets = filterConfig.IncludeGlobalOptionSets,
-                IncludeReferenceData = filterConfig.IncludeReferenceData,
-                PascalCaseConversion = filterConfig.PascalCaseConversion,
-                ExcludeAttributes = filterConfig.ExcludeAttributes
-            };
-
-            // Generate constants
-            await constantsGenerator.GenerateAsync(entities, outputConfig, logger);
-
-            logger.LogSuccess($"\n✓ Constants generated successfully!");
-            logger.LogInfo($"Output: {Path.GetFullPath(output)}");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError($"Error: {ex.Message}");
-            logger.LogVerbose($"\nStack trace:\n{ex.StackTrace}");
-            Environment.Exit(1);
         }
     }
 }
