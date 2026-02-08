@@ -111,7 +111,7 @@ public class ComparisonReporterTests : IDisposable
                             {
                                 new FieldDifference
                                 {
-                                    FieldName = "anc_name",
+                                    FieldName = "rob_name",
                                     SourceValue = "Female2",
                                     TargetValue = "Female"
                                 }

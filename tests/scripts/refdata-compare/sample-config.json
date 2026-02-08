@@ -17,14 +17,7 @@
       "primaryNameField": "fullname",
       "filter": "",
       "excludeFields": ["address1_addressid", "address2_addressid", "address3_addressid"]
-    },
-    {
-      "logicalName": "queue",
-      "displayName": "Queue",
-      "primaryIdField": "queueid",
-      "primaryNameField": "name",
-      "filter": "",
-      "excludeFields": ["numberofitems", "organizationid"]
     }
-  ]
+  ],
+  "relationships": []
 }

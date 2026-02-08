@@ -25,4 +25,24 @@ public interface IRecordComparer
         HashSet<string> excludeFields,
         string? primaryNameField = null,
         string? primaryIdField = null);
+
+    /// <summary>
+    /// Compares N:N associations between source and target environments.
+    /// </summary>
+    /// <param name="relationshipName">Display name for the relationship.</param>
+    /// <param name="sourceAssociations">Association records from source environment.</param>
+    /// <param name="targetAssociations">Association records from target environment.</param>
+    /// <param name="entity1IdField">ID column name for entity1 in the intersect entity.</param>
+    /// <param name="entity2IdField">ID column name for entity2 in the intersect entity.</param>
+    /// <param name="entity1Names">Lookup dictionary mapping entity1 IDs to display names.</param>
+    /// <param name="entity2Names">Lookup dictionary mapping entity2 IDs to display names.</param>
+    /// <returns>Comparison result with association differences.</returns>
+    RelationshipComparisonResult CompareAssociations(
+        string relationshipName,
+        EntityCollection sourceAssociations,
+        EntityCollection targetAssociations,
+        string entity1IdField,
+        string entity2IdField,
+        Dictionary<Guid, string> entity1Names,
+        Dictionary<Guid, string> entity2Names);
 }

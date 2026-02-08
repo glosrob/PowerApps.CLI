@@ -114,6 +114,102 @@ public class RecordComparer : IRecordComparer
         return differences;
     }
 
+    public RelationshipComparisonResult CompareAssociations(
+        string relationshipName,
+        EntityCollection sourceAssociations,
+        EntityCollection targetAssociations,
+        string entity1IdField,
+        string entity2IdField,
+        Dictionary<Guid, string> entity1Names,
+        Dictionary<Guid, string> entity2Names)
+    {
+        var result = new RelationshipComparisonResult
+        {
+            RelationshipName = relationshipName,
+            SourceAssociationCount = sourceAssociations.Entities.Count,
+            TargetAssociationCount = targetAssociations.Entities.Count
+        };
+
+        // Build composite key sets
+        var sourceKeys = new HashSet<(Guid, Guid)>();
+        var sourceByKey = new Dictionary<(Guid, Guid), Entity>();
+        foreach (var entity in sourceAssociations.Entities)
+        {
+            var key = GetCompositeKey(entity, entity1IdField, entity2IdField);
+            if (key.HasValue)
+            {
+                sourceKeys.Add(key.Value);
+                sourceByKey[key.Value] = entity;
+            }
+        }
+
+        var targetKeys = new HashSet<(Guid, Guid)>();
+        foreach (var entity in targetAssociations.Entities)
+        {
+            var key = GetCompositeKey(entity, entity1IdField, entity2IdField);
+            if (key.HasValue)
+            {
+                targetKeys.Add(key.Value);
+            }
+        }
+
+        // New = in source but not target
+        foreach (var key in sourceKeys.Except(targetKeys))
+        {
+            result.Differences.Add(new AssociationDifference
+            {
+                Entity1Id = key.Item1,
+                Entity1Name = entity1Names.GetValueOrDefault(key.Item1, key.Item1.ToString()),
+                Entity2Id = key.Item2,
+                Entity2Name = entity2Names.GetValueOrDefault(key.Item2, key.Item2.ToString()),
+                DifferenceType = DifferenceType.New
+            });
+        }
+
+        // Deleted = in target but not source
+        foreach (var key in targetKeys.Except(sourceKeys))
+        {
+            result.Differences.Add(new AssociationDifference
+            {
+                Entity1Id = key.Item1,
+                Entity1Name = entity1Names.GetValueOrDefault(key.Item1, key.Item1.ToString()),
+                Entity2Id = key.Item2,
+                Entity2Name = entity2Names.GetValueOrDefault(key.Item2, key.Item2.ToString()),
+                DifferenceType = DifferenceType.Deleted
+            });
+        }
+
+        return result;
+    }
+
+    private static (Guid, Guid)? GetCompositeKey(Entity entity, string entity1IdField, string entity2IdField)
+    {
+        if (entity.Attributes.ContainsKey(entity1IdField) && entity.Attributes.ContainsKey(entity2IdField))
+        {
+            var id1 = (Guid)entity.Attributes[entity1IdField];
+            var id2 = (Guid)entity.Attributes[entity2IdField];
+            return (id1, id2);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Builds a lookup dictionary mapping record IDs to display names.
+    /// </summary>
+    public static Dictionary<Guid, string> BuildNameLookup(EntityCollection records, string nameField)
+    {
+        var lookup = new Dictionary<Guid, string>();
+        foreach (var entity in records.Entities)
+        {
+            var name = entity.GetFormattedValue(nameField);
+            if (name != null)
+            {
+                lookup[entity.Id] = name;
+            }
+        }
+        return lookup;
+    }
+
     private bool ShouldExcludeField(string fieldName, HashSet<string> excludeFields, string? primaryIdField = null)
     {
         // Exclude if in custom exclude list

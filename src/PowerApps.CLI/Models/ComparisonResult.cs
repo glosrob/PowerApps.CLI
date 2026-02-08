@@ -26,7 +26,14 @@ public class ComparisonResult
     public List<TableComparisonResult> TableResults { get; set; } = new();
 
     /// <summary>
-    /// Whether any differences were found across all tables.
+    /// Results for each N:N relationship compared.
     /// </summary>
-    public bool HasAnyDifferences => TableResults.Any(t => t.HasDifferences);
+    public List<RelationshipComparisonResult> RelationshipResults { get; set; } = new();
+
+    /// <summary>
+    /// Whether any differences were found across all tables and relationships.
+    /// </summary>
+    public bool HasAnyDifferences =>
+        TableResults.Any(t => t.HasDifferences) ||
+        RelationshipResults.Any(r => r.HasDifferences);
 }
