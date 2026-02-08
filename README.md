@@ -32,6 +32,13 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 📊 **Difference Detection** - Identifies new, modified, and deleted records
 - 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
 
+### Process Management
+- ⚙️ **Process State Control** - Activate/deactivate workflows, cloud flows, business rules, actions, and business process flows
+- 🎯 **Pattern-based Rules** - Use wildcard patterns to define which processes should be inactive
+- 🔄 **CI/CD Ready** - Run post-deployment to ensure processes are in the correct state
+- 🧪 **Dry Run Mode** - Preview changes without modifying any process states
+- 📊 **Excel Reporting** - Summary and detailed Excel report of all actions taken
+
 ## Installation
 
 ### Prerequisites
@@ -223,6 +230,68 @@ powerapps-cli refdata-compare \
 - Detail sheets for each table with differences (NEW/MODIFIED/DELETED records)
 - Field-level comparison using formatted values (human-readable lookups and option sets)
 
+### Process Management
+
+Manage Dataverse process states (workflows, cloud flows, business rules, actions) to ensure correct activation/deactivation post-deployment.
+
+#### Basic Usage
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --url "https://prod.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --output process-report.xlsx
+```
+
+#### Dry Run (Preview Changes)
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --url "https://prod.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --dry-run \
+  --output process-preview.xlsx
+```
+
+#### Using Connection String
+
+```bash
+powerapps-cli process-manage \
+  --config process-config.json \
+  --connection-string "$PROD_CONNECTION_STRING" \
+  --output process-report.xlsx
+```
+
+#### Example Config File
+
+```json
+{
+  "solutions": ["Solution1", "Solution2"],
+  "inactivePatterns": [
+    "ZZ*",
+    "Test - *",
+    "Specific Process Name"
+  ],
+  "maxRetries": 3
+}
+```
+
+**Behavior**:
+- Processes matching `inactivePatterns` are **deactivated**
+- All other processes are **activated**
+- Retry logic handles parent-child dependencies
+- Wildcards supported in patterns (* matches any characters)
+
+**Output**: Excel report with:
+- Summary showing total, activated, deactivated, unchanged, and failed processes
+- Detailed list of all processes with name, type, expected state, actual state, and action taken
+
+**Use Case**: Run in CI/CD pipelines after deployment to ensure processes are in the correct state.
+
 ## Command Reference
 
 ### schema-export
@@ -292,6 +361,25 @@ Compares reference data between source and target Dataverse environments.
 | `-v, --verbose` | Enable verbose output | No | `false` |
 
 \* Either `--source-url`/`--target-url` or `--source-connection`/`--target-connection` must be provided.
+
+### process-manage
+
+Manages Dataverse process states (workflows, cloud flows, business rules, actions).
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `--config` | Path to JSON configuration file | Yes | - |
+| `--url` | Environment URL | Yes* | - |
+| `--connection-string` | Environment connection string | No | - |
+| `--client-id` | Azure AD Application Client ID | No | - |
+| `--client-secret` | Azure AD Application Client Secret | No | - |
+| `--dry-run` | Preview changes without modifying states | No | `false` |
+| `-o, --output` | Output Excel report file path | No | `process-report.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--url` or `--connection-string` must be provided.
 
 ## Output Formats
 
@@ -402,7 +490,8 @@ Generates two files:
 ```
 Commands/
   ├── SchemaCommand.cs          # Schema export CLI command
-  └── ConstantsCommand.cs       # Constants generation CLI command
+  ├── ConstantsCommand.cs       # Constants generation CLI command
+  └── ProcessManageCommand.cs   # Process management CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
   ├── SchemaExtractor.cs        # Metadata extraction with solution filtering
@@ -411,7 +500,10 @@ Services/
   ├── CodeTemplateGenerator.cs  # C# code template generation
   ├── ConstantsFilter.cs        # Entity/attribute filtering logic
   ├── IdentifierFormatter.cs    # C# identifier formatting (PascalCase, sanitization)
-  └── MetadataMapper.cs         # SDK to model mapping
+  ├── MetadataMapper.cs         # SDK to model mapping
+  ├── IProcessManager.cs        # Process management interface
+  ├── ProcessManager.cs         # Process state management logic
+  └── ProcessReporter.cs        # Process report Excel generation
 Infrastructure/
   ├── DataverseClient.cs        # Dataverse connection management
   ├── FileWriter.cs             # File I/O abstraction
@@ -423,7 +515,9 @@ Models/
   ├── RelationshipSchema.cs     # Relationship metadata
   ├── OptionSetSchema.cs        # OptionSet metadata
   ├── ConstantsConfig.cs        # Constants generation configuration
-  └── ConstantsOutputConfig.cs  # Constants output settings
+  ├── ConstantsOutputConfig.cs  # Constants output settings
+  ├── ProcessManageConfig.cs    # Process management configuration
+  └── ProcessManageModels.cs    # Process state models
 ```
 
 ## Testing
