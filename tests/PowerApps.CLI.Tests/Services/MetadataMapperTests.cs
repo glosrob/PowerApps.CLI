@@ -377,4 +377,148 @@ public class MetadataMapperTests
         // Assert
         Assert.False(result.IsAuditEnabled); // Should default to false
     }
+
+    [Fact]
+    public void MapAttribute_ShouldMapDoubleAttribute()
+    {
+        // Arrange
+        var attributeMetadata = new DoubleAttributeMetadata
+        {
+            LogicalName = "latitude",
+            SchemaName = "Latitude",
+            MinValue = -90.0,
+            MaxValue = 90.0
+        };
+
+        // Act
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        // Assert
+        Assert.Equal("latitude", result.LogicalName);
+        Assert.Equal("Double", result.AttributeType);
+        Assert.Equal(-90.0, result.MinValue);
+        Assert.Equal(90.0, result.MaxValue);
+    }
+
+    [Fact]
+    public void MapAttribute_ShouldMapMoneyAttribute()
+    {
+        // Arrange
+        var attributeMetadata = new MoneyAttributeMetadata
+        {
+            LogicalName = "revenue",
+            SchemaName = "Revenue",
+            MinValue = 0,
+            MaxValue = 1000000,
+            Precision = 4
+        };
+
+        // Act
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        // Assert
+        Assert.Equal("revenue", result.LogicalName);
+        Assert.Equal("Money", result.AttributeType);
+        Assert.Equal(0, result.MinValue);
+        Assert.Equal(1000000, result.MaxValue);
+        Assert.Equal(4, result.Precision);
+    }
+
+    [Fact]
+    public void MapAttribute_ShouldHandlePlainAttributeMetadata()
+    {
+        // Arrange - BooleanAttributeMetadata has no type-specific branch
+        var attributeMetadata = new BooleanAttributeMetadata
+        {
+            LogicalName = "isactive",
+            SchemaName = "IsActive"
+        };
+
+        // Act
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        // Assert
+        Assert.Equal("isactive", result.LogicalName);
+        Assert.Equal("Boolean", result.AttributeType);
+        Assert.Null(result.MaxLength);
+        Assert.Null(result.MinValue);
+        Assert.Null(result.MaxValue);
+        Assert.Null(result.Targets);
+    }
+
+    [Fact]
+    public void MapOptionSet_ShouldMapStateAttribute()
+    {
+        // Arrange
+        var optionSet = new OptionSetMetadata
+        {
+            Name = "statecode",
+            DisplayName = new Label(new LocalizedLabel("Status", 1033), Array.Empty<LocalizedLabel>())
+        };
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Active", 1033), Array.Empty<LocalizedLabel>()), 0));
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Inactive", 1033), Array.Empty<LocalizedLabel>()), 1));
+
+        var attributeMetadata = new StateAttributeMetadata
+        {
+            LogicalName = "statecode",
+            OptionSet = optionSet
+        };
+
+        // Act
+        var result = _mapper.MapOptionSet(attributeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("statecode", result!.Name);
+        Assert.Equal("Status", result.DisplayName);
+        Assert.False(result.IsGlobal);
+        Assert.Equal(2, result.Options.Count);
+        Assert.Equal("Active", result.Options[0].Label);
+    }
+
+    [Fact]
+    public void MapOptionSet_ShouldMapStatusAttribute()
+    {
+        // Arrange
+        var optionSet = new OptionSetMetadata
+        {
+            Name = "statuscode",
+            DisplayName = new Label(new LocalizedLabel("Status Reason", 1033), Array.Empty<LocalizedLabel>())
+        };
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Open", 1033), Array.Empty<LocalizedLabel>()), 1));
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Closed", 1033), Array.Empty<LocalizedLabel>()), 2));
+
+        var attributeMetadata = new StatusAttributeMetadata
+        {
+            LogicalName = "statuscode",
+            OptionSet = optionSet
+        };
+
+        // Act
+        var result = _mapper.MapOptionSet(attributeMetadata);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("statuscode", result!.Name);
+        Assert.Equal("Status Reason", result.DisplayName);
+        Assert.False(result.IsGlobal);
+        Assert.Equal(2, result.Options.Count);
+    }
+
+    [Fact]
+    public void MapOptionSet_ShouldReturnNullForPicklistWithNullOptionSet()
+    {
+        // Arrange
+        var attributeMetadata = new PicklistAttributeMetadata
+        {
+            LogicalName = "priority",
+            OptionSet = null
+        };
+
+        // Act
+        var result = _mapper.MapOptionSet(attributeMetadata);
+
+        // Assert
+        Assert.Null(result);
+    }
 }

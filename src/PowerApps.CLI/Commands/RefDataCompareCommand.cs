@@ -9,9 +9,149 @@ namespace PowerApps.CLI.Commands;
 /// <summary>
 /// Handles the refdata-compare command.
 /// </summary>
-public static class RefDataCompareCommand
+public class RefDataCompareCommand
 {
-    public static Command CreateCommand()
+    private readonly IConsoleLogger _logger;
+    private readonly IDataverseClient _sourceClient;
+    private readonly IDataverseClient _targetClient;
+    private readonly IRecordComparer _recordComparer;
+    private readonly IComparisonReporter _comparisonReporter;
+    private readonly IFileWriter _fileWriter;
+
+    public RefDataCompareCommand(
+        IConsoleLogger logger,
+        IDataverseClient sourceClient,
+        IDataverseClient targetClient,
+        IRecordComparer recordComparer,
+        IComparisonReporter comparisonReporter,
+        IFileWriter fileWriter)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _sourceClient = sourceClient ?? throw new ArgumentNullException(nameof(sourceClient));
+        _targetClient = targetClient ?? throw new ArgumentNullException(nameof(targetClient));
+        _recordComparer = recordComparer ?? throw new ArgumentNullException(nameof(recordComparer));
+        _comparisonReporter = comparisonReporter ?? throw new ArgumentNullException(nameof(comparisonReporter));
+        _fileWriter = fileWriter ?? throw new ArgumentNullException(nameof(fileWriter));
+    }
+
+    public async Task<int> ExecuteAsync(string configPath, string output)
+    {
+        try
+        {
+            _logger.LogInfo("Starting reference data comparison...");
+
+            // Load configuration
+            _logger.LogInfo($"Loading configuration from: {configPath}");
+            var config = await LoadConfigAsync(configPath);
+
+            if (config.Tables.Count == 0)
+            {
+                _logger.LogError("No tables specified in configuration file.");
+                return 1;
+            }
+
+            _logger.LogInfo($"Configuration loaded: {config.Tables.Count} table(s) to compare");
+
+            // Connect to source environment
+            _logger.LogInfo("Connecting to source environment...");
+            var sourceEnv = _sourceClient.GetEnvironmentUrl();
+            _logger.LogSuccess($"Connected to source: {sourceEnv}");
+
+            // Connect to target environment
+            _logger.LogInfo("Connecting to target environment...");
+            var targetEnv = _targetClient.GetEnvironmentUrl();
+            _logger.LogSuccess($"Connected to target: {targetEnv}");
+
+            // Build exclusion list
+            var excludeFields = BuildExcludeFieldSet(config);
+
+            // Compare each table
+            var comparisonResult = new ComparisonResult
+            {
+                SourceEnvironment = sourceEnv,
+                TargetEnvironment = targetEnv,
+                ComparisonDate = DateTime.UtcNow
+            };
+
+            foreach (var tableConfig in config.Tables)
+            {
+                _logger.LogInfo($"Comparing table: {tableConfig.LogicalName}");
+
+                // Build FetchXML if filter provided
+                string? fetchXml = null;
+                if (!string.IsNullOrWhiteSpace(tableConfig.Filter))
+                {
+                    fetchXml = $@"<fetch><entity name='{tableConfig.LogicalName}'>{tableConfig.Filter}</entity></fetch>";
+                }
+
+                // Retrieve records from both environments
+                _logger.LogInfoIfVerbose($"  Retrieving source records...");
+                var sourceRecords = _sourceClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
+
+                _logger.LogInfoIfVerbose($"  Retrieving target records...");
+                var targetRecords = _targetClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
+
+                _logger.LogInfoIfVerbose($"  Source: {sourceRecords.Entities.Count} record(s), Target: {targetRecords.Entities.Count} record(s)");
+
+                // Build table-specific exclusions
+                var tableExcludeFields = new HashSet<string>(excludeFields, StringComparer.OrdinalIgnoreCase);
+                foreach (var field in tableConfig.ExcludeFields)
+                {
+                    tableExcludeFields.Add(field);
+                }
+
+                // Compare records
+                var tableResult = _recordComparer.CompareRecords(
+                    tableConfig.LogicalName,
+                    sourceRecords,
+                    targetRecords,
+                    tableExcludeFields,
+                    tableConfig.PrimaryNameField,
+                    tableConfig.PrimaryIdField);
+
+                // Use display name if provided
+                if (!string.IsNullOrWhiteSpace(tableConfig.DisplayName))
+                {
+                    tableResult.TableName = tableConfig.DisplayName;
+                }
+
+                comparisonResult.TableResults.Add(tableResult);
+
+                if (tableResult.HasDifferences)
+                {
+                    _logger.LogWarning($"  Found differences: New={tableResult.NewCount}, Modified={tableResult.ModifiedCount}, Deleted={tableResult.DeletedCount}");
+                }
+                else
+                {
+                    _logger.LogSuccess($"  No differences - table is in sync");
+                }
+            }
+
+            // Generate report
+            _logger.LogInfo($"Generating comparison report: {output}");
+            await _comparisonReporter.GenerateReportAsync(comparisonResult, output);
+
+            if (comparisonResult.HasAnyDifferences)
+            {
+                _logger.LogWarning($"Comparison complete: Differences found in {comparisonResult.TableResults.Count(t => t.HasDifferences)} table(s)");
+            }
+            else
+            {
+                _logger.LogSuccess("Comparison complete: All tables are in sync!");
+            }
+
+            _logger.LogSuccess($"Report saved to: {output}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error during comparison: {ex.Message}");
+            _logger.LogVerbose(ex.ToString());
+            return 1;
+        }
+    }
+
+    public static Command CreateCliCommand()
     {
         var command = new Command("refdata-compare", "Compare reference data between source and target Dataverse environments");
 
@@ -77,155 +217,45 @@ public static class RefDataCompareCommand
             var output = context.ParseResult.GetValueForOption(outputOption)!;
             var verbose = context.ParseResult.GetValueForOption(verboseOption);
 
-            // Create service instances
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
+
+            // Validate inputs
+            if (string.IsNullOrWhiteSpace(sourceUrl) && string.IsNullOrWhiteSpace(sourceConnection))
+            {
+                logger.LogError("Either --source-url or --source-connection must be provided.");
+                context.ExitCode = 1;
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetUrl) && string.IsNullOrWhiteSpace(targetConnection))
+            {
+                logger.LogError("Either --target-url or --target-connection must be provided.");
+                context.ExitCode = 1;
+                return;
+            }
+
+            // Create service instances
             var sourceDataverseClient = new DataverseClient(sourceUrl ?? string.Empty, clientId, clientSecret, sourceConnection);
             var targetDataverseClient = new DataverseClient(targetUrl ?? string.Empty, clientId, clientSecret, targetConnection);
             var recordComparer = new RecordComparer();
             var fileWriter = new FileWriter();
             var comparisonReporter = new ComparisonReporter(fileWriter);
 
-            try
-            {
-                logger.LogInfo("Starting reference data comparison...");
-
-                // Validate inputs
-                if (string.IsNullOrWhiteSpace(sourceUrl) && string.IsNullOrWhiteSpace(sourceConnection))
-                {
-                    logger.LogError("Either --source-url or --source-connection must be provided.");
-                    context.ExitCode = 1;
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(targetUrl) && string.IsNullOrWhiteSpace(targetConnection))
-                {
-                    logger.LogError("Either --target-url or --target-connection must be provided.");
-                    context.ExitCode = 1;
-                    return;
-                }
-
-                // Load configuration
-                logger.LogInfo($"Loading configuration from: {configPath}");
-                var config = await LoadConfigAsync(configPath, fileWriter);
-
-                if (config.Tables.Count == 0)
-                {
-                    logger.LogError("No tables specified in configuration file.");
-                    context.ExitCode = 1;
-                    return;
-                }
-
-                logger.LogInfo($"Configuration loaded: {config.Tables.Count} table(s) to compare");
-
-                // Connect to source environment
-                logger.LogInfo("Connecting to source environment...");
-                var sourceEnv = sourceDataverseClient.GetEnvironmentUrl();
-                logger.LogSuccess($"Connected to source: {sourceEnv}");
-
-                // Connect to target environment
-                logger.LogInfo("Connecting to target environment...");
-                var targetEnv = targetDataverseClient.GetEnvironmentUrl();
-                logger.LogSuccess($"Connected to target: {targetEnv}");
-
-                // Build exclusion list
-                var excludeFields = BuildExcludeFieldSet(config);
-
-                // Compare each table
-                var comparisonResult = new ComparisonResult
-                {
-                    SourceEnvironment = sourceEnv,
-                    TargetEnvironment = targetEnv,
-                    ComparisonDate = DateTime.UtcNow
-                };
-
-                foreach (var tableConfig in config.Tables)
-                {
-                    logger.LogInfo($"Comparing table: {tableConfig.LogicalName}");
-
-                    // Build FetchXML if filter provided
-                    string? fetchXml = null;
-                    if (!string.IsNullOrWhiteSpace(tableConfig.Filter))
-                    {
-                        fetchXml = $@"<fetch><entity name='{tableConfig.LogicalName}'>{tableConfig.Filter}</entity></fetch>";
-                    }
-
-                    // Retrieve records from both environments
-                    logger.LogInfoIfVerbose($"  Retrieving source records...");
-                    var sourceRecords = sourceDataverseClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
-
-                    logger.LogInfoIfVerbose($"  Retrieving target records...");
-                    var targetRecords = targetDataverseClient.RetrieveRecords(tableConfig.LogicalName, fetchXml);
-
-                    logger.LogInfoIfVerbose($"  Source: {sourceRecords.Entities.Count} record(s), Target: {targetRecords.Entities.Count} record(s)");
-
-                    // Build table-specific exclusions
-                    var tableExcludeFields = new HashSet<string>(excludeFields, StringComparer.OrdinalIgnoreCase);
-                    foreach (var field in tableConfig.ExcludeFields)
-                    {
-                        tableExcludeFields.Add(field);
-                    }
-
-                    // Compare records
-                    var tableResult = recordComparer.CompareRecords(
-                        tableConfig.LogicalName,
-                        sourceRecords,
-                        targetRecords,
-                        tableExcludeFields,
-                        tableConfig.PrimaryNameField,
-                        tableConfig.PrimaryIdField);
-
-                    // Use display name if provided
-                    if (!string.IsNullOrWhiteSpace(tableConfig.DisplayName))
-                    {
-                        tableResult.TableName = tableConfig.DisplayName;
-                    }
-
-                    comparisonResult.TableResults.Add(tableResult);
-
-                    if (tableResult.HasDifferences)
-                    {
-                        logger.LogWarning($"  Found differences: New={tableResult.NewCount}, Modified={tableResult.ModifiedCount}, Deleted={tableResult.DeletedCount}");
-                    }
-                    else
-                    {
-                        logger.LogSuccess($"  No differences - table is in sync");
-                    }
-                }
-
-                // Generate report
-                logger.LogInfo($"Generating comparison report: {output}");
-                await comparisonReporter.GenerateReportAsync(comparisonResult, output);
-
-                if (comparisonResult.HasAnyDifferences)
-                {
-                    logger.LogWarning($"Comparison complete: Differences found in {comparisonResult.TableResults.Count(t => t.HasDifferences)} table(s)");
-                }
-                else
-                {
-                    logger.LogSuccess("Comparison complete: All tables are in sync!");
-                }
-
-                logger.LogSuccess($"Report saved to: {output}");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Error during comparison: {ex.Message}");
-                logger.LogVerbose(ex.ToString());
-                context.ExitCode = 1;
-            }
+            var cmd = new RefDataCompareCommand(logger, sourceDataverseClient, targetDataverseClient, recordComparer, comparisonReporter, fileWriter);
+            context.ExitCode = await cmd.ExecuteAsync(configPath, output);
         });
 
         return command;
     }
 
-    private static async Task<RefDataCompareConfig> LoadConfigAsync(string configPath, IFileWriter fileWriter)
+    private async Task<RefDataCompareConfig> LoadConfigAsync(string configPath)
     {
-        if (!fileWriter.FileExists(configPath))
+        if (!_fileWriter.FileExists(configPath))
         {
             throw new FileNotFoundException($"Configuration file not found: {configPath}");
         }
 
-        var json = await fileWriter.ReadTextAsync(configPath);
+        var json = await _fileWriter.ReadTextAsync(configPath);
         var config = JsonSerializer.Deserialize<RefDataCompareConfig>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
@@ -241,7 +271,6 @@ public static class RefDataCompareCommand
         // Add system fields if enabled
         if (config.ExcludeSystemFields)
         {
-            // These are also handled in RecordComparer, but we include them here for clarity
             excludeFields.UnionWith(new[]
             {
                 "createdby", "createdon", "createdonbehalfby",

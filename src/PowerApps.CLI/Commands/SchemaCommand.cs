@@ -7,9 +7,79 @@ namespace PowerApps.CLI.Commands;
 /// <summary>
 /// Handles the schema export command.
 /// </summary>
-public static class SchemaCommand
+public class SchemaCommand
 {
-    public static Command CreateCommand()
+    private readonly IConsoleLogger _logger;
+    private readonly ISchemaService _schemaService;
+
+    public SchemaCommand(IConsoleLogger logger, ISchemaService schemaService)
+    {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _schemaService = schemaService ?? throw new ArgumentNullException(nameof(schemaService));
+    }
+
+    public async Task<int> ExecuteAsync(
+        string? url,
+        string? connectionString,
+        string output,
+        string format,
+        string? solution,
+        string? attributePrefix,
+        string? excludeAttributes)
+    {
+        try
+        {
+            // Validate that either URL or connection string is provided
+            if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
+            {
+                _logger.LogError("Either --url or --connection-string must be provided.");
+                return 1;
+            }
+
+            _logger.LogInfo("PowerApps Schema Export");
+            _logger.LogInfo("======================\n");
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                _logger.LogVerbose($"Environment URL: {url}");
+            }
+            _logger.LogVerbose($"Solution: {solution ?? "(all metadata)"}");
+            _logger.LogVerbose($"Output: {output}");
+            _logger.LogVerbose($"Format: {format}");
+
+            if (!string.IsNullOrWhiteSpace(attributePrefix))
+            {
+                _logger.LogVerbose($"Attribute Prefix Filter: {attributePrefix}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(excludeAttributes))
+            {
+                _logger.LogVerbose($"Excluded Attributes: {excludeAttributes}");
+            }
+
+            _logger.LogInfo("Connecting to PowerApps environment...");
+
+            // Export schema (service will handle the export logic)
+            await _schemaService.ExportSchemaAsync(
+                output,
+                format,
+                solution,
+                attributePrefix,
+                excludeAttributes);
+
+            _logger.LogSuccess($"\n✓ Schema exported successfully!");
+            _logger.LogInfo($"Output: {Path.GetFullPath(output)}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Error: {ex.Message}");
+            _logger.LogVerbose($"\nStack trace:\n{ex.StackTrace}");
+            return 1;
+        }
+    }
+
+    public static Command CreateCliCommand()
     {
         var schemaExportCommand = new Command("schema-export", "Extract metadata schema from PowerApps/Dataverse environments");
 
@@ -88,91 +158,16 @@ public static class SchemaCommand
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
             var fileWriter = new FileWriter();
             var schemaExporter = new SchemaExporter(fileWriter);
-            
-            // Create Dataverse client
             var dataverseClient = new DataverseClient(url ?? string.Empty, clientId, clientSecret, connectionString);
-            
-            // Create schema extractor
             var metadataMapper = new MetadataMapper();
             var schemaExtractor = new SchemaExtractor(metadataMapper, dataverseClient);
-            
             var schemaService = new SchemaService(logger, schemaExporter, dataverseClient, schemaExtractor);
 
-            await ExecuteExportAsync(
-                schemaService,
-                logger,
-                url,
-                solution,
-                output,
-                format,
-                connectionString,
-                attributePrefix,
-                excludeAttributes);
+            var command = new SchemaCommand(logger, schemaService);
+            context.ExitCode = await command.ExecuteAsync(
+                url, connectionString, output, format, solution, attributePrefix, excludeAttributes);
         });
 
         return schemaExportCommand;
-    }
-
-    private static async Task ExecuteExportAsync(
-        ISchemaService schemaService,
-        IConsoleLogger logger,
-        string? url,
-        string? solution,
-        string output,
-        string format,
-        string? connectionString,
-        string? attributePrefix,
-        string? excludeAttributes)
-    {
-        try
-        {
-            // Validate that either URL or connection string is provided
-            if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
-            {
-                logger.LogError("Either --url or --connection-string must be provided.");
-                Environment.Exit(1);
-                return;
-            }
-
-            logger.LogInfo("PowerApps Schema Export");
-            logger.LogInfo("======================\n");
-
-            if (!string.IsNullOrWhiteSpace(url))
-            {
-                logger.LogVerbose($"Environment URL: {url}");
-            }
-            logger.LogVerbose($"Solution: {solution ?? "(all metadata)"}");
-            logger.LogVerbose($"Output: {output}");
-            logger.LogVerbose($"Format: {format}");
-
-            if (!string.IsNullOrWhiteSpace(attributePrefix))
-            {
-                logger.LogVerbose($"Attribute Prefix Filter: {attributePrefix}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(excludeAttributes))
-            {
-                logger.LogVerbose($"Excluded Attributes: {excludeAttributes}");
-            }
-
-            logger.LogInfo("Connecting to PowerApps environment...");
-
-            // Export schema (service will handle the export logic)
-            await schemaService.ExportSchemaAsync(
-                output,
-                format,
-                solution,
-                attributePrefix,
-                excludeAttributes);
-
-            logger.LogSuccess($"\n✓ Schema exported successfully!");
-            logger.LogInfo($"Output: {Path.GetFullPath(output)}");
-        }
-        catch (Exception ex)
-        {
-            logger.LogError($"Error: {ex.Message}");
-            logger.LogVerbose($"\nStack trace:\n{ex.StackTrace}");
-            Environment.Exit(1);
-        }
     }
 }
