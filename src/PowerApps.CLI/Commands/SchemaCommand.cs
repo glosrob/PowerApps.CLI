@@ -106,8 +106,6 @@ public static class SchemaCommand
                 output,
                 format,
                 connectionString,
-                clientId,
-                clientSecret,
                 attributePrefix,
                 excludeAttributes);
         });
@@ -123,8 +121,6 @@ public static class SchemaCommand
         string output,
         string format,
         string? connectionString,
-        string? clientId,
-        string? clientSecret,
         string? attributePrefix,
         string? excludeAttributes)
     {
@@ -140,7 +136,7 @@ public static class SchemaCommand
 
             logger.LogInfo("PowerApps Schema Export");
             logger.LogInfo("======================\n");
-            
+
             if (!string.IsNullOrWhiteSpace(url))
             {
                 logger.LogVerbose($"Environment URL: {url}");
@@ -148,28 +144,24 @@ public static class SchemaCommand
             logger.LogVerbose($"Solution: {solution ?? "(all metadata)"}");
             logger.LogVerbose($"Output: {output}");
             logger.LogVerbose($"Format: {format}");
-            
+
             if (!string.IsNullOrWhiteSpace(attributePrefix))
             {
                 logger.LogVerbose($"Attribute Prefix Filter: {attributePrefix}");
             }
-            
+
             if (!string.IsNullOrWhiteSpace(excludeAttributes))
             {
                 logger.LogVerbose($"Excluded Attributes: {excludeAttributes}");
             }
-            
+
             logger.LogInfo("Connecting to PowerApps environment...");
 
             // Export schema (service will handle the export logic)
             await schemaService.ExportSchemaAsync(
-                url,
                 output,
                 format,
                 solution,
-                connectionString,
-                clientId,
-                clientSecret,
                 attributePrefix,
                 excludeAttributes);
 

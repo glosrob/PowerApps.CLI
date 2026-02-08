@@ -1,4 +1,3 @@
-using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Metadata;
 using Microsoft.Xrm.Sdk.Query;
@@ -65,4 +64,30 @@ public interface IDataverseClient
     /// <param name="filters">The metadata filters to apply.</param>
     /// <returns>The entity metadata, or null if not found.</returns>
     Task<EntityMetadata?> GetEntityMetadataAsync(string entityLogicalName, EntityFilters filters);
+
+    /// <summary>
+    /// Retrieves workflow/process records, optionally filtered by solution names.
+    /// </summary>
+    /// <param name="solutions">Solution unique names to filter by. If empty, retrieves all processes.</param>
+    /// <returns>Collection of workflow entities.</returns>
+    EntityCollection RetrieveProcesses(List<string> solutions);
+
+    /// <summary>
+    /// Activates a workflow/process.
+    /// </summary>
+    /// <param name="processId">The ID of the process to activate.</param>
+    void ActivateProcess(Guid processId);
+
+    /// <summary>
+    /// Deactivates a workflow/process.
+    /// </summary>
+    /// <param name="processId">The ID of the process to deactivate.</param>
+    void DeactivateProcess(Guid processId);
+
+    /// <summary>
+    /// Retrieves records using a FetchXML query.
+    /// </summary>
+    /// <param name="fetchXml">The FetchXML query string.</param>
+    /// <returns>Collection of entities matching the query.</returns>
+    EntityCollection RetrieveRecordsByFetchXml(string fetchXml);
 }

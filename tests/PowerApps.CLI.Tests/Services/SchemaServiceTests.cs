@@ -92,7 +92,7 @@ public class SchemaServiceTests
     {
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("https://test.crm.dynamics.com", null!, "json"));
+            _service.ExportSchemaAsync(null!, "json"));
 
         Assert.Contains("Output path cannot be null or whitespace", exception.Message);
         Assert.Equal("outputPath", exception.ParamName);
@@ -103,7 +103,7 @@ public class SchemaServiceTests
     {
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("https://test.crm.dynamics.com", "", "json"));
+            _service.ExportSchemaAsync("", "json"));
 
         Assert.Contains("Output path cannot be null or whitespace", exception.Message);
         Assert.Equal("outputPath", exception.ParamName);
@@ -114,7 +114,7 @@ public class SchemaServiceTests
     {
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("https://test.crm.dynamics.com", "   ", "json"));
+            _service.ExportSchemaAsync("   ", "json"));
 
         Assert.Contains("Output path cannot be null or whitespace", exception.Message);
         Assert.Equal("outputPath", exception.ParamName);
@@ -134,7 +134,7 @@ public class SchemaServiceTests
     {
         // Act & Assert
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
-            _service.ExportSchemaAsync("https://test.crm.dynamics.com", "output.file", invalidFormat));
+            _service.ExportSchemaAsync("output.file", invalidFormat));
 
         Assert.Contains("Invalid format", exception.Message);
         Assert.Contains("Supported formats", exception.Message);
@@ -156,7 +156,7 @@ public class SchemaServiceTests
         // Act
         try
         {
-            await _service.ExportSchemaAsync("https://test.crm.dynamics.com", "output.file", format);
+            await _service.ExportSchemaAsync("output.file", format);
             // If we reach here, format was accepted (success)
             Assert.True(true);
         }

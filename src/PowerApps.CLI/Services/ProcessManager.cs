@@ -1,6 +1,4 @@
-using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
-using Microsoft.Xrm.Sdk.Query;
 using PowerApps.CLI.Infrastructure;
 using PowerApps.CLI.Models;
 
@@ -12,36 +10,17 @@ namespace PowerApps.CLI.Services;
 public class ProcessManager : IProcessManager
 {
     private readonly IConsoleLogger _logger;
+    private readonly IDataverseClient _client;
 
-    public ProcessManager(IConsoleLogger logger)
+    public ProcessManager(IConsoleLogger logger, IDataverseClient client)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
-    public List<ProcessInfo> RetrieveProcesses(IDataverseClient client, List<string> solutions)
+    public List<ProcessInfo> RetrieveProcesses(List<string> solutions)
     {
-        var query = new QueryExpression("workflow")
-        {
-            ColumnSet = new ColumnSet("workflowid", "name", "category", "statecode", "statuscode"),
-            Criteria = new FilterExpression(LogicalOperator.And)
-        };
-
-        // Filter by category: Workflow(0), BusinessRule(2), Action(3), BusinessProcessFlow(4), CloudFlow(5)
-        query.Criteria.AddCondition("category", ConditionOperator.In, 0, 2, 3, 4, 5);
-
-        // Filter by solutions if specified
-        if (solutions.Any())
-        {
-            var solutionFilter = new FilterExpression(LogicalOperator.Or);
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
-        }
-
-        var results = client.RetrieveMultiple(query);
+        var results = _client.RetrieveProcesses(solutions);
 
         // Deduplicate by process ID (joins can produce duplicate rows)
         var processes = new Dictionary<Guid, ProcessInfo>();
@@ -69,7 +48,7 @@ public class ProcessManager : IProcessManager
         foreach (var process in processes)
         {
             // Check if process matches any inactive pattern
-            var shouldBeInactive = inactivePatterns.Any(pattern => 
+            var shouldBeInactive = inactivePatterns.Any(pattern =>
                 MatchesPattern(process.Name, pattern));
 
             process.ExpectedState = shouldBeInactive ? ProcessState.Inactive : ProcessState.Active;
@@ -77,7 +56,6 @@ public class ProcessManager : IProcessManager
     }
 
     public ProcessManageSummary ManageProcessStates(
-        IDataverseClient client,
         List<ProcessInfo> processes,
         bool isDryRun,
         int maxRetries)
@@ -94,7 +72,7 @@ public class ProcessManager : IProcessManager
         // Initial pass
         foreach (var process in processesToManage)
         {
-            var result = ManageProcess(client, process, isDryRun);
+            var result = ManageProcess(process, isDryRun);
             summary.Results.Add(result);
 
             if (!result.Success && !isDryRun)
@@ -115,8 +93,8 @@ public class ProcessManager : IProcessManager
 
             foreach (var process in currentRetryList)
             {
-                var result = ManageProcess(client, process, isDryRun);
-                
+                var result = ManageProcess(process, isDryRun);
+
                 // Update the existing result
                 var existingResult = summary.Results.First(r => r.Process.Id == process.Id);
                 summary.Results.Remove(existingResult);
@@ -144,7 +122,7 @@ public class ProcessManager : IProcessManager
         return summary;
     }
 
-    private ProcessManageResult ManageProcess(IDataverseClient client, ProcessInfo process, bool isDryRun)
+    private ProcessManageResult ManageProcess(ProcessInfo process, bool isDryRun)
     {
         var result = new ProcessManageResult { Process = process };
 
@@ -152,11 +130,11 @@ public class ProcessManager : IProcessManager
         {
             if (isDryRun)
             {
-                result.Action = process.ExpectedState == ProcessState.Active 
-                    ? ProcessAction.Activated 
+                result.Action = process.ExpectedState == ProcessState.Active
+                    ? ProcessAction.Activated
                     : ProcessAction.Deactivated;
                 result.Success = true;
-                
+
                 _logger.LogInfoIfVerbose(
                     $"[DRY RUN] Would {(process.ExpectedState == ProcessState.Active ? "activate" : "deactivate")}: {process.Name}");
             }
@@ -164,13 +142,13 @@ public class ProcessManager : IProcessManager
             {
                 if (process.ExpectedState == ProcessState.Active)
                 {
-                    ActivateProcess(client, process.Id);
+                    _client.ActivateProcess(process.Id);
                     result.Action = ProcessAction.Activated;
                     _logger.LogInfo($"✓ Activated: {process.Name}");
                 }
                 else
                 {
-                    DeactivateProcess(client, process.Id);
+                    _client.DeactivateProcess(process.Id);
                     result.Action = ProcessAction.Deactivated;
                     _logger.LogInfo($"✓ Deactivated: {process.Name}");
                 }
@@ -183,33 +161,11 @@ public class ProcessManager : IProcessManager
             result.Action = ProcessAction.Failed;
             result.Success = false;
             result.ErrorMessage = ex.Message;
-            
+
             _logger.LogError($"✗ Failed to manage {process.Name}: {ex.Message}");
         }
 
         return result;
-    }
-
-    private void ActivateProcess(IDataverseClient client, Guid processId)
-    {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(1), // Active
-            Status = new OptionSetValue(2)  // Activated
-        };
-        client.Execute(request);
-    }
-
-    private void DeactivateProcess(IDataverseClient client, Guid processId)
-    {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(0), // Inactive
-            Status = new OptionSetValue(1)  // Draft
-        };
-        client.Execute(request);
     }
 
     private bool MatchesPattern(string text, string pattern)
@@ -222,10 +178,10 @@ public class ProcessManager : IProcessManager
 
         var regexPattern = "^" + System.Text.RegularExpressions.Regex.Escape(pattern)
             .Replace("\\*", ".*") + "$";
-        
+
         return System.Text.RegularExpressions.Regex.IsMatch(
-            text, 
-            regexPattern, 
+            text,
+            regexPattern,
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 }
