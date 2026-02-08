@@ -11,31 +11,51 @@ PowerApps.CLI is a .NET 8.0 command-line tool for extracting metadata and genera
 1. **`schema-export`** - Extract entity, attribute, and relationship metadata
    - Outputs: JSON or Excel (XLSX) formats
    - Supports solution filtering and deduplication
-   
+
 2. **`constants-generate`** - Generate C# constants from Dataverse metadata
    - Creates strongly-typed classes for Tables and Choices (modern terminology)
    - Single-file or multi-file output modes
    - Smart filtering by solution, prefix, entity, or attribute
 
+3. **`refdata-compare`** - Compare reference data between source and target environments
+   - Identifies new, modified, and deleted records
+   - Outputs Excel report with summary and detail sheets
+
+4. **`process-manage`** - Manage Dataverse process states post-deployment
+   - Activate/deactivate workflows, cloud flows, business rules, actions
+   - Pattern-based rules with wildcard support
+   - Dry run mode and Excel reporting
+
 ## Project Structure
 
 ```
 src/PowerApps.CLI/
-├── Commands/           # Command-line command handlers (System.CommandLine)
-│   ├── SchemaCommand.cs       # schema-export command
-│   └── ConstantsCommand.cs    # constants-generate command
+├── Commands/           # CLI command handlers (System.CommandLine)
+│   ├── SchemaCommand.cs           # schema-export command
+│   ├── ConstantsCommand.cs        # constants-generate command
+│   ├── RefDataCompareCommand.cs   # refdata-compare command
+│   └── ProcessManageCommand.cs    # process-manage command
 ├── Infrastructure/     # External dependencies & I/O
 │   ├── DataverseClient.cs     # Dataverse API wrapper
 │   ├── ConsoleLogger.cs       # Console output
 │   └── FileWriter.cs          # File system operations
 ├── Models/            # Domain models & DTOs
-│   ├── *Schema.cs            # Metadata models
-│   └── ConstantsConfig.cs    # Configuration model
+│   ├── *Schema.cs              # Metadata models
+│   ├── ConstantsConfig.cs      # Constants generation configuration
+│   ├── ProcessManageConfig.cs  # Process management configuration
+│   ├── ProcessManageModels.cs  # Process state models
+│   └── RefDataCompareConfig.cs # Reference data comparison config
 └── Services/          # Business logic
-    ├── SchemaExtractor.cs     # Extract metadata from Dataverse
-    ├── ConstantsGenerator.cs  # Generate C# code
-    ├── ConstantsFilter.cs     # Filter logic
-    └── CodeTemplateGenerator.cs # C# code generation
+    ├── SchemaExtractor.cs       # Extract metadata from Dataverse
+    ├── SchemaService.cs         # Schema export orchestration
+    ├── ConstantsGenerator.cs    # Generate C# code
+    ├── ConstantsFilter.cs       # Filter logic
+    ├── CodeTemplateGenerator.cs # C# code generation
+    ├── MetadataMapper.cs        # SDK to model mapping
+    ├── ProcessManager.cs        # Process state management
+    ├── ProcessReporter.cs       # Process report Excel generation
+    ├── RecordComparer.cs        # Reference data comparison logic
+    └── ComparisonReporter.cs    # Comparison report Excel generation
 
 tests/PowerApps.CLI.Tests/  # Unit tests (xUnit)
 Generated/                   # Example output from constants-generate
@@ -54,9 +74,10 @@ tests/scripts/               # PowerShell test/demo scripts
 ## Architecture & Design Patterns
 
 ### Dependency Injection
-- Uses `Microsoft.Extensions.DependencyInjection`
-- All services registered in `src/PowerApps.CLI/Program.cs`
-- Interface-based design for testability (I-prefixed interfaces)
+- Commands use constructor injection for testability
+- Each command has a static `CreateCliCommand()` that creates concrete dependencies and instantiates the command
+- `ExecuteAsync()` holds orchestration logic and accepts only interfaces — fully mockable
+- Interface-based design throughout (I-prefixed interfaces)
 
 ### Authentication Methods (Priority Order)
 1. Command-line arguments (--client-id/--client-secret)
@@ -79,8 +100,8 @@ tests/scripts/               # PowerShell test/demo scripts
 4. **Write** files (FileWriter)
 
 ### Output Modes
-- **Single File**: `Tables.cs` + `Choices.cs` (default)
-- **Multi File**: `Tables/*.cs` + `Choices/*.cs` (--multi-file flag)
+- **Multi File**: `Tables/*.cs` + `Choices/*.cs` (default)
+- **Single File**: `Tables.cs` + `Choices.cs` (--single-file flag)
 
 ### Generated Code Features
 - Nested classes for logical organization
@@ -130,11 +151,13 @@ tests/scripts/               # PowerShell test/demo scripts
 ## Common Workflows
 
 ### Adding a New Command
-1. Create command class in `Commands/`
-2. Implement handler using System.CommandLine
-3. Register in `src/PowerApps.CLI/Program.cs`
-4. Add tests in corresponding test file
-5. Update README.md with usage examples
+1. Create command class in `Commands/` with constructor injection pattern:
+   - Constructor accepts interfaces (testable)
+   - `ExecuteAsync()` holds orchestration logic, returns `Task<int>`
+   - Static `CreateCliCommand()` creates concrete deps and delegates
+2. Register via `XxxCommand.CreateCliCommand()` in `src/PowerApps.CLI/Program.cs`
+3. Add command tests in `tests/PowerApps.CLI.Tests/Commands/`
+4. Update README.md with usage examples
 
 ### Modifying Generated Code
 - Edit templates in `CodeTemplateGenerator.cs`

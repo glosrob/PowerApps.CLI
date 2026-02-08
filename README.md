@@ -491,6 +491,7 @@ Generates two files:
 Commands/
   ├── SchemaCommand.cs          # Schema export CLI command
   ├── ConstantsCommand.cs       # Constants generation CLI command
+  ├── RefDataCompareCommand.cs  # Reference data comparison CLI command
   └── ProcessManageCommand.cs   # Process management CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
@@ -543,7 +544,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **193 passing tests** (100% pass rate)
+- **246 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
@@ -555,6 +556,8 @@ Test coverage includes:
 - ✅ Entity/attribute filtering
 - ✅ Metadata mapping
 - ✅ Model validation
+- ✅ Command orchestration (all 4 commands)
+- ✅ Process management (pattern matching, retry logic, state determination)
 
 ## Development
 
