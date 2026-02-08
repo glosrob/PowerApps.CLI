@@ -74,7 +74,6 @@ public static class ProcessManageCommand
             // Create service instances
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
             var fileWriter = new FileWriter();
-            var processManager = new ProcessManager(logger);
             var processReporter = new ProcessReporter(fileWriter);
 
             try
@@ -104,9 +103,11 @@ public static class ProcessManageCommand
                 var envUrl = dataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to: {envUrl}");
 
+                var processManager = new ProcessManager(logger, dataverseClient);
+
                 // Retrieve processes
                 logger.LogInfo("Retrieving processes...");
-                var processes = processManager.RetrieveProcesses(dataverseClient, config.Solutions);
+                var processes = processManager.RetrieveProcesses(config.Solutions);
                 logger.LogInfo($"Found {processes.Count} process(es)");
 
                 // Determine expected states
@@ -125,7 +126,7 @@ public static class ProcessManageCommand
 
                 // Manage process states
                 logger.LogInfo(dryRun ? "Simulating state changes..." : "Applying state changes...");
-                var summary = processManager.ManageProcessStates(dataverseClient, processes, dryRun, config.MaxRetries);
+                var summary = processManager.ManageProcessStates(processes, dryRun, config.MaxRetries);
                 summary.EnvironmentUrl = envUrl;
 
                 // Generate report

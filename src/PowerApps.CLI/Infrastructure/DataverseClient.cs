@@ -1,3 +1,4 @@
+using Microsoft.Crm.Sdk.Messages;
 using Microsoft.PowerPlatform.Dataverse.Client;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Discovery;
@@ -222,6 +223,63 @@ public class DataverseClient : IDataverseClient
         {
             return null;
         }
+    }
+
+    public EntityCollection RetrieveProcesses(List<string> solutions)
+    {
+        var query = new QueryExpression("workflow")
+        {
+            ColumnSet = new ColumnSet("workflowid", "name", "category", "statecode", "statuscode"),
+            Criteria = new FilterExpression(LogicalOperator.And)
+        };
+
+        // Filter by category: Workflow(0), BusinessRule(2), Action(3), BusinessProcessFlow(4), CloudFlow(5)
+        query.Criteria.AddCondition("category", ConditionOperator.In, 0, 2, 3, 4, 5);
+
+        // Filter by solutions if specified
+        if (solutions.Any())
+        {
+            foreach (var solution in solutions)
+            {
+                var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
+                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
+            }
+        }
+
+        return _serviceClient.RetrieveMultiple(query);
+    }
+
+    public void ActivateProcess(Guid processId)
+    {
+        var request = new SetStateRequest
+        {
+            EntityMoniker = new EntityReference("workflow", processId),
+            State = new OptionSetValue(1), // Active
+            Status = new OptionSetValue(2)  // Activated
+        };
+        _serviceClient.Execute(request);
+    }
+
+    public void DeactivateProcess(Guid processId)
+    {
+        var request = new SetStateRequest
+        {
+            EntityMoniker = new EntityReference("workflow", processId),
+            State = new OptionSetValue(0), // Inactive
+            Status = new OptionSetValue(1)  // Draft
+        };
+        _serviceClient.Execute(request);
+    }
+
+    public EntityCollection RetrieveRecordsByFetchXml(string fetchXml)
+    {
+        if (string.IsNullOrWhiteSpace(fetchXml))
+        {
+            throw new ArgumentException("FetchXML query must be provided.", nameof(fetchXml));
+        }
+
+        return _serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
     }
 
     private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)

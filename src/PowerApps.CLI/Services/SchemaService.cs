@@ -25,13 +25,9 @@ public class SchemaService : ISchemaService
     }
 
     public async Task ExportSchemaAsync(
-        string? url,
         string outputPath,
         string format,
         string? solutionName = null,
-        string? connectionString = null,
-        string? clientId = null,
-        string? clientSecret = null,
         string? attributePrefix = null,
         string? excludeAttributes = null)
     {
@@ -54,21 +50,13 @@ public class SchemaService : ISchemaService
         _logger.LogInfo("Extracting schema...");
 
         var schema = await _schemaExtractor.ExtractSchemaAsync(solutionName);
-        
+
         _logger.LogSuccess($"✓ Extracted {schema.Entities?.Count ?? 0} entities");
 
         // Export schema to file
         _logger.LogInfo($"Writing {format.ToUpperInvariant()} file...");
         await _schemaExporter.ExportAsync(schema, outputPath, format);
-        
-        _logger.LogSuccess($"✓ Schema exported to {outputPath}");
-    }
 
-    private static string? ExtractUrlFromConnectionString(string connectionString)
-    {
-        // Extract URL from connection string for logging
-        var urlPattern = "Url=([^;]+)";
-        var match = System.Text.RegularExpressions.Regex.Match(connectionString, urlPattern, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        return match.Success ? match.Groups[1].Value : null;
+        _logger.LogSuccess($"✓ Schema exported to {outputPath}");
     }
 }
