@@ -18,9 +18,10 @@ public class ProcessInfo
 /// </summary>
 public enum ProcessType
 {
-    Workflow = 1,
+    Workflow = 0,
     BusinessRule = 2,
     Action = 3,
+    BusinessProcessFlow = 4,
     CloudFlow = 5
 }
 

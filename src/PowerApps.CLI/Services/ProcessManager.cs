@@ -26,8 +26,8 @@ public class ProcessManager : IProcessManager
             Criteria = new FilterExpression(LogicalOperator.And)
         };
 
-        // Filter by category: Workflow(1), BusinessRule(2), Action(3), CloudFlow(5)
-        query.Criteria.AddCondition("category", ConditionOperator.In, 1, 2, 3, 5);
+        // Filter by category: Workflow(0), BusinessRule(2), Action(3), BusinessProcessFlow(4), CloudFlow(5)
+        query.Criteria.AddCondition("category", ConditionOperator.In, 0, 2, 3, 4, 5);
 
         // Filter by solutions if specified
         if (solutions.Any())
@@ -35,29 +35,33 @@ public class ProcessManager : IProcessManager
             var solutionFilter = new FilterExpression(LogicalOperator.Or);
             foreach (var solution in solutions)
             {
-                var componentLink = query.AddLink("workflowid", "objectid", "solutioncomponent");
-                var solutionLink = componentLink.AddLink("solutionid", "solutionid", "solution");
+                var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
+                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
                 solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
             }
         }
 
         var results = service.RetrieveMultiple(query);
-        
-        var processes = new List<ProcessInfo>();
+
+        // Deduplicate by process ID (joins can produce duplicate rows)
+        var processes = new Dictionary<Guid, ProcessInfo>();
         foreach (var entity in results.Entities)
         {
-            processes.Add(new ProcessInfo
+            if (!processes.ContainsKey(entity.Id))
             {
-                Id = entity.Id,
-                Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
-                Type = (ProcessType)entity.GetAttributeValue<OptionSetValue>("category").Value,
-                CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1 
-                    ? ProcessState.Active 
-                    : ProcessState.Inactive
-            });
+                processes[entity.Id] = new ProcessInfo
+                {
+                    Id = entity.Id,
+                    Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
+                    Type = (ProcessType)entity.GetAttributeValue<OptionSetValue>("category").Value,
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1
+                        ? ProcessState.Active
+                        : ProcessState.Inactive
+                };
+            }
         }
 
-        return processes;
+        return processes.Values.ToList();
     }
 
     public void DetermineExpectedStates(List<ProcessInfo> processes, List<string> inactivePatterns)
