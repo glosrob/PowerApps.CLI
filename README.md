@@ -221,14 +221,28 @@ powerapps-cli refdata-compare \
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
       "excludeFields": ["rob_temporaryfield"]
     }
+  ],
+  "relationships": [
+    {
+      "intersectEntity": "rob_category_priority",
+      "displayName": "Category to Priority",
+      "entity1": "rob_category",
+      "entity1IdField": "rob_categoryid",
+      "entity1NameField": "rob_name",
+      "entity2": "rob_priority",
+      "entity2IdField": "rob_priorityid",
+      "entity2NameField": "rob_priorityname"
+    }
   ]
 }
 ```
 
 **Output**: Excel workbook with:
-- Summary sheet showing all tables and difference counts
+- Summary sheet showing all tables and relationship difference counts
 - Detail sheets for each table with differences (NEW/MODIFIED/DELETED records)
+- Detail sheets for each N:N relationship with differences (NEW/DELETED associations)
 - Field-level comparison using formatted values (human-readable lookups and option sets)
+- GUIDs resolved to display names for relationship associations
 
 ### Process Management
 
@@ -502,6 +516,10 @@ Services/
   ├── ConstantsFilter.cs        # Entity/attribute filtering logic
   ├── IdentifierFormatter.cs    # C# identifier formatting (PascalCase, sanitization)
   ├── MetadataMapper.cs         # SDK to model mapping
+  ├── IRecordComparer.cs        # Record comparison interface
+  ├── RecordComparer.cs         # Record and association comparison logic
+  ├── IComparisonReporter.cs    # Comparison report interface
+  ├── ComparisonReporter.cs     # Comparison report Excel generation
   ├── IProcessManager.cs        # Process management interface
   ├── ProcessManager.cs         # Process state management logic
   └── ProcessReporter.cs        # Process report Excel generation
@@ -517,13 +535,16 @@ Models/
   ├── OptionSetSchema.cs        # OptionSet metadata
   ├── ConstantsConfig.cs        # Constants generation configuration
   ├── ConstantsOutputConfig.cs  # Constants output settings
+  ├── RefDataCompareConfig.cs   # Reference data comparison configuration
+  ├── ComparisonResult.cs       # Table comparison result models
+  ├── RelationshipComparisonResult.cs # N:N relationship comparison models
   ├── ProcessManageConfig.cs    # Process management configuration
   └── ProcessManageModels.cs    # Process state models
 ```
 
 ## Testing
 
-The project includes unit tests covering both schema extraction and constants generation.
+The project includes unit tests covering schema extraction, constants generation, reference data comparison, and process management.
 
 ### Run Tests
 
@@ -544,7 +565,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **246 passing tests** (100% pass rate)
+- **258 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
@@ -557,6 +578,7 @@ Test coverage includes:
 - ✅ Metadata mapping
 - ✅ Model validation
 - ✅ Command orchestration (all 4 commands)
+- ✅ Reference data comparison (table records, N:N relationships, name resolution)
 - ✅ Process management (pattern matching, retry logic, state determination)
 
 ## Development

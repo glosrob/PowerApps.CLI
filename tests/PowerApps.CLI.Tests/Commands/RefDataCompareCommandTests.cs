@@ -141,10 +141,14 @@ public class RefDataCompareCommandTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithEmptyTables_Returns1()
+    public async Task ExecuteAsync_WithEmptyTablesAndRelationships_Returns1()
     {
         // Arrange
-        var config = new RefDataCompareConfig { Tables = new List<RefDataTableConfig>() };
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>(),
+            Relationships = new List<RefDataRelationshipConfig>()
+        };
         SetupConfigFile("config.json", config);
 
         // Act
@@ -165,6 +169,127 @@ public class RefDataCompareCommandTests
 
         // Assert
         Assert.Equal(1, result);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithRelationships_RetrievesIntersectAndRelatedEntities()
+    {
+        // Arrange
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>(),
+            Relationships = new List<RefDataRelationshipConfig>
+            {
+                new()
+                {
+                    IntersectEntity = "contactleads",
+                    DisplayName = "Contact to Lead",
+                    Entity1 = "contact",
+                    Entity1IdField = "contactid",
+                    Entity1NameField = "fullname",
+                    Entity2 = "lead",
+                    Entity2IdField = "leadid",
+                    Entity2NameField = "fullname"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        _mockSourceClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockTargetClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockComparer.Setup(c => c.CompareAssociations(
+                It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()))
+            .Returns(new RelationshipComparisonResult());
+
+        // Act
+        await _command.ExecuteAsync("config.json", "report.xlsx");
+
+        // Assert - intersect entity retrieved from both environments
+        _mockSourceClient.Verify(c => c.RetrieveRecords("contactleads", null), Times.Once);
+        _mockTargetClient.Verify(c => c.RetrieveRecords("contactleads", null), Times.Once);
+        // Name resolution entities retrieved from source only
+        _mockSourceClient.Verify(c => c.RetrieveRecords("contact", null), Times.Once);
+        _mockSourceClient.Verify(c => c.RetrieveRecords("lead", null), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithRelationships_CallsCompareAssociations()
+    {
+        // Arrange
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>(),
+            Relationships = new List<RefDataRelationshipConfig>
+            {
+                new()
+                {
+                    IntersectEntity = "contactleads",
+                    DisplayName = "Contact to Lead",
+                    Entity1 = "contact",
+                    Entity1IdField = "contactid",
+                    Entity2 = "lead",
+                    Entity2IdField = "leadid"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        _mockSourceClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockTargetClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockComparer.Setup(c => c.CompareAssociations(
+                It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()))
+            .Returns(new RelationshipComparisonResult());
+
+        // Act
+        await _command.ExecuteAsync("config.json", "report.xlsx");
+
+        // Assert
+        _mockComparer.Verify(c => c.CompareAssociations(
+            "Contact to Lead",
+            It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+            "contactid", "leadid",
+            It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EmptyRelationships_SkipsRelationshipComparison()
+    {
+        // Arrange
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>
+            {
+                new() { LogicalName = "account" }
+            },
+            Relationships = new List<RefDataRelationshipConfig>()
+        };
+        SetupConfigFile("config.json", config);
+
+        _mockSourceClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockTargetClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockComparer.Setup(c => c.CompareRecords(
+                It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+                It.IsAny<HashSet<string>>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns(new TableComparisonResult());
+
+        // Act
+        await _command.ExecuteAsync("config.json", "report.xlsx");
+
+        // Assert - CompareAssociations should never be called
+        _mockComparer.Verify(c => c.CompareAssociations(
+            It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+            It.IsAny<string>(), It.IsAny<string>(),
+            It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()), Times.Never);
     }
 
     [Fact]

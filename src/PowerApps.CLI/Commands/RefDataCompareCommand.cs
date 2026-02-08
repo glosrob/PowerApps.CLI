@@ -44,13 +44,13 @@ public class RefDataCompareCommand
             _logger.LogInfo($"Loading configuration from: {configPath}");
             var config = await LoadConfigAsync(configPath);
 
-            if (config.Tables.Count == 0)
+            if (config.Tables.Count == 0 && config.Relationships.Count == 0)
             {
-                _logger.LogError("No tables specified in configuration file.");
+                _logger.LogError("No tables or relationships specified in configuration file.");
                 return 1;
             }
 
-            _logger.LogInfo($"Configuration loaded: {config.Tables.Count} table(s) to compare");
+            _logger.LogInfo($"Configuration loaded: {config.Tables.Count} table(s) and {config.Relationships.Count} relationship(s) to compare");
 
             // Connect to source environment
             _logger.LogInfo("Connecting to source environment...");
@@ -127,17 +127,79 @@ public class RefDataCompareCommand
                 }
             }
 
+            // Compare N:N relationships
+            if (config.Relationships.Count > 0)
+            {
+                _logger.LogInfo($"Comparing {config.Relationships.Count} relationship(s)...");
+
+                foreach (var relConfig in config.Relationships)
+                {
+                    var displayName = relConfig.DisplayName ?? relConfig.IntersectEntity;
+                    _logger.LogInfo($"Comparing relationship: {displayName}");
+
+                    // Retrieve association records from both environments
+                    _logger.LogInfoIfVerbose($"  Retrieving source associations from {relConfig.IntersectEntity}...");
+                    var sourceAssociations = _sourceClient.RetrieveRecords(relConfig.IntersectEntity);
+
+                    _logger.LogInfoIfVerbose($"  Retrieving target associations from {relConfig.IntersectEntity}...");
+                    var targetAssociations = _targetClient.RetrieveRecords(relConfig.IntersectEntity);
+
+                    _logger.LogInfoIfVerbose($"  Source: {sourceAssociations.Entities.Count} association(s), Target: {targetAssociations.Entities.Count} association(s)");
+
+                    // Build name lookups from source environment
+                    var entity1NameField = relConfig.Entity1NameField ?? "name";
+                    var entity2NameField = relConfig.Entity2NameField ?? "name";
+
+                    _logger.LogInfoIfVerbose($"  Retrieving {relConfig.Entity1} names for display...");
+                    var entity1Records = _sourceClient.RetrieveRecords(relConfig.Entity1);
+                    var entity1Names = RecordComparer.BuildNameLookup(entity1Records, entity1NameField);
+
+                    _logger.LogInfoIfVerbose($"  Retrieving {relConfig.Entity2} names for display...");
+                    var entity2Records = _sourceClient.RetrieveRecords(relConfig.Entity2);
+                    var entity2Names = RecordComparer.BuildNameLookup(entity2Records, entity2NameField);
+
+                    // Compare associations
+                    var relResult = _recordComparer.CompareAssociations(
+                        displayName,
+                        sourceAssociations,
+                        targetAssociations,
+                        relConfig.Entity1IdField,
+                        relConfig.Entity2IdField,
+                        entity1Names,
+                        entity2Names);
+
+                    relResult.IntersectEntity = relConfig.IntersectEntity;
+                    comparisonResult.RelationshipResults.Add(relResult);
+
+                    if (relResult.HasDifferences)
+                    {
+                        _logger.LogWarning($"  Found differences: New={relResult.NewCount}, Deleted={relResult.DeletedCount}");
+                    }
+                    else
+                    {
+                        _logger.LogSuccess($"  No differences - relationship is in sync");
+                    }
+                }
+            }
+
             // Generate report
             _logger.LogInfo($"Generating comparison report: {output}");
             await _comparisonReporter.GenerateReportAsync(comparisonResult, output);
 
+            // Build summary message
+            var tablesWithDiffs = comparisonResult.TableResults.Count(t => t.HasDifferences);
+            var relsWithDiffs = comparisonResult.RelationshipResults.Count(r => r.HasDifferences);
+
             if (comparisonResult.HasAnyDifferences)
             {
-                _logger.LogWarning($"Comparison complete: Differences found in {comparisonResult.TableResults.Count(t => t.HasDifferences)} table(s)");
+                var parts = new List<string>();
+                if (tablesWithDiffs > 0) parts.Add($"{tablesWithDiffs} table(s)");
+                if (relsWithDiffs > 0) parts.Add($"{relsWithDiffs} relationship(s)");
+                _logger.LogWarning($"Comparison complete: Differences found in {string.Join(" and ", parts)}");
             }
             else
             {
-                _logger.LogSuccess("Comparison complete: All tables are in sync!");
+                _logger.LogSuccess("Comparison complete: All tables and relationships are in sync!");
             }
 
             _logger.LogSuccess($"Report saved to: {output}");

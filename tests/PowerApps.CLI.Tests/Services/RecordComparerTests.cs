@@ -389,7 +389,217 @@ public class RecordComparerTests
 
     #endregion
 
+    #region CompareAssociations Tests
+
+    [Fact]
+    public void CompareAssociations_IdentifiesNewAssociations()
+    {
+        // Arrange
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var source = new EntityCollection
+        {
+            Entities = { CreateAssociation("contactleads", id1, id2, "contactid", "leadid") }
+        };
+        var target = new EntityCollection();
+        var names1 = new Dictionary<Guid, string> { { id1, "John Smith" } };
+        var names2 = new Dictionary<Guid, string> { { id2, "Hot Lead" } };
+
+        // Act
+        var result = _comparer.CompareAssociations("Contact to Lead", source, target, "contactid", "leadid", names1, names2);
+
+        // Assert
+        Assert.Equal(1, result.NewCount);
+        Assert.Equal(0, result.DeletedCount);
+        Assert.True(result.HasDifferences);
+        var diff = result.Differences.Single();
+        Assert.Equal(DifferenceType.New, diff.DifferenceType);
+        Assert.Equal("John Smith", diff.Entity1Name);
+        Assert.Equal("Hot Lead", diff.Entity2Name);
+    }
+
+    [Fact]
+    public void CompareAssociations_IdentifiesDeletedAssociations()
+    {
+        // Arrange
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var source = new EntityCollection();
+        var target = new EntityCollection
+        {
+            Entities = { CreateAssociation("contactleads", id1, id2, "contactid", "leadid") }
+        };
+        var names1 = new Dictionary<Guid, string> { { id1, "John Smith" } };
+        var names2 = new Dictionary<Guid, string> { { id2, "Old Lead" } };
+
+        // Act
+        var result = _comparer.CompareAssociations("Contact to Lead", source, target, "contactid", "leadid", names1, names2);
+
+        // Assert
+        Assert.Equal(0, result.NewCount);
+        Assert.Equal(1, result.DeletedCount);
+        var diff = result.Differences.Single();
+        Assert.Equal(DifferenceType.Deleted, diff.DifferenceType);
+    }
+
+    [Fact]
+    public void CompareAssociations_MatchingAssociationsProduceNoDifferences()
+    {
+        // Arrange
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var association = CreateAssociation("contactleads", id1, id2, "contactid", "leadid");
+        var source = new EntityCollection { Entities = { association } };
+        // Create a separate entity with same composite key for target
+        var targetAssociation = CreateAssociation("contactleads", id1, id2, "contactid", "leadid");
+        var target = new EntityCollection { Entities = { targetAssociation } };
+        var names1 = new Dictionary<Guid, string>();
+        var names2 = new Dictionary<Guid, string>();
+
+        // Act
+        var result = _comparer.CompareAssociations("Contact to Lead", source, target, "contactid", "leadid", names1, names2);
+
+        // Assert
+        Assert.False(result.HasDifferences);
+        Assert.Empty(result.Differences);
+    }
+
+    [Fact]
+    public void CompareAssociations_FallsBackToGuidWhenNameMissing()
+    {
+        // Arrange
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var source = new EntityCollection
+        {
+            Entities = { CreateAssociation("contactleads", id1, id2, "contactid", "leadid") }
+        };
+        var target = new EntityCollection();
+        var names1 = new Dictionary<Guid, string>(); // No name for id1
+        var names2 = new Dictionary<Guid, string>(); // No name for id2
+
+        // Act
+        var result = _comparer.CompareAssociations("Contact to Lead", source, target, "contactid", "leadid", names1, names2);
+
+        // Assert
+        var diff = result.Differences.Single();
+        Assert.Equal(id1.ToString(), diff.Entity1Name);
+        Assert.Equal(id2.ToString(), diff.Entity2Name);
+    }
+
+    [Fact]
+    public void CompareAssociations_EmptyCollectionsProduceNoDifferences()
+    {
+        // Arrange
+        var source = new EntityCollection();
+        var target = new EntityCollection();
+        var names1 = new Dictionary<Guid, string>();
+        var names2 = new Dictionary<Guid, string>();
+
+        // Act
+        var result = _comparer.CompareAssociations("Contact to Lead", source, target, "contactid", "leadid", names1, names2);
+
+        // Assert
+        Assert.False(result.HasDifferences);
+        Assert.Equal(0, result.SourceAssociationCount);
+        Assert.Equal(0, result.TargetAssociationCount);
+    }
+
+    [Fact]
+    public void CompareAssociations_SetsCountsCorrectly()
+    {
+        // Arrange
+        var source = new EntityCollection
+        {
+            Entities =
+            {
+                CreateAssociation("contactleads", Guid.NewGuid(), Guid.NewGuid(), "contactid", "leadid"),
+                CreateAssociation("contactleads", Guid.NewGuid(), Guid.NewGuid(), "contactid", "leadid")
+            }
+        };
+        var target = new EntityCollection
+        {
+            Entities =
+            {
+                CreateAssociation("contactleads", Guid.NewGuid(), Guid.NewGuid(), "contactid", "leadid")
+            }
+        };
+
+        // Act
+        var result = _comparer.CompareAssociations("Test", source, target, "contactid", "leadid",
+            new Dictionary<Guid, string>(), new Dictionary<Guid, string>());
+
+        // Assert
+        Assert.Equal(2, result.SourceAssociationCount);
+        Assert.Equal(1, result.TargetAssociationCount);
+    }
+
+    [Fact]
+    public void CompareAssociations_SetsRelationshipName()
+    {
+        // Act
+        var result = _comparer.CompareAssociations("My Relationship", new EntityCollection(), new EntityCollection(),
+            "contactid", "leadid", new Dictionary<Guid, string>(), new Dictionary<Guid, string>());
+
+        // Assert
+        Assert.Equal("My Relationship", result.RelationshipName);
+    }
+
+    #endregion
+
+    #region BuildNameLookup Tests
+
+    [Fact]
+    public void BuildNameLookup_BuildsCorrectMapping()
+    {
+        // Arrange
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var records = new EntityCollection
+        {
+            Entities =
+            {
+                CreateEntity("contact", id1, "John Smith"),
+                CreateEntity("contact", id2, "Jane Doe")
+            }
+        };
+
+        // Act
+        var lookup = RecordComparer.BuildNameLookup(records, "name");
+
+        // Assert
+        Assert.Equal(2, lookup.Count);
+        Assert.Equal("John Smith", lookup[id1]);
+        Assert.Equal("Jane Doe", lookup[id2]);
+    }
+
+    [Fact]
+    public void BuildNameLookup_HandlesMissingNameField()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var entity = new Entity("contact", id);
+        // No "fullname" attribute set
+        var records = new EntityCollection { Entities = { entity } };
+
+        // Act
+        var lookup = RecordComparer.BuildNameLookup(records, "fullname");
+
+        // Assert
+        Assert.Empty(lookup); // Should skip records without the name field
+    }
+
+    #endregion
+
     #region Helper Methods
+
+    private static Entity CreateAssociation(string intersectEntity, Guid entity1Id, Guid entity2Id, string entity1IdField, string entity2IdField)
+    {
+        var entity = new Entity(intersectEntity, Guid.NewGuid());
+        entity.Attributes[entity1IdField] = entity1Id;
+        entity.Attributes[entity2IdField] = entity2Id;
+        return entity;
+    }
 
     private static Entity CreateEntity(string logicalName, Guid id, string name, Dictionary<string, object>? additionalAttributes = null)
     {
