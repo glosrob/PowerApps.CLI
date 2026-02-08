@@ -32,6 +32,13 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 📊 **Difference Detection** - Identifies new, modified, and deleted records
 - 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
 
+### Process Management
+- ⚙️ **Process State Control** - Activate/deactivate workflows, cloud flows, business rules, actions, and business process flows
+- 🎯 **Pattern-based Rules** - Use wildcard patterns to define which processes should be inactive
+- 🔄 **CI/CD Ready** - Run post-deployment to ensure processes are in the correct state
+- 🧪 **Dry Run Mode** - Preview changes without modifying any process states
+- 📊 **Excel Reporting** - Summary and detailed Excel report of all actions taken
+
 ## Installation
 
 ### Prerequisites
@@ -483,7 +490,8 @@ Generates two files:
 ```
 Commands/
   ├── SchemaCommand.cs          # Schema export CLI command
-  └── ConstantsCommand.cs       # Constants generation CLI command
+  ├── ConstantsCommand.cs       # Constants generation CLI command
+  └── ProcessManageCommand.cs   # Process management CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
   ├── SchemaExtractor.cs        # Metadata extraction with solution filtering
@@ -492,7 +500,10 @@ Services/
   ├── CodeTemplateGenerator.cs  # C# code template generation
   ├── ConstantsFilter.cs        # Entity/attribute filtering logic
   ├── IdentifierFormatter.cs    # C# identifier formatting (PascalCase, sanitization)
-  └── MetadataMapper.cs         # SDK to model mapping
+  ├── MetadataMapper.cs         # SDK to model mapping
+  ├── IProcessManager.cs        # Process management interface
+  ├── ProcessManager.cs         # Process state management logic
+  └── ProcessReporter.cs        # Process report Excel generation
 Infrastructure/
   ├── DataverseClient.cs        # Dataverse connection management
   ├── FileWriter.cs             # File I/O abstraction
@@ -504,7 +515,9 @@ Models/
   ├── RelationshipSchema.cs     # Relationship metadata
   ├── OptionSetSchema.cs        # OptionSet metadata
   ├── ConstantsConfig.cs        # Constants generation configuration
-  └── ConstantsOutputConfig.cs  # Constants output settings
+  ├── ConstantsOutputConfig.cs  # Constants output settings
+  ├── ProcessManageConfig.cs    # Process management configuration
+  └── ProcessManageModels.cs    # Process state models
 ```
 
 ## Testing
