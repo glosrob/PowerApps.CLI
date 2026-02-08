@@ -1,0 +1,14 @@
+{
+  "environments": {
+    "dev": {
+      "url": "https://your-dev-environment.crm11.dynamics.com/",
+      "clientId": "your-client-id",
+      "clientSecret": "your-client-secret"
+    },
+    "sit": {
+      "url": "https://your-sit-environment.crm11.dynamics.com/",
+      "clientId": "your-client-id",
+      "clientSecret": "your-client-secret"
+    }
+  }
+}
