@@ -1,4 +1,4 @@
-using Microsoft.Xrm.Sdk;
+using PowerApps.CLI.Infrastructure;
 using PowerApps.CLI.Models;
 
 namespace PowerApps.CLI.Services;
@@ -11,7 +11,7 @@ public interface IProcessManager
     /// <summary>
     /// Retrieves all processes from specified solutions.
     /// </summary>
-    List<ProcessInfo> RetrieveProcesses(IOrganizationService service, List<string> solutions);
+    List<ProcessInfo> RetrieveProcesses(IDataverseClient client, List<string> solutions);
 
     /// <summary>
     /// Determines expected state for processes based on inactive patterns.
@@ -22,8 +22,8 @@ public interface IProcessManager
     /// Manages process states to match expected states.
     /// </summary>
     ProcessManageSummary ManageProcessStates(
-        IOrganizationService service, 
-        List<ProcessInfo> processes, 
+        IDataverseClient client,
+        List<ProcessInfo> processes,
         bool isDryRun,
         int maxRetries);
 }

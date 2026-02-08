@@ -73,14 +73,13 @@ public static class ProcessManageCommand
 
             // Create service instances
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
-            var dataverseClient = new DataverseClient();
             var fileWriter = new FileWriter();
             var processManager = new ProcessManager(logger);
             var processReporter = new ProcessReporter(fileWriter);
 
             try
             {
-                logger.LogInfo(dryRun 
+                logger.LogInfo(dryRun
                     ? "Starting process management (DRY RUN - no changes will be made)..."
                     : "Starting process management...");
 
@@ -95,19 +94,19 @@ public static class ProcessManageCommand
                 // Load configuration
                 logger.LogInfo($"Loading configuration from: {configPath}");
                 var config = await LoadConfigAsync(configPath, fileWriter);
-                
+
                 logger.LogInfo($"Configuration loaded: {config.Solutions.Count} solution(s), {config.InactivePatterns.Count} inactive pattern(s)");
                 logger.LogInfoIfVerbose($"Max retries: {config.MaxRetries}");
 
                 // Connect to environment
                 logger.LogInfo("Connecting to environment...");
-                var service = await dataverseClient.ConnectAsync(url ?? string.Empty, clientId, clientSecret, connectionString);
-                var envUrl = dataverseClient.GetEnvironmentUrl(service);
+                var dataverseClient = new DataverseClient(url ?? string.Empty, clientId, clientSecret, connectionString);
+                var envUrl = dataverseClient.GetEnvironmentUrl();
                 logger.LogSuccess($"Connected to: {envUrl}");
 
                 // Retrieve processes
                 logger.LogInfo("Retrieving processes...");
-                var processes = processManager.RetrieveProcesses(service, config.Solutions);
+                var processes = processManager.RetrieveProcesses(dataverseClient, config.Solutions);
                 logger.LogInfo($"Found {processes.Count} process(es)");
 
                 // Determine expected states
@@ -126,7 +125,7 @@ public static class ProcessManageCommand
 
                 // Manage process states
                 logger.LogInfo(dryRun ? "Simulating state changes..." : "Applying state changes...");
-                var summary = processManager.ManageProcessStates(service, processes, dryRun, config.MaxRetries);
+                var summary = processManager.ManageProcessStates(dataverseClient, processes, dryRun, config.MaxRetries);
                 summary.EnvironmentUrl = envUrl;
 
                 // Generate report

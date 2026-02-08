@@ -18,7 +18,7 @@ public class ProcessManager : IProcessManager
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public List<ProcessInfo> RetrieveProcesses(IOrganizationService service, List<string> solutions)
+    public List<ProcessInfo> RetrieveProcesses(IDataverseClient client, List<string> solutions)
     {
         var query = new QueryExpression("workflow")
         {
@@ -41,7 +41,7 @@ public class ProcessManager : IProcessManager
             }
         }
 
-        var results = service.RetrieveMultiple(query);
+        var results = client.RetrieveMultiple(query);
 
         // Deduplicate by process ID (joins can produce duplicate rows)
         var processes = new Dictionary<Guid, ProcessInfo>();
@@ -77,8 +77,8 @@ public class ProcessManager : IProcessManager
     }
 
     public ProcessManageSummary ManageProcessStates(
-        IOrganizationService service, 
-        List<ProcessInfo> processes, 
+        IDataverseClient client,
+        List<ProcessInfo> processes,
         bool isDryRun,
         int maxRetries)
     {
@@ -94,7 +94,7 @@ public class ProcessManager : IProcessManager
         // Initial pass
         foreach (var process in processesToManage)
         {
-            var result = ManageProcess(service, process, isDryRun);
+            var result = ManageProcess(client, process, isDryRun);
             summary.Results.Add(result);
 
             if (!result.Success && !isDryRun)
@@ -115,7 +115,7 @@ public class ProcessManager : IProcessManager
 
             foreach (var process in currentRetryList)
             {
-                var result = ManageProcess(service, process, isDryRun);
+                var result = ManageProcess(client, process, isDryRun);
                 
                 // Update the existing result
                 var existingResult = summary.Results.First(r => r.Process.Id == process.Id);
@@ -144,7 +144,7 @@ public class ProcessManager : IProcessManager
         return summary;
     }
 
-    private ProcessManageResult ManageProcess(IOrganizationService service, ProcessInfo process, bool isDryRun)
+    private ProcessManageResult ManageProcess(IDataverseClient client, ProcessInfo process, bool isDryRun)
     {
         var result = new ProcessManageResult { Process = process };
 
@@ -164,13 +164,13 @@ public class ProcessManager : IProcessManager
             {
                 if (process.ExpectedState == ProcessState.Active)
                 {
-                    ActivateProcess(service, process.Id);
+                    ActivateProcess(client, process.Id);
                     result.Action = ProcessAction.Activated;
                     _logger.LogInfo($"✓ Activated: {process.Name}");
                 }
                 else
                 {
-                    DeactivateProcess(service, process.Id);
+                    DeactivateProcess(client, process.Id);
                     result.Action = ProcessAction.Deactivated;
                     _logger.LogInfo($"✓ Deactivated: {process.Name}");
                 }
@@ -190,7 +190,7 @@ public class ProcessManager : IProcessManager
         return result;
     }
 
-    private void ActivateProcess(IOrganizationService service, Guid processId)
+    private void ActivateProcess(IDataverseClient client, Guid processId)
     {
         var request = new SetStateRequest
         {
@@ -198,10 +198,10 @@ public class ProcessManager : IProcessManager
             State = new OptionSetValue(1), // Active
             Status = new OptionSetValue(2)  // Activated
         };
-        service.Execute(request);
+        client.Execute(request);
     }
 
-    private void DeactivateProcess(IOrganizationService service, Guid processId)
+    private void DeactivateProcess(IDataverseClient client, Guid processId)
     {
         var request = new SetStateRequest
         {
@@ -209,7 +209,7 @@ public class ProcessManager : IProcessManager
             State = new OptionSetValue(0), // Inactive
             Status = new OptionSetValue(1)  // Draft
         };
-        service.Execute(request);
+        client.Execute(request);
     }
 
     private bool MatchesPattern(string text, string pattern)
