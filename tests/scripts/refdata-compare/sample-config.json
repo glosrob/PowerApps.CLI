@@ -1,0 +1,30 @@
+{
+  "excludeSystemFields": true,
+  "globalExcludeFields": [],
+  "tables": [
+    {
+      "logicalName": "account",
+      "displayName": "Account",
+      "primaryIdField": "accountid",
+      "primaryNameField": "name",
+      "filter": "",
+      "excludeFields": []
+    },
+    {
+      "logicalName": "contact",
+      "displayName": "Contact",
+      "primaryIdField": "contactid",
+      "primaryNameField": "fullname",
+      "filter": "",
+      "excludeFields": ["address1_addressid", "address2_addressid", "address3_addressid"]
+    },
+    {
+      "logicalName": "queue",
+      "displayName": "Queue",
+      "primaryIdField": "queueid",
+      "primaryNameField": "name",
+      "filter": "",
+      "excludeFields": ["numberofitems", "organizationid"]
+    }
+  ]
+}

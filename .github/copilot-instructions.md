@@ -39,7 +39,7 @@ src/PowerApps.CLI/
 
 tests/PowerApps.CLI.Tests/  # Unit tests (xUnit)
 Generated/                   # Example output from constants-generate
-test-scripts/               # PowerShell test/demo scripts
+tests/scripts/               # PowerShell test/demo scripts
 ```
 
 ## Technology Stack
@@ -93,21 +93,21 @@ test-scripts/               # PowerShell test/demo scripts
 ### Running Tests
 ```powershell
 # All tests
-.\test-scripts\run-tests.ps1
+.\tests\scripts\run-tests.ps1
 
 # With coverage report
-.\test-scripts\run-coverage.ps1
+.\tests\scripts\run-coverage.ps1
 ```
 
 ### Test Structure
 - Unit tests in `tests/PowerApps.CLI.Tests/`
 - Mock-based testing for external dependencies
-- Coverage reports generated to `coverage/report/`
+- Coverage reports generated to `tests/coverage/report/`
 
 ### Testing with Real Dataverse
-- Test scripts in `test-scripts/` (credential scripts are git-ignored)
+- Test scripts in `tests/scripts/` (credential scripts are git-ignored)
 - Never commit files with real credentials
-- Use `sample-constants-config.json` as a template
+- Use `*/sample-config.json` files as templates
 
 ## Important Conventions
 
@@ -138,7 +138,7 @@ test-scripts/               # PowerShell test/demo scripts
 
 ### Modifying Generated Code
 - Edit templates in `CodeTemplateGenerator.cs`
-- Regenerate examples: `dotnet run -- constants-generate --config test-scripts/sample-constants-config.json`
+- Regenerate examples: `dotnet run -- constants-generate --config tests/scripts/constants-generate/sample-config.json`
 - Review changes in `Generated/` folder
 - Ensure backwards compatibility
 
@@ -175,9 +175,9 @@ src/PowerApps.CLI/bin/Release/net8.0/powerapps-cli.exe
 
 ## Coverage Reports
 
-Coverage reports are generated to `coverage/report/index.html` using:
+Coverage reports are generated to `tests/coverage/report/index.html` using:
 ```powershell
-.\test-scripts\run-coverage.ps1
+.\tests\scripts\run-coverage.ps1
 ```
 
 View the report by opening the HTML file in a browser.
@@ -185,5 +185,5 @@ View the report by opening the HTML file in a browser.
 ## Additional Resources
 
 - `README.md` - User documentation and examples
-- `test-scripts/README.md` - Test script documentation
+- `tests/scripts/README.md` - Test script documentation
 - Solution file: `PowerApps.CLI.sln`

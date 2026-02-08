@@ -534,7 +534,7 @@ dotnet test
 
 ```bash
 # Using test-scripts helper
-.\test-scripts\run-coverage.ps1
+.\tests\scripts\run-coverage.ps1
 
 # Or manually
 dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=cobertura
@@ -566,7 +566,7 @@ Test coverage includes:
   - `Infrastructure/` - External integrations and utilities
   - `Models/` - Data models and schemas
 - `tests/PowerApps.CLI.Tests/` - Unit tests
-- `test-scripts/` - Local test scripts with sample usage (not committed)
+- `tests/scripts/` - Local test scripts with sample usage (credentials not committed)
 
 ### Dependencies
 

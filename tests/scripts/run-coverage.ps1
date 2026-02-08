@@ -16,7 +16,7 @@ param(
 Write-Host "Running tests with code coverage..." -ForegroundColor Cyan
 
 # Clean previous coverage results
-$coverageDir = ".\coverage"
+$coverageDir = ".\tests\coverage"
 if (Test-Path $coverageDir) {
     Remove-Item $coverageDir -Recurse -Force
 }
@@ -26,7 +26,7 @@ New-Item -ItemType Directory -Path $coverageDir -Force | Out-Null
 dotnet test --configuration $Configuration `
     --collect:"XPlat Code Coverage" `
     --results-directory $coverageDir `
-    --settings coverlet.runsettings `
+    --settings tests/coverlet.runsettings `
     -- DataCollectionRunSettings.DataCollectors.DataCollector.Configuration.Format=opencover
 
 if ($LASTEXITCODE -ne 0) {

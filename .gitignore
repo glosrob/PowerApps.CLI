@@ -28,12 +28,15 @@ bld/
 .vs/
 .vscode/
 
+# Claude Code
+.claude/
+
 # Test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*
 
 # Code Coverage
-coverage/
+tests/coverage/
 *.coverage
 *.coveragexml
 
@@ -87,19 +90,15 @@ Desktop.ini
 # Mac
 .DS_Store
 
-# Test scripts with credentials
-# Test scripts (except safe templates)
-test-scripts/*.ps1
-test-scripts/*-config.json
-!test-scripts/README.md
-!test-scripts/run-coverage.ps1
-!test-scripts/run-tests.ps1
-!test-scripts/test-constants-command.ps1
+# Test scripts with credentials (per-command subfolders)
+tests/scripts/connections.json
+tests/scripts/schema-export/
+tests/scripts/*/test-*.ps1
+tests/scripts/*/*config.json
+!tests/scripts/*/sample-config.json
 
-# Generated constants output
+# Command output (generated during testing/dev)
 Generated/
-test-schema*.json
-test-schema*.xlsx
-test-schema*.csv
-refdata-comparison*.xlsx
+**/refdata-comparison*.xlsx
+**/process-report*.xlsx
 temp-schema.json
