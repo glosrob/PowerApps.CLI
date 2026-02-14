@@ -17,6 +17,8 @@ public class ProcessManagerTests
     {
         _mockLogger = new Mock<IConsoleLogger>();
         _mockClient = new Mock<IDataverseClient>();
+        // Default: return empty collections so tests that don't care about duplicate rules still work
+        _mockClient.Setup(c => c.RetrieveDuplicateRules(It.IsAny<List<string>>())).Returns(new EntityCollection());
         _manager = new ProcessManager(_mockLogger.Object, _mockClient.Object);
     }
 
@@ -375,6 +377,124 @@ public class ProcessManagerTests
 
     #endregion
 
+    #region DuplicateDetectionRule Tests
+
+    [Fact]
+    public void RetrieveProcesses_IncludesDuplicateDetectionRules()
+    {
+        // Arrange
+        var workflowId = Guid.NewGuid();
+        var ruleId = Guid.NewGuid();
+
+        var workflowEntity = CreateProcessEntity(workflowId, "My Workflow", ProcessType.Workflow, ProcessState.Active);
+        _mockClient.Setup(c => c.RetrieveProcesses(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity> { workflowEntity }));
+
+        var ruleEntity = CreateDuplicateRuleEntity(ruleId, "Duplicate Accounts", ProcessState.Active);
+        _mockClient.Setup(c => c.RetrieveDuplicateRules(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity> { ruleEntity }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string> { "MySolution" });
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, p => p.Name == "My Workflow" && p.Type == ProcessType.Workflow);
+        Assert.Contains(result, p => p.Name == "Duplicate Accounts" && p.Type == ProcessType.DuplicateDetectionRule);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_DeduplicatesDuplicateDetectionRules()
+    {
+        // Arrange
+        var ruleId = Guid.NewGuid();
+        var entity1 = CreateDuplicateRuleEntity(ruleId, "Duplicate Accounts", ProcessState.Active);
+        var entity2 = CreateDuplicateRuleEntity(ruleId, "Duplicate Accounts", ProcessState.Active);
+
+        _mockClient.Setup(c => c.RetrieveProcesses(It.IsAny<List<string>>())).Returns(new EntityCollection());
+        _mockClient.Setup(c => c.RetrieveDuplicateRules(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity> { entity1, entity2 }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string>());
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal(ruleId, result[0].Id);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_MapsDuplicateRuleInactiveStateCorrectly()
+    {
+        // Arrange
+        var ruleEntity = CreateDuplicateRuleEntity(Guid.NewGuid(), "Inactive Rule", ProcessState.Inactive);
+        _mockClient.Setup(c => c.RetrieveProcesses(It.IsAny<List<string>>())).Returns(new EntityCollection());
+        _mockClient.Setup(c => c.RetrieveDuplicateRules(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity> { ruleEntity }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string>());
+
+        // Assert
+        Assert.Equal(ProcessState.Inactive, result[0].CurrentState);
+        Assert.Equal(ProcessType.DuplicateDetectionRule, result[0].Type);
+    }
+
+    [Fact]
+    public void ManageProcessStates_ActivatesDuplicateRuleViaCorrectClientMethod()
+    {
+        // Arrange
+        var ruleId = Guid.NewGuid();
+        var processes = new List<ProcessInfo>
+        {
+            new() { Id = ruleId, Name = "Duplicate Rule", Type = ProcessType.DuplicateDetectionRule,
+                     CurrentState = ProcessState.Inactive, ExpectedState = ProcessState.Active }
+        };
+
+        // Act
+        _manager.ManageProcessStates(processes, false, 0);
+
+        // Assert
+        _mockClient.Verify(c => c.ActivateDuplicateRule(ruleId), Times.Once);
+        _mockClient.Verify(c => c.ActivateProcess(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public void ManageProcessStates_DeactivatesDuplicateRuleViaCorrectClientMethod()
+    {
+        // Arrange
+        var ruleId = Guid.NewGuid();
+        var processes = new List<ProcessInfo>
+        {
+            new() { Id = ruleId, Name = "Duplicate Rule", Type = ProcessType.DuplicateDetectionRule,
+                     CurrentState = ProcessState.Active, ExpectedState = ProcessState.Inactive }
+        };
+
+        // Act
+        _manager.ManageProcessStates(processes, false, 0);
+
+        // Assert
+        _mockClient.Verify(c => c.DeactivateDuplicateRule(ruleId), Times.Once);
+        _mockClient.Verify(c => c.DeactivateProcess(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_PassesSolutionsToDuplicateRuleRetrieval()
+    {
+        // Arrange
+        var solutions = new List<string> { "Solution1", "Solution2" };
+        _mockClient.Setup(c => c.RetrieveProcesses(solutions)).Returns(new EntityCollection());
+        _mockClient.Setup(c => c.RetrieveDuplicateRules(solutions)).Returns(new EntityCollection());
+
+        // Act
+        _manager.RetrieveProcesses(solutions);
+
+        // Assert
+        _mockClient.Verify(c => c.RetrieveDuplicateRules(solutions), Times.Once);
+    }
+
+    #endregion
+
     #region Helpers
 
     private static Entity CreateProcessEntity(Guid id, string name, ProcessType type, ProcessState state)
@@ -382,6 +502,14 @@ public class ProcessManagerTests
         var entity = new Entity("workflow", id);
         entity["name"] = name;
         entity["category"] = new OptionSetValue((int)type);
+        entity["statecode"] = new OptionSetValue(state == ProcessState.Active ? 1 : 0);
+        return entity;
+    }
+
+    private static Entity CreateDuplicateRuleEntity(Guid id, string name, ProcessState state)
+    {
+        var entity = new Entity("duplicaterule", id);
+        entity["name"] = name;
         entity["statecode"] = new OptionSetValue(state == ProcessState.Active ? 1 : 0);
         return entity;
     }

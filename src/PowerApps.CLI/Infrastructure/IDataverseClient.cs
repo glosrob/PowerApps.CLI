@@ -85,6 +85,25 @@ public interface IDataverseClient
     void DeactivateProcess(Guid processId);
 
     /// <summary>
+    /// Retrieves duplicate detection rules, optionally filtered by solution names.
+    /// </summary>
+    /// <param name="solutions">Solution unique names to filter by. If empty, retrieves all rules.</param>
+    /// <returns>Collection of duplicaterule entities.</returns>
+    EntityCollection RetrieveDuplicateRules(List<string> solutions);
+
+    /// <summary>
+    /// Publishes (activates) a duplicate detection rule.
+    /// </summary>
+    /// <param name="ruleId">The ID of the duplicate detection rule to activate.</param>
+    void ActivateDuplicateRule(Guid ruleId);
+
+    /// <summary>
+    /// Unpublishes (deactivates) a duplicate detection rule.
+    /// </summary>
+    /// <param name="ruleId">The ID of the duplicate detection rule to deactivate.</param>
+    void DeactivateDuplicateRule(Guid ruleId);
+
+    /// <summary>
     /// Retrieves records using a FetchXML query.
     /// </summary>
     /// <param name="fetchXml">The FetchXML query string.</param>

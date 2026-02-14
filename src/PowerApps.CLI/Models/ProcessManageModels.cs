@@ -22,7 +22,8 @@ public enum ProcessType
     BusinessRule = 2,
     Action = 3,
     BusinessProcessFlow = 4,
-    CloudFlow = 5
+    CloudFlow = 5,
+    DuplicateDetectionRule = 100
 }
 
 /// <summary>
