@@ -33,7 +33,7 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
 
 ### Process Management
-- ⚙️ **Process State Control** - Activate/deactivate workflows, cloud flows, business rules, actions, and business process flows
+- ⚙️ **Process State Control** - Activate/deactivate workflows, cloud flows, business rules, actions, business process flows, and duplicate detection rules
 - 🎯 **Pattern-based Rules** - Use wildcard patterns to define which processes should be inactive
 - 🔄 **CI/CD Ready** - Run post-deployment to ensure processes are in the correct state
 - 🧪 **Dry Run Mode** - Preview changes without modifying any process states
