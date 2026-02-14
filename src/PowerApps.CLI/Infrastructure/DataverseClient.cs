@@ -272,6 +272,48 @@ public class DataverseClient : IDataverseClient
         _serviceClient.Execute(request);
     }
 
+    public EntityCollection RetrieveDuplicateRules(List<string> solutions)
+    {
+        var query = new QueryExpression("duplicaterule")
+        {
+            ColumnSet = new ColumnSet("duplicateruleid", "name", "statecode", "statuscode"),
+            Criteria = new FilterExpression(LogicalOperator.And)
+        };
+
+        // Filter by solutions if specified
+        if (solutions.Any())
+        {
+            foreach (var solution in solutions)
+            {
+                var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
+                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
+            }
+        }
+
+        return _serviceClient.RetrieveMultiple(query);
+    }
+
+    public void ActivateDuplicateRule(Guid ruleId)
+    {
+        var request = new PublishDuplicateRuleRequest
+        {
+            DuplicateRuleId = ruleId
+        };
+        _serviceClient.Execute(request);
+    }
+
+    public void DeactivateDuplicateRule(Guid ruleId)
+    {
+        var request = new SetStateRequest
+        {
+            EntityMoniker = new EntityReference("duplicaterule", ruleId),
+            State = new OptionSetValue(0), // Inactive
+            Status = new OptionSetValue(0)  // Unpublished
+        };
+        _serviceClient.Execute(request);
+    }
+
     public EntityCollection RetrieveRecordsByFetchXml(string fetchXml)
     {
         if (string.IsNullOrWhiteSpace(fetchXml))

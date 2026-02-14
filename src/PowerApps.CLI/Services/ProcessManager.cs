@@ -20,11 +20,11 @@ public class ProcessManager : IProcessManager
 
     public List<ProcessInfo> RetrieveProcesses(List<string> solutions)
     {
-        var results = _client.RetrieveProcesses(solutions);
-
-        // Deduplicate by process ID (joins can produce duplicate rows)
         var processes = new Dictionary<Guid, ProcessInfo>();
-        foreach (var entity in results.Entities)
+
+        // Retrieve workflows/flows/business rules
+        var workflowResults = _client.RetrieveProcesses(solutions);
+        foreach (var entity in workflowResults.Entities)
         {
             if (!processes.ContainsKey(entity.Id))
             {
@@ -33,6 +33,24 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = (ProcessType)entity.GetAttributeValue<OptionSetValue>("category").Value,
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1
+                        ? ProcessState.Active
+                        : ProcessState.Inactive
+                };
+            }
+        }
+
+        // Retrieve duplicate detection rules
+        var duplicateRuleResults = _client.RetrieveDuplicateRules(solutions);
+        foreach (var entity in duplicateRuleResults.Entities)
+        {
+            if (!processes.ContainsKey(entity.Id))
+            {
+                processes[entity.Id] = new ProcessInfo
+                {
+                    Id = entity.Id,
+                    Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
+                    Type = ProcessType.DuplicateDetectionRule,
                     CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1
                         ? ProcessState.Active
                         : ProcessState.Inactive
@@ -142,13 +160,21 @@ public class ProcessManager : IProcessManager
             {
                 if (process.ExpectedState == ProcessState.Active)
                 {
-                    _client.ActivateProcess(process.Id);
+                    if (process.Type == ProcessType.DuplicateDetectionRule)
+                        _client.ActivateDuplicateRule(process.Id);
+                    else
+                        _client.ActivateProcess(process.Id);
+
                     result.Action = ProcessAction.Activated;
                     _logger.LogInfo($"✓ Activated: {process.Name}");
                 }
                 else
                 {
-                    _client.DeactivateProcess(process.Id);
+                    if (process.Type == ProcessType.DuplicateDetectionRule)
+                        _client.DeactivateDuplicateRule(process.Id);
+                    else
+                        _client.DeactivateProcess(process.Id);
+
                     result.Action = ProcessAction.Deactivated;
                     _logger.LogInfo($"✓ Deactivated: {process.Name}");
                 }
