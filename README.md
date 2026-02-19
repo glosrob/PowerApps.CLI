@@ -32,6 +32,15 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 📊 **Difference Detection** - Identifies new, modified, and deleted records
 - 🎯 **Bidirectional Analysis** - Compares both ways to find orphaned records
 
+### Reference Data Migration
+- 🚀 **Environment-to-Environment Migration** - Migrate reference data from source to target Dataverse environment
+- 🔄 **Diff Mode** - Only pushes records that have changed (default), with `--force` to push all
+- 🔗 **Multi-pass Strategy** - Handles self-referential lookups via a two-pass upsert approach
+- ⚙️ **State Management** - Optionally sync record active/inactive state
+- 🔗 **N:N Relationships** - Sync many-to-many relationship associations and disassociations
+- 🧪 **Dry Run Mode** - Preview all changes without writing to the target environment
+- 📊 **Excel Reporting** - Summary and error report of all migration actions
+
 ### Process Management
 - ⚙️ **Process State Control** - Activate/deactivate workflows, cloud flows, business rules, actions, business process flows, and duplicate detection rules
 - 🎯 **Pattern-based Rules** - Use wildcard patterns to define which processes should be inactive
@@ -244,6 +253,95 @@ powerapps-cli refdata-compare \
 - Field-level comparison using formatted values (human-readable lookups and option sets)
 - GUIDs resolved to display names for relationship associations
 
+### Reference Data Migration
+
+Migrate reference data from a source Dataverse environment to a target environment.
+
+#### Basic Usage
+
+```bash
+powerapps-cli refdata-migrate \
+  --config refdata-migrate-config.json \
+  --source-url "https://dev.crm.dynamics.com" \
+  --target-url "https://test.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --output migration-report.xlsx
+```
+
+#### Dry Run (Preview Changes)
+
+```bash
+powerapps-cli refdata-migrate \
+  --config refdata-migrate-config.json \
+  --source-url "https://dev.crm.dynamics.com" \
+  --target-url "https://test.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET" \
+  --dry-run \
+  --output migration-preview.xlsx
+```
+
+#### Using Connection Strings
+
+```bash
+powerapps-cli refdata-migrate \
+  --config refdata-migrate-config.json \
+  --source-connection "$DEV_CONNECTION_STRING" \
+  --target-connection "$TEST_CONNECTION_STRING" \
+  --output migration-report.xlsx
+```
+
+#### Force Full Sync
+
+```bash
+powerapps-cli refdata-migrate \
+  --config refdata-migrate-config.json \
+  --source-connection "$DEV_CONNECTION_STRING" \
+  --target-connection "$TEST_CONNECTION_STRING" \
+  --force \
+  --output migration-report.xlsx
+```
+
+#### Example Config File
+
+```json
+{
+  "batchSize": 1000,
+  "tables": [
+    {
+      "logicalName": "rob_category",
+      "manageState": true
+    },
+    {
+      "logicalName": "rob_priority",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeColumns": ["rob_legacycode"],
+      "manageState": false
+    },
+    {
+      "logicalName": "rob_item",
+      "includeColumns": ["rob_name", "rob_categoryid", "rob_priorityid"]
+    }
+  ],
+  "manyToManyRelationships": [
+    { "relationshipName": "rob_category_priority" }
+  ]
+}
+```
+
+**Behaviour**:
+- By default, only records that differ from the target are migrated (diff mode)
+- Use `--force` to push all records regardless of whether they have changed
+- Lookups are applied in a second pass to handle self-referential relationships
+- `manageState: true` will sync the active/inactive state of records
+- `includeColumns` restricts migration to only the specified columns (system fields always excluded)
+- `excludeColumns` removes specific columns from migration
+
+**Output**: Excel report with:
+- Summary sheet showing environment info, totals, and per-table results
+- Errors sheet (if any failures occurred) with table, record ID, phase, and error message
+
 ### Process Management
 
 Manage Dataverse process states (workflows, cloud flows, business rules, actions) to ensure correct activation/deactivation post-deployment.
@@ -372,6 +470,28 @@ Compares reference data between source and target Dataverse environments.
 | `--client-id` | Azure AD Client ID (for both environments) | No | - |
 | `--client-secret` | Azure AD Client Secret (for both environments) | No | - |
 | `-o, --output` | Output Excel file path | No | `refdata-comparison.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--source-url`/`--target-url` or `--source-connection`/`--target-connection` must be provided.
+
+### refdata-migrate
+
+Migrates reference data from a source to a target Dataverse environment.
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `--config` | Path to JSON configuration file | Yes | - |
+| `--source-url` | Source environment URL | Yes* | - |
+| `--target-url` | Target environment URL | Yes* | - |
+| `--source-connection` | Source environment connection string | No | - |
+| `--target-connection` | Target environment connection string | No | - |
+| `--client-id` | Azure AD Client ID (for both environments) | No | - |
+| `--client-secret` | Azure AD Client Secret (for both environments) | No | - |
+| `--dry-run` | Preview mode — no changes made to target | No | `false` |
+| `--force` | Push all records regardless of whether they have changed | No | `false` |
+| `-o, --output` | Output Excel report file path | No | `migration-report.xlsx` |
 | `-v, --verbose` | Enable verbose output | No | `false` |
 
 \* Either `--source-url`/`--target-url` or `--source-connection`/`--target-connection` must be provided.
@@ -506,6 +626,7 @@ Commands/
   ├── SchemaCommand.cs          # Schema export CLI command
   ├── ConstantsCommand.cs       # Constants generation CLI command
   ├── RefDataCompareCommand.cs  # Reference data comparison CLI command
+  ├── RefDataMigrateCommand.cs  # Reference data migration CLI command
   └── ProcessManageCommand.cs   # Process management CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
@@ -520,6 +641,10 @@ Services/
   ├── RecordComparer.cs         # Record and association comparison logic
   ├── IComparisonReporter.cs    # Comparison report interface
   ├── ComparisonReporter.cs     # Comparison report Excel generation
+  ├── IRefDataMigrator.cs       # Reference data migrator interface
+  ├── RefDataMigrator.cs        # Reference data migration logic
+  ├── IMigrationReporter.cs     # Migration reporter interface
+  ├── MigrationReporter.cs      # Migration report Excel generation
   ├── IProcessManager.cs        # Process management interface
   ├── ProcessManager.cs         # Process state management logic
   └── ProcessReporter.cs        # Process report Excel generation
@@ -538,6 +663,8 @@ Models/
   ├── RefDataCompareConfig.cs   # Reference data comparison configuration
   ├── ComparisonResult.cs       # Table comparison result models
   ├── RelationshipComparisonResult.cs # N:N relationship comparison models
+  ├── RefDataMigrateConfig.cs   # Reference data migration configuration
+  ├── RefDataMigrateModels.cs   # Migration result models
   ├── ProcessManageConfig.cs    # Process management configuration
   └── ProcessManageModels.cs    # Process state models
 ```
@@ -565,7 +692,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **258 passing tests** (100% pass rate)
+- **310 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
@@ -577,8 +704,9 @@ Test coverage includes:
 - ✅ Entity/attribute filtering
 - ✅ Metadata mapping
 - ✅ Model validation
-- ✅ Command orchestration (all 4 commands)
+- ✅ Command orchestration (all 5 commands)
 - ✅ Reference data comparison (table records, N:N relationships, name resolution)
+- ✅ Reference data migration (all 4 passes, diff/force modes, column filtering, N:N sync)
 - ✅ Process management (pattern matching, retry logic, state determination)
 
 ## Development

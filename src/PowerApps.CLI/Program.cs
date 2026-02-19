@@ -21,6 +21,9 @@ public class Program
         // Add process-manage command
         rootCommand.AddCommand(ProcessManageCommand.CreateCliCommand());
 
+        // Add refdata-migrate command
+        rootCommand.AddCommand(RefDataMigrateCommand.CreateCliCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }
