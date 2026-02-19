@@ -1,5 +1,7 @@
 using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
+using Microsoft.Xrm.Sdk.Metadata.Query;
 using Microsoft.Xrm.Sdk.Query;
 
 namespace PowerApps.CLI.Infrastructure;
@@ -109,4 +111,26 @@ public interface IDataverseClient
     /// <param name="fetchXml">The FetchXML query string.</param>
     /// <returns>Collection of entities matching the query.</returns>
     EntityCollection RetrieveRecordsByFetchXml(string fetchXml);
+
+    /// <summary>
+    /// Executes multiple organization requests in a single batch.
+    /// </summary>
+    /// <param name="requests">The collection of requests to execute.</param>
+    /// <param name="continueOnError">Whether to continue processing if a request fails.</param>
+    /// <returns>The batch execution response.</returns>
+    ExecuteMultipleResponse ExecuteMultiple(OrganizationRequestCollection requests, bool continueOnError);
+
+    /// <summary>
+    /// Retrieves entity metadata including attribute definitions.
+    /// </summary>
+    /// <param name="entityLogicalName">The logical name of the entity.</param>
+    /// <returns>The entity metadata.</returns>
+    EntityMetadata GetEntityMetadata(string entityLogicalName);
+
+    /// <summary>
+    /// Retrieves many-to-many relationship metadata by relationship schema name.
+    /// </summary>
+    /// <param name="relationshipName">The schema name of the N:N relationship.</param>
+    /// <returns>The many-to-many relationship metadata.</returns>
+    ManyToManyRelationshipMetadata GetManyToManyRelationshipMetadata(string relationshipName);
 }

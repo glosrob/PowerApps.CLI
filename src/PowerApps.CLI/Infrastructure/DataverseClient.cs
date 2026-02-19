@@ -324,6 +324,57 @@ public class DataverseClient : IDataverseClient
         return _serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
     }
 
+    public ExecuteMultipleResponse ExecuteMultiple(OrganizationRequestCollection requests, bool continueOnError)
+    {
+        if (requests == null)
+        {
+            throw new ArgumentNullException(nameof(requests));
+        }
+
+        var batch = new ExecuteMultipleRequest
+        {
+            Requests = requests,
+            Settings = new ExecuteMultipleSettings
+            {
+                ContinueOnError = continueOnError,
+                ReturnResponses = true
+            }
+        };
+        return (ExecuteMultipleResponse)_serviceClient.Execute(batch);
+    }
+
+    public EntityMetadata GetEntityMetadata(string entityLogicalName)
+    {
+        if (string.IsNullOrWhiteSpace(entityLogicalName))
+        {
+            throw new ArgumentException("Entity logical name must be provided.", nameof(entityLogicalName));
+        }
+
+        var request = new RetrieveEntityRequest
+        {
+            LogicalName = entityLogicalName,
+            EntityFilters = EntityFilters.Attributes,
+            RetrieveAsIfPublished = false
+        };
+        var response = (RetrieveEntityResponse)_serviceClient.Execute(request);
+        return response.EntityMetadata;
+    }
+
+    public ManyToManyRelationshipMetadata GetManyToManyRelationshipMetadata(string relationshipName)
+    {
+        if (string.IsNullOrWhiteSpace(relationshipName))
+        {
+            throw new ArgumentException("Relationship name must be provided.", nameof(relationshipName));
+        }
+
+        var request = new RetrieveRelationshipRequest
+        {
+            Name = relationshipName
+        };
+        var response = (RetrieveRelationshipResponse)_serviceClient.Execute(request);
+        return (ManyToManyRelationshipMetadata)response.RelationshipMetadata;
+    }
+
     private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
         if (string.IsNullOrWhiteSpace(url) && string.IsNullOrWhiteSpace(connectionString))
