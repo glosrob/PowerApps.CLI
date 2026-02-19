@@ -139,11 +139,11 @@ public class RefDataMigrator : IRefDataMigrator
         }
 
         // Pass 4: Sync N:N relationships
-        if (config.ManyToManyRelationships.Count > 0)
+        if (config.Relationships.Count > 0)
         {
             _logger.LogInfo("");
             _logger.LogInfo("=== Pass 4: Syncing N:N relationships ===");
-            foreach (var m2mConfig in config.ManyToManyRelationships)
+            foreach (var m2mConfig in config.Relationships)
             {
                 var m2mTimer = Stopwatch.StartNew();
                 try
@@ -186,7 +186,7 @@ public class RefDataMigrator : IRefDataMigrator
         _logger.LogInfoIfVerbose($"  Retrieving metadata for {tableName}...");
         var metadata = _targetClient.GetEntityMetadata(tableName);
         var primaryKeyField = metadata.PrimaryIdAttribute;
-        var writableColumns = GetWritableColumns(metadata, tableConfig.ExcludeColumns, tableConfig.IncludeColumns);
+        var writableColumns = GetWritableColumns(metadata, tableConfig.ExcludeFields, tableConfig.IncludeFields);
 
         _logger.LogInfoIfVerbose($"  Primary key: {primaryKeyField}, Writable columns: {writableColumns.Count}");
 

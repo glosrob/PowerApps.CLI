@@ -377,7 +377,7 @@ public class RefDataMigratorTests
         {
             Tables = new List<MigrateTableConfig>
             {
-                new() { LogicalName = "account", ExcludeColumns = new List<string> { "description" } }
+                new() { LogicalName = "account", ExcludeFields = new List<string> { "description" } }
             }
         };
         var metadata = CreateMetadata("account", "accountid", "name", "description");
@@ -436,14 +436,14 @@ public class RefDataMigratorTests
     }
 
     [Fact]
-    public async Task MigrateAsync_IncludeColumns_OnlySyncsSpecifiedFields()
+    public async Task MigrateAsync_IncludeFields_OnlySyncsSpecifiedFields()
     {
         // Arrange
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>
             {
-                new() { LogicalName = "team", IncludeColumns = new List<string> { "name", "description" } }
+                new() { LogicalName = "team", IncludeFields = new List<string> { "name", "description" } }
             }
         };
         var metadata = CreateMetadata("team", "teamid", "name", "description", "emailaddress", "organizationid");
@@ -474,14 +474,14 @@ public class RefDataMigratorTests
     }
 
     [Fact]
-    public async Task MigrateAsync_IncludeColumns_StillExcludesSystemFields()
+    public async Task MigrateAsync_IncludeFields_StillExcludesSystemFields()
     {
         // Arrange - include a system field in includeColumns, it should still be excluded
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>
             {
-                new() { LogicalName = "account", IncludeColumns = new List<string> { "name", "createdby" } }
+                new() { LogicalName = "account", IncludeFields = new List<string> { "name", "createdby" } }
             }
         };
         var metadata = CreateMetadata("account", "accountid", "name", "createdby");
@@ -508,14 +508,14 @@ public class RefDataMigratorTests
     }
 
     [Fact]
-    public async Task MigrateAsync_EmptyIncludeColumns_SyncsAllWritableFields()
+    public async Task MigrateAsync_EmptyIncludeFields_SyncsAllWritableFields()
     {
         // Arrange - empty includeColumns means sync everything (existing behaviour)
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>
             {
-                new() { LogicalName = "account", IncludeColumns = new List<string>() }
+                new() { LogicalName = "account", IncludeFields = new List<string>() }
             }
         };
         var metadata = CreateMetadata("account", "accountid", "name", "description");
@@ -602,7 +602,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            ManyToManyRelationships = new List<ManyToManyConfig>
+            Relationships = new List<ManyToManyConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -651,7 +651,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            ManyToManyRelationships = new List<ManyToManyConfig>
+            Relationships = new List<ManyToManyConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -690,7 +690,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            ManyToManyRelationships = new List<ManyToManyConfig>
+            Relationships = new List<ManyToManyConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -728,7 +728,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            ManyToManyRelationships = new List<ManyToManyConfig>
+            Relationships = new List<ManyToManyConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }

@@ -316,15 +316,15 @@ powerapps-cli refdata-migrate \
     {
       "logicalName": "rob_priority",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
-      "excludeColumns": ["rob_legacycode"],
+      "excludeFields": ["rob_legacycode"],
       "manageState": false
     },
     {
       "logicalName": "rob_item",
-      "includeColumns": ["rob_name", "rob_categoryid", "rob_priorityid"]
+      "includeFields": ["rob_name", "rob_categoryid", "rob_priorityid"]
     }
   ],
-  "manyToManyRelationships": [
+  "relationships": [
     { "relationshipName": "rob_category_priority" }
   ]
 }
@@ -335,8 +335,8 @@ powerapps-cli refdata-migrate \
 - Use `--force` to push all records regardless of whether they have changed
 - Lookups are applied in a second pass to handle self-referential relationships
 - `manageState: true` will sync the active/inactive state of records
-- `includeColumns` restricts migration to only the specified columns (system fields always excluded)
-- `excludeColumns` removes specific columns from migration
+- `includeFields` restricts migration to only the specified fields (system fields always excluded)
+- `excludeFields` removes specific fields from migration
 
 **Output**: Excel report with:
 - Summary sheet showing environment info, totals, and per-table results
