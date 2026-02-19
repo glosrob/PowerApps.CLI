@@ -338,21 +338,35 @@ public class RefDataMigrator : IRefDataMigrator
         };
     }
 
-    private async Task<ManyToManyMigrationResult> SyncManyToManyAsync(ManyToManyConfig m2mConfig, int batchSize, bool dryRun)
+    private async Task<ManyToManyMigrationResult> SyncManyToManyAsync(RefDataRelationshipConfig m2mConfig, int batchSize, bool dryRun)
     {
         var relationshipName = m2mConfig.RelationshipName;
         var result = new ManyToManyMigrationResult { RelationshipName = relationshipName };
 
         _logger.LogInfo($"  Relationship: {relationshipName}");
 
-        // Get relationship metadata to discover intersection entity and key columns
-        _logger.LogInfoIfVerbose($"    Retrieving relationship metadata...");
-        var relMetadata = _sourceClient.GetManyToManyRelationshipMetadata(relationshipName);
-        var intersectEntity = relMetadata.IntersectEntityName;
-        var entity1Name = relMetadata.Entity1LogicalName;
-        var entity1Key = relMetadata.Entity1IntersectAttribute;
-        var entity2Name = relMetadata.Entity2LogicalName;
-        var entity2Key = relMetadata.Entity2IntersectAttribute;
+        // Resolve relationship details — use explicit fields if all present,
+        // otherwise call metadata API (single fast lookup per relationship).
+        string intersectEntity, entity1Name, entity1Key, entity2Name, entity2Key;
+        if (m2mConfig.HasExplicitFields)
+        {
+            intersectEntity = m2mConfig.IntersectEntity!;
+            entity1Name = m2mConfig.Entity1!;
+            entity1Key = m2mConfig.Entity1IdField!;
+            entity2Name = m2mConfig.Entity2!;
+            entity2Key = m2mConfig.Entity2IdField!;
+            _logger.LogInfoIfVerbose($"    Using explicit relationship fields (skipping metadata lookup)");
+        }
+        else
+        {
+            _logger.LogInfoIfVerbose($"    Retrieving relationship metadata...");
+            var relMetadata = _sourceClient.GetManyToManyRelationshipMetadata(relationshipName);
+            intersectEntity = relMetadata.IntersectEntityName;
+            entity1Name = relMetadata.Entity1LogicalName;
+            entity1Key = relMetadata.Entity1IntersectAttribute;
+            entity2Name = relMetadata.Entity2LogicalName;
+            entity2Key = relMetadata.Entity2IntersectAttribute;
+        }
 
         result.Entity1Name = entity1Name;
         result.Entity2Name = entity2Name;

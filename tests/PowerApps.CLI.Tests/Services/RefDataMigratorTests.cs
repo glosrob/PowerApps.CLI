@@ -602,7 +602,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            Relationships = new List<ManyToManyConfig>
+            Relationships = new List<RefDataRelationshipConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -651,7 +651,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            Relationships = new List<ManyToManyConfig>
+            Relationships = new List<RefDataRelationshipConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -690,7 +690,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            Relationships = new List<ManyToManyConfig>
+            Relationships = new List<RefDataRelationshipConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -728,7 +728,7 @@ public class RefDataMigratorTests
         var config = new RefDataMigrateConfig
         {
             Tables = new List<MigrateTableConfig>(),
-            Relationships = new List<ManyToManyConfig>
+            Relationships = new List<RefDataRelationshipConfig>
             {
                 new() { RelationshipName = "entity1_entity2" }
             }
@@ -752,6 +752,48 @@ public class RefDataMigratorTests
         // Assert
         Assert.Equal(1, result.ManyToManyResults[0].AssociatedCount);
         _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_Pass4_WithExplicitFields_SkipsMetadataLookup()
+    {
+        // Arrange — supply all explicit entity fields so no metadata API call is needed
+        var config = new RefDataMigrateConfig
+        {
+            Tables = new List<MigrateTableConfig>(),
+            Relationships = new List<RefDataRelationshipConfig>
+            {
+                new()
+                {
+                    RelationshipName = "entity1_entity2",
+                    IntersectEntity = "entity1_entity2",
+                    Entity1 = "entity1",
+                    Entity1IdField = "entity1id",
+                    Entity2 = "entity2",
+                    Entity2IdField = "entity2id"
+                }
+            }
+        };
+
+        // Source has 1 association, target has 0
+        var sourceRecord = new Entity("entity1_entity2");
+        sourceRecord["entity1id"] = Guid.NewGuid();
+        sourceRecord["entity2id"] = Guid.NewGuid();
+
+        _mockSourceClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { sourceRecord }));
+        _mockTargetClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection());
+
+        SetupExecuteMultiple(CreateSuccessResponse(1));
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: true);
+
+        // Assert — metadata lookup was NOT called
+        _mockSourceClient.Verify(c => c.GetManyToManyRelationshipMetadata(It.IsAny<string>()), Times.Never);
+        Assert.Single(result.ManyToManyResults);
+        Assert.Equal(1, result.ManyToManyResults[0].AssociatedCount);
     }
 
     #endregion

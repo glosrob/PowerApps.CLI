@@ -23,6 +23,7 @@ public class RecordComparer : IRecordComparer
         EntityCollection sourceRecords,
         EntityCollection targetRecords,
         HashSet<string> excludeFields,
+        ISet<string>? includeFields = null,
         string? primaryNameField = null,
         string? primaryIdField = null)
     {
@@ -67,7 +68,7 @@ public class RecordComparer : IRecordComparer
             var sourceEntity = sourceDict[commonId];
             var targetEntity = targetDict[commonId];
 
-            var fieldDifferences = CompareFields(sourceEntity, targetEntity, excludeFields, primaryIdField);
+            var fieldDifferences = CompareFields(sourceEntity, targetEntity, excludeFields, includeFields, primaryIdField);
 
             if (fieldDifferences.Any())
             {
@@ -84,7 +85,7 @@ public class RecordComparer : IRecordComparer
         return result;
     }
 
-    private List<FieldDifference> CompareFields(Entity sourceEntity, Entity targetEntity, HashSet<string> excludeFields, string? primaryIdField = null)
+    private List<FieldDifference> CompareFields(Entity sourceEntity, Entity targetEntity, HashSet<string> excludeFields, ISet<string>? includeFields, string? primaryIdField = null)
     {
         var differences = new List<FieldDifference>();
 
@@ -93,6 +94,14 @@ public class RecordComparer : IRecordComparer
             .Union(targetEntity.Attributes.Keys)
             .Where(attr => !ShouldExcludeField(attr, excludeFields, primaryIdField))
             .ToList();
+
+        // Apply include allowlist if specified
+        if (includeFields != null && includeFields.Count > 0)
+        {
+            allAttributes = allAttributes
+                .Where(attr => includeFields.Contains(attr))
+                .ToList();
+        }
 
         foreach (var attributeName in allAttributes)
         {

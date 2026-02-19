@@ -66,7 +66,7 @@ public class RefDataCompareCommandTests
             .Returns(new EntityCollection());
         _mockComparer.Setup(c => c.CompareRecords(
                 It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
-                It.IsAny<HashSet<string>>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new TableComparisonResult());
 
         // Act
@@ -98,7 +98,7 @@ public class RefDataCompareCommandTests
         _mockTargetClient.Setup(c => c.RetrieveRecords("account", null)).Returns(targetRecords);
         _mockComparer.Setup(c => c.CompareRecords(
                 It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
-                It.IsAny<HashSet<string>>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new TableComparisonResult());
 
         // Act
@@ -107,7 +107,7 @@ public class RefDataCompareCommandTests
         // Assert
         _mockComparer.Verify(c => c.CompareRecords(
             "account", sourceRecords, targetRecords,
-            It.IsAny<HashSet<string>>(), "name", "accountid"), Times.Once);
+            It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), "name", "accountid"), Times.Once);
     }
 
     [Fact]
@@ -129,7 +129,7 @@ public class RefDataCompareCommandTests
             .Returns(new EntityCollection());
         _mockComparer.Setup(c => c.CompareRecords(
                 It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
-                It.IsAny<HashSet<string>>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new TableComparisonResult());
 
         // Act
@@ -182,6 +182,7 @@ public class RefDataCompareCommandTests
             {
                 new()
                 {
+                    RelationshipName = "contact_leads",
                     IntersectEntity = "contactleads",
                     DisplayName = "Contact to Lead",
                     Entity1 = "contact",
@@ -227,6 +228,7 @@ public class RefDataCompareCommandTests
             {
                 new()
                 {
+                    RelationshipName = "contact_leads",
                     IntersectEntity = "contactleads",
                     DisplayName = "Contact to Lead",
                     Entity1 = "contact",
@@ -279,7 +281,7 @@ public class RefDataCompareCommandTests
             .Returns(new EntityCollection());
         _mockComparer.Setup(c => c.CompareRecords(
                 It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
-                It.IsAny<HashSet<string>>(), It.IsAny<string?>(), It.IsAny<string?>()))
+                It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), It.IsAny<string?>(), It.IsAny<string?>()))
             .Returns(new TableComparisonResult());
 
         // Act
@@ -290,6 +292,84 @@ public class RefDataCompareCommandTests
             It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
             It.IsAny<string>(), It.IsAny<string>(),
             It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RelationshipWithoutExplicitFields_CallsMetadataLookup()
+    {
+        // Arrange — only RelationshipName provided, no explicit entity fields
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>(),
+            Relationships = new List<RefDataRelationshipConfig>
+            {
+                new() { RelationshipName = "contact_leads" }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var metadata = new Microsoft.Xrm.Sdk.Metadata.ManyToManyRelationshipMetadata
+        {
+            IntersectEntityName = "contactleads",
+            Entity1LogicalName = "contact",
+            Entity1IntersectAttribute = "contactid",
+            Entity2LogicalName = "lead",
+            Entity2IntersectAttribute = "leadid"
+        };
+        _mockSourceClient.Setup(c => c.GetManyToManyRelationshipMetadata("contact_leads")).Returns(metadata);
+        _mockSourceClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockTargetClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockComparer.Setup(c => c.CompareAssociations(
+                It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+                It.IsAny<string>(), It.IsAny<string>(),
+                It.IsAny<Dictionary<Guid, string>>(), It.IsAny<Dictionary<Guid, string>>()))
+            .Returns(new RelationshipComparisonResult());
+
+        // Act
+        await _command.ExecuteAsync("config.json", "report.xlsx");
+
+        // Assert — metadata lookup was called, intersect entity was resolved from it
+        _mockSourceClient.Verify(c => c.GetManyToManyRelationshipMetadata("contact_leads"), Times.Once);
+        _mockSourceClient.Verify(c => c.RetrieveRecords("contactleads", null), Times.Once);
+        _mockTargetClient.Verify(c => c.RetrieveRecords("contactleads", null), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithIncludeFields_PassesAllowlistToComparer()
+    {
+        // Arrange
+        var config = new RefDataCompareConfig
+        {
+            Tables = new List<RefDataTableConfig>
+            {
+                new() { LogicalName = "account", IncludeFields = new List<string> { "name", "telephone1" } }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        _mockSourceClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockTargetClient.Setup(c => c.RetrieveRecords(It.IsAny<string>(), It.IsAny<string?>()))
+            .Returns(new EntityCollection());
+        _mockComparer.Setup(c => c.CompareRecords(
+                It.IsAny<string>(), It.IsAny<EntityCollection>(), It.IsAny<EntityCollection>(),
+                It.IsAny<HashSet<string>>(), It.IsAny<ISet<string>?>(), It.IsAny<string?>(), It.IsAny<string?>()))
+            .Returns(new TableComparisonResult());
+
+        // Act
+        await _command.ExecuteAsync("config.json", "report.xlsx");
+
+        // Assert — CompareRecords was called with a non-null includeFields set containing our 2 fields
+        _mockComparer.Verify(c => c.CompareRecords(
+            "account",
+            It.IsAny<EntityCollection>(),
+            It.IsAny<EntityCollection>(),
+            It.IsAny<HashSet<string>>(),
+            It.Is<ISet<string>?>(s => s != null && s.Contains("name") && s.Contains("telephone1")),
+            It.IsAny<string?>(),
+            It.IsAny<string?>()), Times.Once);
     }
 
     [Fact]

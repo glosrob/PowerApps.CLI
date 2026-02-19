@@ -228,23 +228,32 @@ powerapps-cli refdata-compare \
       "primaryIdField": "rob_priorityid",
       "primaryNameField": "rob_priorityname",
       "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
-      "excludeFields": ["rob_temporaryfield"]
+      "excludeFields": ["rob_temporaryfield"],
+      "includeFields": []
+    },
+    {
+      "logicalName": "rob_item",
+      "includeFields": ["rob_name", "rob_categoryid", "rob_priorityid"]
     }
   ],
   "relationships": [
     {
-      "intersectEntity": "rob_category_priority",
+      "relationshipName": "rob_category_priority",
       "displayName": "Category to Priority",
-      "entity1": "rob_category",
-      "entity1IdField": "rob_categoryid",
       "entity1NameField": "rob_name",
-      "entity2": "rob_priority",
-      "entity2IdField": "rob_priorityid",
       "entity2NameField": "rob_priorityname"
     }
   ]
 }
 ```
+
+> **Tip:** The `relationships` config is compatible with `refdata-migrate` — you can use the same JSON file for both tools. See [Shared Config](#shared-config) below.
+
+**Behaviour**:
+- `includeFields` restricts comparison to only the specified fields (acts as an allowlist per table)
+- `excludeFields` removes specific fields from comparison
+- Relationship details are resolved automatically via metadata lookup — only `relationshipName` is required
+- `displayName`, `entity1NameField`, `entity2NameField` are optional overrides for report display
 
 **Output**: Excel workbook with:
 - Summary sheet showing all tables and relationship difference counts
@@ -325,7 +334,9 @@ powerapps-cli refdata-migrate \
     }
   ],
   "relationships": [
-    { "relationshipName": "rob_category_priority" }
+    {
+      "relationshipName": "rob_category_priority"
+    }
   ]
 }
 ```
@@ -337,10 +348,55 @@ powerapps-cli refdata-migrate \
 - `manageState: true` will sync the active/inactive state of records
 - `includeFields` restricts migration to only the specified fields (system fields always excluded)
 - `excludeFields` removes specific fields from migration
+- Relationship details are resolved automatically via metadata lookup — only `relationshipName` is required
 
 **Output**: Excel report with:
 - Summary sheet showing environment info, totals, and per-table results
 - Errors sheet (if any failures occurred) with table, record ID, phase, and error message
+
+### Shared Config
+
+`refdata-compare` and `refdata-migrate` share the same config schema. A single JSON file can drive both tools — each tool reads what it needs and silently ignores the rest.
+
+```json
+{
+  "batchSize": 1000,
+  "excludeSystemFields": true,
+  "tables": [
+    {
+      "logicalName": "rob_category",
+      "primaryIdField": "rob_categoryid",
+      "primaryNameField": "rob_name",
+      "filter": "<filter><condition attribute='statecode' operator='eq' value='0'/></filter>",
+      "excludeFields": [],
+      "includeFields": [],
+      "manageState": true
+    }
+  ],
+  "relationships": [
+    {
+      "relationshipName": "rob_category_priority",
+      "displayName": "Category to Priority",
+      "entity1NameField": "rob_name",
+      "entity2NameField": "rob_priorityname"
+    }
+  ]
+}
+```
+
+| Property | Compare | Migrate |
+|---|---|---|
+| `tables[].logicalName` | ✓ | ✓ |
+| `tables[].filter` | ✓ | ✓ |
+| `tables[].excludeFields` | ✓ | ✓ |
+| `tables[].includeFields` | ✓ (allowlist) | ✓ (allowlist) |
+| `tables[].manageState` | ignored | ✓ |
+| `tables[].primaryIdField` / `primaryNameField` / `displayName` | ✓ | ignored |
+| `relationships[].relationshipName` | ✓ (metadata lookup) | ✓ (metadata lookup) |
+| `relationships[].displayName` | ✓ (report tab name) | ✓ (report tab name) |
+| `relationships[].entity1NameField` / `entity2NameField` | ✓ (display names) | ignored |
+| `batchSize` | ignored | ✓ |
+| `excludeSystemFields` / `globalExcludeFields` | ✓ | ignored |
 
 ### Process Management
 
@@ -692,7 +748,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **310 passing tests** (100% pass rate)
+- **315 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 

@@ -100,12 +100,18 @@ public class RefDataCompareCommand
                     tableExcludeFields.Add(field);
                 }
 
+                // Build table-specific include allowlist (null means compare all non-excluded fields)
+                HashSet<string>? tableIncludeFields = tableConfig.IncludeFields.Count > 0
+                    ? new HashSet<string>(tableConfig.IncludeFields, StringComparer.OrdinalIgnoreCase)
+                    : null;
+
                 // Compare records
                 var tableResult = _recordComparer.CompareRecords(
                     tableConfig.LogicalName,
                     sourceRecords,
                     targetRecords,
                     tableExcludeFields,
+                    tableIncludeFields,
                     tableConfig.PrimaryNameField,
                     tableConfig.PrimaryIdField);
 
@@ -134,15 +140,38 @@ public class RefDataCompareCommand
 
                 foreach (var relConfig in config.Relationships)
                 {
-                    var displayName = relConfig.DisplayName ?? relConfig.IntersectEntity;
+                    // Resolve relationship details — use explicit fields if all present,
+                    // otherwise call metadata API (single fast lookup per relationship).
+                    string intersectEntity, entity1Name, entity1IdField, entity2Name, entity2IdField;
+                    if (relConfig.HasExplicitFields)
+                    {
+                        intersectEntity = relConfig.IntersectEntity!;
+                        entity1Name = relConfig.Entity1!;
+                        entity1IdField = relConfig.Entity1IdField!;
+                        entity2Name = relConfig.Entity2!;
+                        entity2IdField = relConfig.Entity2IdField!;
+                    }
+                    else
+                    {
+                        _logger.LogInfoIfVerbose($"  Looking up metadata for relationship: {relConfig.RelationshipName}");
+                        var relMetadata = _sourceClient.GetManyToManyRelationshipMetadata(relConfig.RelationshipName);
+                        intersectEntity = relMetadata.IntersectEntityName;
+                        entity1Name = relMetadata.Entity1LogicalName;
+                        entity1IdField = relMetadata.Entity1IntersectAttribute;
+                        entity2Name = relMetadata.Entity2LogicalName;
+                        entity2IdField = relMetadata.Entity2IntersectAttribute;
+                    }
+
+                    var displayName = relConfig.DisplayName
+                        ?? (string.IsNullOrEmpty(relConfig.RelationshipName) ? intersectEntity : relConfig.RelationshipName);
                     _logger.LogInfo($"Comparing relationship: {displayName}");
 
                     // Retrieve association records from both environments
-                    _logger.LogInfoIfVerbose($"  Retrieving source associations from {relConfig.IntersectEntity}...");
-                    var sourceAssociations = _sourceClient.RetrieveRecords(relConfig.IntersectEntity);
+                    _logger.LogInfoIfVerbose($"  Retrieving source associations from {intersectEntity}...");
+                    var sourceAssociations = _sourceClient.RetrieveRecords(intersectEntity);
 
-                    _logger.LogInfoIfVerbose($"  Retrieving target associations from {relConfig.IntersectEntity}...");
-                    var targetAssociations = _targetClient.RetrieveRecords(relConfig.IntersectEntity);
+                    _logger.LogInfoIfVerbose($"  Retrieving target associations from {intersectEntity}...");
+                    var targetAssociations = _targetClient.RetrieveRecords(intersectEntity);
 
                     _logger.LogInfoIfVerbose($"  Source: {sourceAssociations.Entities.Count} association(s), Target: {targetAssociations.Entities.Count} association(s)");
 
@@ -150,12 +179,12 @@ public class RefDataCompareCommand
                     var entity1NameField = relConfig.Entity1NameField ?? "name";
                     var entity2NameField = relConfig.Entity2NameField ?? "name";
 
-                    _logger.LogInfoIfVerbose($"  Retrieving {relConfig.Entity1} names for display...");
-                    var entity1Records = _sourceClient.RetrieveRecords(relConfig.Entity1);
+                    _logger.LogInfoIfVerbose($"  Retrieving {entity1Name} names for display...");
+                    var entity1Records = _sourceClient.RetrieveRecords(entity1Name);
                     var entity1Names = RecordComparer.BuildNameLookup(entity1Records, entity1NameField);
 
-                    _logger.LogInfoIfVerbose($"  Retrieving {relConfig.Entity2} names for display...");
-                    var entity2Records = _sourceClient.RetrieveRecords(relConfig.Entity2);
+                    _logger.LogInfoIfVerbose($"  Retrieving {entity2Name} names for display...");
+                    var entity2Records = _sourceClient.RetrieveRecords(entity2Name);
                     var entity2Names = RecordComparer.BuildNameLookup(entity2Records, entity2NameField);
 
                     // Compare associations
@@ -163,12 +192,12 @@ public class RefDataCompareCommand
                         displayName,
                         sourceAssociations,
                         targetAssociations,
-                        relConfig.Entity1IdField,
-                        relConfig.Entity2IdField,
+                        entity1IdField,
+                        entity2IdField,
                         entity1Names,
                         entity2Names);
 
-                    relResult.IntersectEntity = relConfig.IntersectEntity;
+                    relResult.IntersectEntity = intersectEntity;
                     comparisonResult.RelationshipResults.Add(relResult);
 
                     if (relResult.HasDifferences)
