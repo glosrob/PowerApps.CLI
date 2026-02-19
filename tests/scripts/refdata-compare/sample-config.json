@@ -17,7 +17,23 @@
       "primaryNameField": "fullname",
       "filter": "",
       "excludeFields": ["address1_addressid", "address2_addressid", "address3_addressid"]
+    },
+    {
+      "logicalName": "opportunity",
+      "displayName": "Opportunity (name only)",
+      "primaryIdField": "opportunityid",
+      "primaryNameField": "name",
+      "filter": "",
+      "excludeFields": [],
+      "includeFields": ["name", "statecode", "statuscode"]
     }
   ],
-  "relationships": []
+  "relationships": [
+    {
+      "relationshipName": "contactleads",
+      "displayName": "Contact to Lead",
+      "entity1NameField": "fullname",
+      "entity2NameField": "companyname"
+    }
+  ]
 }
