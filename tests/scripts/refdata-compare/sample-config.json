@@ -19,21 +19,14 @@
       "excludeFields": ["address1_addressid", "address2_addressid", "address3_addressid"]
     },
     {
-      "logicalName": "opportunity",
-      "displayName": "Opportunity (name only)",
-      "primaryIdField": "opportunityid",
-      "primaryNameField": "name",
+      "logicalName": "systemuser",
+      "displayName": "System User (name only)",
+      "primaryIdField": "systemuserid",
+      "primaryNameField": "fullname",
       "filter": "",
       "excludeFields": [],
-      "includeFields": ["name", "statecode", "statuscode"]
+      "includeFields": ["fullname", "internalemailaddress", "isdisabled"]
     }
   ],
-  "relationships": [
-    {
-      "relationshipName": "contactleads",
-      "displayName": "Contact to Lead",
-      "entity1NameField": "fullname",
-      "entity2NameField": "companyname"
-    }
-  ]
+  "relationships": []
 }
