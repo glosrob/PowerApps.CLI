@@ -100,5 +100,6 @@ tests/scripts/*/*config.json
 # Command output (generated during testing/dev)
 Generated/
 **/refdata-comparison*.xlsx
+**/migration-report*.xlsx
 **/process-report*.xlsx
 temp-schema.json

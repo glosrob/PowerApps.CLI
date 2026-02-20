@@ -273,6 +273,87 @@ public class RecordComparerTests
 
     #endregion
 
+    #region IncludeFields Tests
+
+    [Fact]
+    public void CompareRecords_WithIncludeFields_OnlyComparesSpecifiedFields()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var sourceRecords = new EntityCollection
+        {
+            Entities =
+            {
+                CreateEntity("account", id, "Account 1", new Dictionary<string, object>
+                {
+                    { "telephone1", "555-1111" },
+                    { "fax", "555-9999" }
+                })
+            }
+        };
+        var targetRecords = new EntityCollection
+        {
+            Entities =
+            {
+                CreateEntity("account", id, "Account 1", new Dictionary<string, object>
+                {
+                    { "telephone1", "555-2222" }, // different
+                    { "fax", "555-8888" }          // different but not in includeFields
+                })
+            }
+        };
+        var excludeFields = new HashSet<string>();
+        var includeFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "telephone1" };
+
+        // Act
+        var result = _comparer.CompareRecords("account", sourceRecords, targetRecords, excludeFields, includeFields);
+
+        // Assert - only telephone1 compared, so exactly one field difference
+        Assert.Equal(1, result.ModifiedCount);
+        var diff = result.Differences.Single();
+        Assert.Single(diff.FieldDifferences);
+        Assert.Equal("telephone1", diff.FieldDifferences[0].FieldName);
+    }
+
+    [Fact]
+    public void CompareRecords_WithIncludeFields_IgnoresChangesOutsideAllowlist()
+    {
+        // Arrange
+        var id = Guid.NewGuid();
+        var sourceRecords = new EntityCollection
+        {
+            Entities =
+            {
+                CreateEntity("account", id, "Account 1", new Dictionary<string, object>
+                {
+                    { "telephone1", "555-1111" },
+                    { "fax", "555-9999" }
+                })
+            }
+        };
+        var targetRecords = new EntityCollection
+        {
+            Entities =
+            {
+                CreateEntity("account", id, "Account 1", new Dictionary<string, object>
+                {
+                    { "telephone1", "555-1111" }, // same
+                    { "fax", "555-8888" }          // different but outside allowlist
+                })
+            }
+        };
+        var excludeFields = new HashSet<string>();
+        var includeFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "telephone1" };
+
+        // Act
+        var result = _comparer.CompareRecords("account", sourceRecords, targetRecords, excludeFields, includeFields);
+
+        // Assert - fax difference is ignored, no differences found
+        Assert.False(result.HasDifferences);
+    }
+
+    #endregion
+
     #region Mixed Scenario Tests
 
     [Fact]

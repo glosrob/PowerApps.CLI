@@ -17,6 +17,15 @@
       "primaryNameField": "fullname",
       "filter": "",
       "excludeFields": ["address1_addressid", "address2_addressid", "address3_addressid"]
+    },
+    {
+      "logicalName": "systemuser",
+      "displayName": "System User (name only)",
+      "primaryIdField": "systemuserid",
+      "primaryNameField": "fullname",
+      "filter": "",
+      "excludeFields": [],
+      "includeFields": ["fullname", "internalemailaddress", "isdisabled"]
     }
   ],
   "relationships": []

@@ -4,12 +4,7 @@ public class RefDataMigrateConfig
 {
     public int BatchSize { get; set; } = 1000;
     public List<MigrateTableConfig> Tables { get; set; } = new();
-    public List<ManyToManyConfig> Relationships { get; set; } = new();
-}
-
-public class ManyToManyConfig
-{
-    public string RelationshipName { get; set; } = string.Empty;
+    public List<RefDataRelationshipConfig> Relationships { get; set; } = new();
 }
 
 public class MigrateTableConfig
