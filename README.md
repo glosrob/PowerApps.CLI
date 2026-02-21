@@ -518,6 +518,7 @@ powerapps-cli data-patch \
 - Looks up each record by `keyField` / `key`; errors if not found or if multiple records match
 - Reads the current `valueField` value and skips the update if it already matches
 - `value` supports JSON strings, numbers, and booleans — type is inferred automatically
+- Use `"type"` for fields that need explicit conversion: `"date"`, `"datetime"`, `"guid"`, `"optionset"` (wraps in `OptionSetValue`), `"lookup"` (value must be `{ "logicalName": "...", "id": "..." }`)
 - `--config` and `--config-json` are mutually exclusive
 
 **Output**: Excel report with one row per patch entry showing Entity, Key, Field, Old Value, New Value, and Status (Updated / Unchanged / Not Found / Ambiguous Match / Error).
@@ -824,7 +825,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **326 passing tests** (100% pass rate)
+- **330 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
