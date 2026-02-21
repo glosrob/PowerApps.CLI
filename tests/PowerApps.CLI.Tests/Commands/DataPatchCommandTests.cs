@@ -365,6 +365,84 @@ public class DataPatchCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithLookupType_WrapsInEntityReference()
+    {
+        // Arrange
+        var targetId = Guid.NewGuid();
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "anc_somelookup",
+                    Value = JsonDocument.Parse($$"""{"logicalName":"account","id":"{{targetId}}"}""").RootElement,
+                    Type = "lookup"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var recordId = Guid.NewGuid();
+        var existingRecord = new Entity("contact", recordId);
+        existingRecord["anc_somelookup"] = new EntityReference("account", Guid.NewGuid()); // different GUID
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        // Act
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        // Assert — update called with EntityReference, not a plain GUID string
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["anc_somelookup"] != null &&
+            r.Target["anc_somelookup"].GetType() == typeof(EntityReference) &&
+            ((EntityReference)r.Target["anc_somelookup"]).LogicalName == "account" &&
+            ((EntityReference)r.Target["anc_somelookup"]).Id == targetId)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithLookupType_WhenUnchanged_SkipsUpdate()
+    {
+        // Arrange
+        var targetId = Guid.NewGuid();
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "anc_somelookup",
+                    Value = JsonDocument.Parse($$"""{"logicalName":"account","id":"{{targetId}}"}""").RootElement,
+                    Type = "lookup"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var existingRecord = new Entity("contact", Guid.NewGuid());
+        existingRecord["anc_somelookup"] = new EntityReference("account", targetId); // same GUID
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+
+        // Act
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        // Assert — no update because the GUID already matches
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.IsAny<UpdateRequest>()), Times.Never);
+    }
+
+    [Fact]
     public void CreateCliCommand_ReturnsValidCommand()
     {
         var command = DataPatchCommand.CreateCliCommand();

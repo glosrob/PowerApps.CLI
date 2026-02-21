@@ -192,6 +192,10 @@ public class DataPatchCommand
                     JsonValueKind.False  => 0,
                     _ => throw new InvalidOperationException($"Cannot convert {element.ValueKind} to OptionSetValue")
                 }),
+                "lookup" when element.ValueKind == JsonValueKind.Object =>
+                    new EntityReference(
+                        element.GetProperty("logicalName").GetString()!,
+                        Guid.Parse(element.GetProperty("id").GetString()!)),
                 _ => element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString()
             };
         }
@@ -222,6 +226,10 @@ public class DataPatchCommand
                 _                    => element.ToString()
             };
         }
+
+        // EntityReference comparison uses GUID only — normalise to lowercase to match Dataverse output
+        if (type?.ToLowerInvariant() == "lookup" && element.ValueKind == JsonValueKind.Object)
+            return Guid.Parse(element.GetProperty("id").GetString()!).ToString();
 
         return ToTypedValue(element, type)?.ToString();
     }

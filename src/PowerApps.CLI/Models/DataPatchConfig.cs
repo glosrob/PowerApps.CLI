@@ -15,8 +15,9 @@ public class PatchEntry
     public string ValueField { get; set; } = string.Empty;
     public JsonElement Value { get; set; }
     /// <summary>
-    /// Optional type hint for string values that need conversion.
-    /// Supported: "date", "datetime", "guid"
+    /// Optional type hint controlling how the value is sent to Dataverse.
+    /// Supported: "date", "datetime", "guid", "optionset", "lookup"
+    /// For "lookup", Value must be an object: { "logicalName": "...", "id": "..." }
     /// </summary>
     public string? Type { get; set; }
 }
