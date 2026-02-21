@@ -148,7 +148,7 @@ public class DataPatchCommand
 
             var record = records.Entities[0];
             var currentValue = record.Contains(patch.ValueField)
-                ? record[patch.ValueField]?.ToString()
+                ? ExtractCurrentValue(record[patch.ValueField])
                 : null;
 
             result.OldValue = currentValue;
@@ -176,15 +176,23 @@ public class DataPatchCommand
 
     private static object? ToTypedValue(JsonElement element, string? type = null)
     {
-        if (type is not null && element.ValueKind == JsonValueKind.String)
+        if (type is not null && element.ValueKind != JsonValueKind.Null)
         {
-            var str = element.GetString() ?? string.Empty;
             return type.ToLowerInvariant() switch
             {
-                "date" or "datetime" => DateTime.Parse(str, System.Globalization.CultureInfo.InvariantCulture,
-                                            System.Globalization.DateTimeStyles.RoundtripKind),
-                "guid"               => Guid.Parse(str),
-                _                    => str
+                "date" or "datetime" when element.ValueKind == JsonValueKind.String =>
+                    DateTime.Parse(element.GetString()!, System.Globalization.CultureInfo.InvariantCulture,
+                                   System.Globalization.DateTimeStyles.RoundtripKind),
+                "guid" when element.ValueKind == JsonValueKind.String =>
+                    Guid.Parse(element.GetString()!),
+                "optionset" => new OptionSetValue(element.ValueKind switch
+                {
+                    JsonValueKind.Number => element.GetInt32(),
+                    JsonValueKind.True   => 1,
+                    JsonValueKind.False  => 0,
+                    _ => throw new InvalidOperationException($"Cannot convert {element.ValueKind} to OptionSetValue")
+                }),
+                _ => element.ValueKind == JsonValueKind.String ? element.GetString() : element.ToString()
             };
         }
 
@@ -199,8 +207,37 @@ public class DataPatchCommand
         };
     }
 
-    private static string? ValueToString(JsonElement element, string? type = null) =>
-        element.ValueKind == JsonValueKind.Null ? null : ToTypedValue(element, type)?.ToString();
+    private static string? ValueToString(JsonElement element, string? type = null)
+    {
+        if (element.ValueKind == JsonValueKind.Null) return null;
+
+        // OptionSetValue.ToString() returns the type name, so return the integer directly
+        if (type?.ToLowerInvariant() == "optionset")
+        {
+            return element.ValueKind switch
+            {
+                JsonValueKind.Number => element.GetInt32().ToString(),
+                JsonValueKind.True   => "1",
+                JsonValueKind.False  => "0",
+                _                    => element.ToString()
+            };
+        }
+
+        return ToTypedValue(element, type)?.ToString();
+    }
+
+    /// <summary>
+    /// Extracts a display string from a Dataverse attribute value, handling SDK types such as
+    /// <see cref="OptionSetValue"/>, <see cref="EntityReference"/>, and <see cref="Money"/>.
+    /// </summary>
+    private static string? ExtractCurrentValue(object? value) => value switch
+    {
+        null              => null,
+        OptionSetValue osv => osv.Value.ToString(),
+        EntityReference er => er.Id.ToString(),
+        Money m            => m.Value.ToString(System.Globalization.CultureInfo.InvariantCulture),
+        _                  => value.ToString()
+    };
 
     private async Task<DataPatchConfig> LoadConfigAsync(string configPath)
     {

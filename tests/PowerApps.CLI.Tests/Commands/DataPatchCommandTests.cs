@@ -290,6 +290,81 @@ public class DataPatchCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithOptionSetType_WrapsInOptionSetValue()
+    {
+        // Arrange
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "anc_employmentstatus",
+                    Value = JsonDocument.Parse("749500000").RootElement,
+                    Type = "optionset"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var recordId = Guid.NewGuid();
+        var existingRecord = new Entity("contact", recordId);
+        existingRecord["anc_employmentstatus"] = new OptionSetValue(100000000);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        // Act
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        // Assert — update called with OptionSetValue, not plain int
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["anc_employmentstatus"] != null &&
+            r.Target["anc_employmentstatus"].GetType() == typeof(OptionSetValue) &&
+            ((OptionSetValue)r.Target["anc_employmentstatus"]).Value == 749500000)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithOptionSetType_WhenUnchanged_SkipsUpdate()
+    {
+        // Arrange
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "anc_employmentstatus",
+                    Value = JsonDocument.Parse("749500000").RootElement,
+                    Type = "optionset"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var existingRecord = new Entity("contact", Guid.NewGuid());
+        existingRecord["anc_employmentstatus"] = new OptionSetValue(749500000);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+
+        // Act
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        // Assert — no update because value is already correct
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.IsAny<UpdateRequest>()), Times.Never);
+    }
+
+    [Fact]
     public void CreateCliCommand_ReturnsValidCommand()
     {
         var command = DataPatchCommand.CreateCliCommand();
