@@ -24,6 +24,9 @@ public class Program
         // Add refdata-migrate command
         rootCommand.AddCommand(RefDataMigrateCommand.CreateCliCommand());
 
+        // Add data-patch command
+        rootCommand.AddCommand(DataPatchCommand.CreateCliCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }

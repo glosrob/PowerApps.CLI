@@ -48,6 +48,13 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 🧪 **Dry Run Mode** - Preview changes without modifying any process states
 - 📊 **Excel Reporting** - Summary and detailed Excel report of all actions taken
 
+### Data Patch
+- 🩹 **Targeted Record Updates** - Apply field-level updates to specific Dataverse records by key lookup
+- 📁 **Config File or Inline JSON** - Supply config from a file (`--config`) or as a JSON blob (`--config-json`) for pipeline use
+- 🔐 **Pipeline-friendly** - Designed for Key Vault integration: retrieve a JSON secret and pipe it directly to the command
+- 🔍 **Skip-if-unchanged** - Reads the current value first; skips the update if it is already correct
+- 📊 **Excel Reporting** - Per-patch outcome report: Updated / Unchanged / Not Found / Error
+
 ## Installation
 
 ### Prerequisites
@@ -460,6 +467,71 @@ powerapps-cli process-manage \
 
 **Use Case**: Run in CI/CD pipelines after deployment to ensure processes are in the correct state.
 
+### Data Patch
+
+Apply targeted field-level updates to specific Dataverse records, driven by a config file or inline JSON blob. Designed for post-deployment pipelines where environment-specific values need patching (e.g. Power Pages authentication settings).
+
+#### From a config file
+
+```bash
+powerapps-cli data-patch \
+  --config patch.json \
+  --connection-string "$SIT_CONNECTION_STRING" \
+  --output data-patch-report.xlsx
+```
+
+#### From an inline JSON blob (e.g. from Key Vault in a pipeline)
+
+```bash
+# Azure DevOps / bash pipeline step
+JSON=$(az keyvault secret show --name "data-patch-sit" --vault-name "myvault" --query "value" -o tsv)
+powerapps-cli data-patch \
+  --config-json "$JSON" \
+  --connection-string "$SIT_CONNECTION_STRING" \
+  --output data-patch-report.xlsx
+```
+
+#### Example Config File
+
+```json
+{
+  "patches": [
+    {
+      "entity": "mspp_sitesetting",
+      "keyField": "mspp_name",
+      "key": "Authentication/OpenIdConnect/AzureADB2C/Authority",
+      "valueField": "mspp_value",
+      "value": "https://yourtenant.b2clogin.com/yourtenant.onmicrosoft.com/B2C_1A_Policy"
+    },
+    {
+      "entity": "mspp_sitesetting",
+      "keyField": "mspp_name",
+      "key": "Authentication/OpenIdConnect/AzureADB2C/ClientId",
+      "valueField": "mspp_value",
+      "value": "00000000-0000-0000-0000-000000000000"
+    }
+  ]
+}
+```
+
+**Behaviour**:
+- Looks up each record by `keyField` / `key`; errors if not found or if multiple records match
+- Reads the current `valueField` value and skips the update if it already matches
+- `value` supports JSON strings, numbers, and booleans — type is inferred automatically
+- Use `"type"` for fields that need explicit conversion: `"date"`, `"datetime"`, `"guid"`, `"optionset"` (wraps in `OptionSetValue`), `"lookup"` (value must be `{ "logicalName": "...", "id": "..." }`)
+- `--config` and `--config-json` are mutually exclusive
+
+**Output**: Excel report with one row per patch entry showing Entity, Key, Field, Old Value, New Value, and Status (Updated / Unchanged / Not Found / Ambiguous Match / Error).
+
+**Pipeline pattern**:
+```
+1. Install solution
+2. Retrieve JSON blob from Key Vault
+3. powerapps-cli data-patch --config-json $json --connection-string $conn
+```
+
+One Key Vault secret per target environment, each containing the full JSON for that environment.
+
 ## Command Reference
 
 ### schema-export
@@ -683,7 +755,8 @@ Commands/
   ├── ConstantsCommand.cs       # Constants generation CLI command
   ├── RefDataCompareCommand.cs  # Reference data comparison CLI command
   ├── RefDataMigrateCommand.cs  # Reference data migration CLI command
-  └── ProcessManageCommand.cs   # Process management CLI command
+  ├── ProcessManageCommand.cs   # Process management CLI command
+  └── DataPatchCommand.cs       # Data patch CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
   ├── SchemaExtractor.cs        # Metadata extraction with solution filtering
@@ -703,7 +776,9 @@ Services/
   ├── MigrationReporter.cs      # Migration report Excel generation
   ├── IProcessManager.cs        # Process management interface
   ├── ProcessManager.cs         # Process state management logic
-  └── ProcessReporter.cs        # Process report Excel generation
+  ├── ProcessReporter.cs        # Process report Excel generation
+  ├── IDataPatchReporter.cs     # Data patch reporter interface
+  └── DataPatchReporter.cs      # Data patch report Excel generation
 Infrastructure/
   ├── DataverseClient.cs        # Dataverse connection management
   ├── FileWriter.cs             # File I/O abstraction
@@ -722,7 +797,9 @@ Models/
   ├── RefDataMigrateConfig.cs   # Reference data migration configuration
   ├── RefDataMigrateModels.cs   # Migration result models
   ├── ProcessManageConfig.cs    # Process management configuration
-  └── ProcessManageModels.cs    # Process state models
+  ├── ProcessManageModels.cs    # Process state models
+  ├── DataPatchConfig.cs        # Data patch configuration
+  └── DataPatchModels.cs        # Data patch result models
 ```
 
 ## Testing
@@ -748,7 +825,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **315 passing tests** (100% pass rate)
+- **330 passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
@@ -760,10 +837,11 @@ Test coverage includes:
 - ✅ Entity/attribute filtering
 - ✅ Metadata mapping
 - ✅ Model validation
-- ✅ Command orchestration (all 5 commands)
+- ✅ Command orchestration (all 6 commands)
 - ✅ Reference data comparison (table records, N:N relationships, name resolution)
 - ✅ Reference data migration (all 4 passes, diff/force modes, column filtering, N:N sync)
 - ✅ Process management (pattern matching, retry logic, state determination)
+- ✅ Data patch (lookup, skip-if-unchanged, update, error handling)
 
 ## Development
 

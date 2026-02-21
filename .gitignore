@@ -102,4 +102,5 @@ Generated/
 **/refdata-comparison*.xlsx
 **/migration-report*.xlsx
 **/process-report*.xlsx
+**/data-patch-report*.xlsx
 temp-schema.json
