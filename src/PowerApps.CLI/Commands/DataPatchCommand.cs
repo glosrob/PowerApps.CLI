@@ -118,7 +118,7 @@ public class DataPatchCommand
             Entity = patch.Entity,
             Key = patch.Key,
             Field = patch.ValueField,
-            NewValue = ValueToString(patch.Value)
+            NewValue = ValueToString(patch.Value, patch.Type)
         };
 
         try
@@ -160,7 +160,7 @@ public class DataPatchCommand
             }
 
             var updateEntity = new Entity(patch.Entity, record.Id);
-            updateEntity[patch.ValueField] = ToTypedValue(patch.Value);
+            updateEntity[patch.ValueField] = ToTypedValue(patch.Value, patch.Type);
             _client.Execute(new UpdateRequest { Target = updateEntity });
 
             result.Status = PatchStatus.Updated;
@@ -174,21 +174,33 @@ public class DataPatchCommand
         }
     }
 
-    private static object? ToTypedValue(JsonElement element) => element.ValueKind switch
+    private static object? ToTypedValue(JsonElement element, string? type = null)
     {
-        JsonValueKind.String  => element.GetString(),
-        JsonValueKind.True    => true,
-        JsonValueKind.False   => false,
-        JsonValueKind.Number  => element.TryGetInt32(out var i) ? (object)i : element.GetDouble(),
-        JsonValueKind.Null    => null,
-        _                     => element.ToString()
-    };
+        if (type is not null && element.ValueKind == JsonValueKind.String)
+        {
+            var str = element.GetString() ?? string.Empty;
+            return type.ToLowerInvariant() switch
+            {
+                "date" or "datetime" => DateTime.Parse(str, System.Globalization.CultureInfo.InvariantCulture,
+                                            System.Globalization.DateTimeStyles.RoundtripKind),
+                "guid"               => Guid.Parse(str),
+                _                    => str
+            };
+        }
 
-    private static string? ValueToString(JsonElement element) => element.ValueKind switch
-    {
-        JsonValueKind.Null => null,
-        _                  => ToTypedValue(element)?.ToString()
-    };
+        return element.ValueKind switch
+        {
+            JsonValueKind.String  => element.GetString(),
+            JsonValueKind.True    => true,
+            JsonValueKind.False   => false,
+            JsonValueKind.Number  => element.TryGetInt32(out var i) ? (object)i : element.GetDouble(),
+            JsonValueKind.Null    => null,
+            _                     => element.ToString()
+        };
+    }
+
+    private static string? ValueToString(JsonElement element, string? type = null) =>
+        element.ValueKind == JsonValueKind.Null ? null : ToTypedValue(element, type)?.ToString();
 
     private async Task<DataPatchConfig> LoadConfigAsync(string configPath)
     {

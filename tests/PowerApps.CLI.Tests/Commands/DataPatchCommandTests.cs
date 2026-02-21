@@ -247,6 +247,49 @@ public class DataPatchCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithDateType_ParsesStringAsDateTime()
+    {
+        // Arrange
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "birthdate",
+                    Value = JsonDocument.Parse("\"2026-01-01\"").RootElement,
+                    Type = "date"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var recordId = Guid.NewGuid();
+        var existingRecord = new Entity("contact", recordId);
+        existingRecord["birthdate"] = new DateTime(2000, 6, 15);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        // Act
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        // Assert — update called with a DateTime value, not a string
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["birthdate"] != null &&
+            r.Target["birthdate"].GetType() == typeof(DateTime) &&
+            ((DateTime)r.Target["birthdate"]).Year == 2026 &&
+            ((DateTime)r.Target["birthdate"]).Month == 1 &&
+            ((DateTime)r.Target["birthdate"]).Day == 1)),
+            Times.Once);
+    }
+
+    [Fact]
     public void CreateCliCommand_ReturnsValidCommand()
     {
         var command = DataPatchCommand.CreateCliCommand();
