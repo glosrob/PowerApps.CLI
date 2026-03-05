@@ -55,6 +55,11 @@ A .NET command-line tool for extracting and exporting metadata schema from Micro
 - 🔍 **Skip-if-unchanged** - Reads the current value first; skips the update if it is already correct
 - 📊 **Excel Reporting** - Per-patch outcome report: Updated / Unchanged / Not Found / Error
 
+### Solution Layer Analysis
+- 🔍 **Unmanaged Layer Detection** - Identifies solution components where an unmanaged layer sits above the managed solution layer, preventing deployment changes from taking effect
+- 📊 **Excel Report** - Summary and detail sheets listing affected components by type and name with full layer stack
+- 🚀 **Post-deployment Use** - Run after a solution import to confirm changes will take effect
+
 ## Installation
 
 ### Prerequisites
@@ -532,6 +537,46 @@ powerapps-cli data-patch \
 
 One Key Vault secret per target environment, each containing the full JSON for that environment.
 
+### Solution Layers
+
+Check for unmanaged layers on a solution's components post-deployment. Unmanaged layers prevent managed solution changes from taking effect.
+
+#### Basic Usage
+
+```bash
+powerapps-cli solution-layers \
+  --solution "YourSolutionUniqueName" \
+  --url "https://yourorg.crm.dynamics.com" \
+  --client-id "$CLIENT_ID" \
+  --client-secret "$CLIENT_SECRET"
+```
+
+#### With Connection String
+
+```bash
+powerapps-cli solution-layers \
+  --solution "YourSolutionUniqueName" \
+  --connection-string "$PROD_CONNECTION_STRING" \
+  --output solution-layers.xlsx
+```
+
+**Behaviour**:
+- Queries `msdyn_componentlayer` for all components belonging to the specified solution
+- A component is flagged when the topmost layer is `Active` (the unmanaged customisations bucket)
+- Reports all affected components with their type, name, and full layer stack
+
+**Output**: Excel workbook with:
+- Summary sheet showing solution name, environment, date, and count of affected components
+- Unmanaged Layers sheet with Component Type, Component Name, Unmanaged Layer, and full layer stack (bottom to top)
+- Clean result message if no unmanaged layers are found
+
+**Pipeline pattern**:
+```
+1. Install managed solution
+2. powerapps-cli solution-layers --solution $solutionName --connection-string $conn
+3. Review report — any rows = someone has unmanaged customisations blocking your changes
+```
+
 ## Command Reference
 
 ### schema-export
@@ -639,6 +684,24 @@ Manages Dataverse process states (workflows, cloud flows, business rules, action
 | `--client-secret` | Azure AD Application Client Secret | No | - |
 | `--dry-run` | Preview changes without modifying states | No | `false` |
 | `-o, --output` | Output Excel report file path | No | `process-report.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--url` or `--connection-string` must be provided.
+
+### solution-layers
+
+Reports unmanaged layers on a solution's components post-deployment.
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `-s, --solution` | Unique name of the solution to inspect | Yes | - |
+| `--url, -u` | Environment URL | Yes* | - |
+| `--connection-string` | Environment connection string | No | - |
+| `--client-id` | Azure AD Application Client ID | No | - |
+| `--client-secret` | Azure AD Application Client Secret | No | - |
+| `-o, --output` | Output Excel report file path | No | `solution-layers.xlsx` |
 | `-v, --verbose` | Enable verbose output | No | `false` |
 
 \* Either `--url` or `--connection-string` must be provided.
@@ -756,7 +819,8 @@ Commands/
   ├── RefDataCompareCommand.cs  # Reference data comparison CLI command
   ├── RefDataMigrateCommand.cs  # Reference data migration CLI command
   ├── ProcessManageCommand.cs   # Process management CLI command
-  └── DataPatchCommand.cs       # Data patch CLI command
+  ├── DataPatchCommand.cs       # Data patch CLI command
+  └── SolutionLayersCommand.cs  # Solution layer analysis CLI command
 Services/
   ├── SchemaService.cs          # Schema export orchestration
   ├── SchemaExtractor.cs        # Metadata extraction with solution filtering
@@ -778,7 +842,11 @@ Services/
   ├── ProcessManager.cs         # Process state management logic
   ├── ProcessReporter.cs        # Process report Excel generation
   ├── IDataPatchReporter.cs     # Data patch reporter interface
-  └── DataPatchReporter.cs      # Data patch report Excel generation
+  ├── DataPatchReporter.cs      # Data patch report Excel generation
+  ├── ISolutionLayerService.cs  # Solution layer service interface
+  ├── SolutionLayerService.cs   # Solution layer querying and unmanaged layer detection
+  ├── ISolutionLayerReporter.cs # Solution layer reporter interface
+  └── SolutionLayerReporter.cs  # Solution layer report Excel generation
 Infrastructure/
   ├── DataverseClient.cs        # Dataverse connection management
   ├── FileWriter.cs             # File I/O abstraction
@@ -799,7 +867,8 @@ Models/
   ├── ProcessManageConfig.cs    # Process management configuration
   ├── ProcessManageModels.cs    # Process state models
   ├── DataPatchConfig.cs        # Data patch configuration
-  └── DataPatchModels.cs        # Data patch result models
+  ├── DataPatchModels.cs        # Data patch result models
+  └── SolutionLayerResult.cs    # Solution layer analysis result models
 ```
 
 ## Testing
@@ -825,7 +894,7 @@ reportgenerator -reports:"tests/PowerApps.CLI.Tests/TestResults/coverage.cobertu
 ```
 
 Current test coverage:
-- **330 passing tests** (100% pass rate)
+- **330+ passing tests** (100% pass rate)
 - Line coverage: 60%+
 - Branch coverage: 55%+
 
@@ -837,11 +906,12 @@ Test coverage includes:
 - ✅ Entity/attribute filtering
 - ✅ Metadata mapping
 - ✅ Model validation
-- ✅ Command orchestration (all 6 commands)
+- ✅ Command orchestration (all 7 commands)
 - ✅ Reference data comparison (table records, N:N relationships, name resolution)
 - ✅ Reference data migration (all 4 passes, diff/force modes, column filtering, N:N sync)
 - ✅ Process management (pattern matching, retry logic, state determination)
 - ✅ Data patch (lookup, skip-if-unchanged, update, error handling)
+- ✅ Solution layer analysis (unmanaged layer detection, component type mapping, clean result handling)
 
 ## Development
 

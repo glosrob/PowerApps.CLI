@@ -27,6 +27,9 @@ public class Program
         // Add data-patch command
         rootCommand.AddCommand(DataPatchCommand.CreateCliCommand());
 
+        // Add solution-layers command
+        rootCommand.AddCommand(SolutionLayersCommand.CreateCliCommand());
+
         return await rootCommand.InvokeAsync(args);
     }
 }

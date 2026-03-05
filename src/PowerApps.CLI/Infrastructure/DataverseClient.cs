@@ -16,6 +16,48 @@ public class DataverseClient : IDataverseClient
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
 
+    // Maps solutioncomponent.componenttype (int) to the msdyn_solutioncomponentname string
+    // required by the msdyn_componentlayer virtual entity. Both filters must be provided.
+    // Values match the ComponentType enum names used by the Dataverse SDK (PascalCase).
+    private static readonly Dictionary<int, string> ComponentLayerTypeNames = new()
+    {
+        [1]   = "Entity",
+        [2]   = "Attribute",
+        [3]   = "Relationship",
+        [9]   = "OptionSet",
+        [10]  = "OptionSetValue",
+        [11]  = "PluginAssembly",
+        [12]  = "PluginType",
+        [13]  = "SdkMessage",
+        [14]  = "SdkMessageFilter",
+        [16]  = "ServiceEndpoint",
+        [17]  = "MessageProcessingStep",
+        [18]  = "MessageProcessingStepImage",
+        [24]  = "RibbonCustomization",
+        [25]  = "RibbonCommand",
+        [26]  = "RibbonContextGroup",
+        [29]  = "Workflow",
+        [33]  = "SystemForm",
+        [36]  = "AttributeMap",
+        [47]  = "RibbonTabToCommandMap",
+        [48]  = "RibbonDiff",
+        [59]  = "SavedQueryVisualization",
+        [60]  = "SystemForm",
+        [61]  = "WebResource",
+        [62]  = "SiteMap",
+        [63]  = "ConnectionRole",
+        [65]  = "HierarchyRule",
+        [66]  = "CustomControl",
+        [70]  = "FieldSecurityProfile",
+        [71]  = "FieldPermission",
+        [90]  = "PluginAssembly",
+        [91]  = "PluginType",
+        [92]  = "SDKMessageProcessingStep",
+        [93]  = "SDKMessageProcessingStepImage",
+        [95]  = "ServiceEndpoint",
+        [418] = "msdyn_dataflow",
+    };
+
     private string _url { get; set; } = string.Empty;
     private string _clientId {get;set; } = string.Empty;
     private string _clientSecret {get;set;} = string.Empty;
@@ -373,6 +415,190 @@ public class DataverseClient : IDataverseClient
         };
         var response = (RetrieveRelationshipResponse)_serviceClient.Execute(request);
         return (ManyToManyRelationshipMetadata)response.RelationshipMetadata;
+    }
+
+    public async Task<EntityCollection> GetSolutionComponentLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null, Action<string>? phaseLog = null)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
+        // Phase 1: get component object IDs and type names from solutioncomponent.
+        // msdyn_componentlayer requires BOTH msdyn_componentid AND msdyn_solutioncomponentname
+        // to return results — the type name acts as a routing key for this virtual entity.
+        var componentQuery = new QueryExpression("solutioncomponent")
+        {
+            ColumnSet = new ColumnSet("objectid", "componenttype"),
+            LinkEntities =
+            {
+                new LinkEntity
+                {
+                    LinkFromEntityName = "solutioncomponent",
+                    LinkFromAttributeName = "solutionid",
+                    LinkToEntityName = "solution",
+                    LinkToAttributeName = "solutionid",
+                    LinkCriteria = new FilterExpression
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression("uniquename", ConditionOperator.Equal, solutionName)
+                        }
+                    }
+                }
+            }
+        };
+
+        var components = await Task.Run(() => _serviceClient.RetrieveMultiple(componentQuery));
+        var componentList = components.Entities
+            .Select(e => (
+                Id: e.GetAttributeValue<Guid>("objectid"),
+                TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0,
+                EntityLogicalName: (string?)null,
+                EntityDisplayName: (string?)null
+            ))
+            .Where(c => c.Id != Guid.Empty && c.TypeCode != 0)
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        if (componentList.Count == 0)
+            return new EntityCollection();
+
+        phaseLog?.Invoke($"Phase 1 ({sw.ElapsedMilliseconds}ms): {componentList.Count} solution component(s) from solutioncomponent.");
+        sw.Restart();
+
+        // Phase 1b: Expand attribute (column) components.
+        // Managed solutions don't store individual Attribute records in solutioncomponent —
+        // only the entity itself (componenttype=1) is listed. We enumerate each entity's
+        // attributes via metadata to get their MetadataIds and include them in the layer scan.
+        var entityIds = componentList.Where(c => c.TypeCode == 1).Select(c => c.Id).ToList();
+        var seenIds = new HashSet<Guid>(componentList.Select(c => c.Id));
+
+        foreach (var entityId in entityIds)
+        {
+            try
+            {
+                var entityResponse = await Task.Run(() => (RetrieveEntityResponse)_serviceClient.Execute(
+                    new RetrieveEntityRequest
+                    {
+                        MetadataId = entityId,
+                        EntityFilters = EntityFilters.Attributes,
+                        RetrieveAsIfPublished = false
+                    }));
+
+                var entityLogicalName = entityResponse.EntityMetadata.LogicalName;
+                var entityDisplayName = entityResponse.EntityMetadata.DisplayName?.UserLocalizedLabel?.Label ?? entityLogicalName;
+                foreach (var attr in entityResponse.EntityMetadata.Attributes)
+                {
+                    // Only expand custom attributes. Non-custom (standard/Microsoft) attributes
+                    // are not solution components and may have layers from unrelated managed
+                    // solutions, producing false positives. Any non-custom attribute that IS
+                    // explicitly in the solution will already be captured by Phase 1.
+                    if (attr.IsCustomAttribute != true) continue;
+
+                    if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
+                        componentList.Add((attr.MetadataId.Value, 2, entityLogicalName, entityDisplayName)); // 2 = Attribute
+                }
+            }
+            catch
+            {
+                // Skip if entity metadata cannot be retrieved
+            }
+        }
+
+        phaseLog?.Invoke($"Phase 1b ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after attribute enumeration.");
+        sw.Restart();
+
+        // Phase 2: batch individual msdyn_componentlayer queries into ExecuteMultiple calls.
+        // msdyn_componentlayer requires exactly one msdyn_componentid per query (IN clauses
+        // are silently ignored by the virtual entity provider), so we pack batchSize individual
+        // RetrieveMultipleRequests into each ExecuteMultipleRequest. This cuts HTTP round-trips
+        // from ~6,867 to ~35 while preserving the per-component query semantics.
+        const int batchSize = 200;
+        const int maxConcurrency = 10;
+        var layerBag = new System.Collections.Concurrent.ConcurrentBag<Entity>();
+        var semaphore = new SemaphoreSlim(maxConcurrency);
+        var completed = 0;
+        var total = componentList.Count;
+
+        // Pre-count unmapped components (no type-name mapping) so progress reaches 100%.
+        var unmappedCount = componentList.Count(c => !ComponentLayerTypeNames.ContainsKey(c.TypeCode));
+        Interlocked.Add(ref completed, unmappedCount);
+
+        // Build one RetrieveMultipleRequest per known component, then chunk into batches.
+        var componentRequests = componentList
+            .Where(c => ComponentLayerTypeNames.ContainsKey(c.TypeCode))
+            .Select(c => (
+                Component: c,
+                Request: (OrganizationRequest)new RetrieveMultipleRequest
+                {
+                    Query = new QueryExpression("msdyn_componentlayer")
+                    {
+                        NoLock = true,
+                        ColumnSet = new ColumnSet(true),
+                        Criteria = new FilterExpression
+                        {
+                            Conditions =
+                            {
+                                new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, ComponentLayerTypeNames[c.TypeCode]),
+                                new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, c.Id),
+                            }
+                        }
+                    }
+                }
+            ))
+            .ToList();
+
+        var batches = componentRequests.Chunk(batchSize).ToList();
+
+        var tasks = batches.Select(async batch =>
+        {
+            await semaphore.WaitAsync();
+            try
+            {
+                var requests = new OrganizationRequestCollection();
+                foreach (var item in batch)
+                    requests.Add(item.Request);
+
+                var multipleResponse = (ExecuteMultipleResponse)await Task.Run(() =>
+                    _serviceClient.Execute(new ExecuteMultipleRequest
+                    {
+                        Requests = requests,
+                        Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = true }
+                    }));
+
+                foreach (var responseItem in multipleResponse.Responses)
+                {
+                    if (responseItem.Fault != null) continue;
+                    var component = batch[responseItem.RequestIndex].Component;
+                    var entityCollection = ((RetrieveMultipleResponse)responseItem.Response).EntityCollection;
+
+                    foreach (var entity in entityCollection.Entities)
+                    {
+                        // Stamp the parent entity info for attribute components so the service
+                        // can surface it in the report without additional API calls.
+                        if (component.EntityLogicalName != null)
+                            entity["_entityname"] = component.EntityLogicalName;
+                        if (component.EntityDisplayName != null)
+                            entity["_entitydisplayname"] = component.EntityDisplayName;
+                        layerBag.Add(entity);
+                    }
+                }
+
+                var newCompleted = Interlocked.Add(ref completed, batch.Length);
+                batchProgress?.Invoke(total, newCompleted, total);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToList();
+
+        await Task.WhenAll(tasks);
+
+        phaseLog?.Invoke($"Phase 2 ({sw.ElapsedMilliseconds}ms): {layerBag.Count} layer record(s) from {batches.Count} ExecuteMultiple batch(es) across {total} component(s).");
+
+        var allLayers = new EntityCollection();
+        allLayers.Entities.AddRange(layerBag);
+        return allLayers;
     }
 
     private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
