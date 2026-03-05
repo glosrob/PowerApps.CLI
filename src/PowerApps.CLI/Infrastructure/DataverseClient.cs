@@ -446,23 +446,11 @@ public class DataverseClient : IDataverseClient
 
         var components = await Task.Run(() => _serviceClient.RetrieveMultiple(componentQuery));
         var componentList = components.Entities
-            .Select(e =>
-            {
-                var id = e.GetAttributeValue<Guid>("objectid");
-                var typeCode = e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0;
-
-                // Prefer the FormattedValue Dataverse returns for componenttype — it gives the
-                // exact string the msdyn_componentlayer virtual entity uses as its routing key.
-                // Fall back to our dictionary for environments that don't return formatted values.
-                string? typeName = null;
-                if (e.FormattedValues.TryGetValue("componenttype", out var fv) && !string.IsNullOrEmpty(fv))
-                    typeName = fv;
-                else
-                    ComponentLayerTypeNames.TryGetValue(typeCode, out typeName);
-
-                return (Id: id, TypeCode: typeCode, TypeName: typeName);
-            })
-            .Where(c => c.Id != Guid.Empty && c.TypeName != null)
+            .Select(e => (
+                Id: e.GetAttributeValue<Guid>("objectid"),
+                TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0
+            ))
+            .Where(c => c.Id != Guid.Empty && c.TypeCode != 0)
             .GroupBy(c => c.Id)
             .Select(g => g.First())
             .ToList();
@@ -471,7 +459,9 @@ public class DataverseClient : IDataverseClient
             return new EntityCollection();
 
         // Phase 2: query msdyn_componentlayer per component using the type name + component ID.
-        // Components with no resolvable type name are skipped — they have no layer data.
+        // msdyn_solutioncomponentname must be the PascalCase enum name (e.g. "SystemForm", not
+        // "System Form") — Dataverse uses these as routing keys for this virtual entity.
+        // Components whose type code has no mapping in our dictionary are skipped.
         const int maxConcurrency = 10;
         var layerBag = new System.Collections.Concurrent.ConcurrentBag<Entity>();
         var semaphore = new SemaphoreSlim(maxConcurrency);
@@ -480,6 +470,12 @@ public class DataverseClient : IDataverseClient
 
         var tasks = componentList.Select(async component =>
         {
+            if (!ComponentLayerTypeNames.TryGetValue(component.TypeCode, out var typeName))
+            {
+                batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
+                return;
+            }
+
             await semaphore.WaitAsync();
             try
             {
@@ -491,7 +487,7 @@ public class DataverseClient : IDataverseClient
                     {
                         Conditions =
                         {
-                            new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, component.TypeName),
+                            new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, typeName),
                             new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, component.Id),
                         }
                     }
