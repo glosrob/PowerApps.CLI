@@ -451,7 +451,8 @@ public class DataverseClient : IDataverseClient
             .Select(e => (
                 Id: e.GetAttributeValue<Guid>("objectid"),
                 TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0,
-                EntityName: (string?)null
+                EntityLogicalName: (string?)null,
+                EntityDisplayName: (string?)null
             ))
             .Where(c => c.Id != Guid.Empty && c.TypeCode != 0)
             .GroupBy(c => c.Id)
@@ -484,10 +485,17 @@ public class DataverseClient : IDataverseClient
                     }));
 
                 var entityLogicalName = entityResponse.EntityMetadata.LogicalName;
+                var entityDisplayName = entityResponse.EntityMetadata.DisplayName?.UserLocalizedLabel?.Label ?? entityLogicalName;
                 foreach (var attr in entityResponse.EntityMetadata.Attributes)
                 {
+                    // Only expand custom attributes. Non-custom (standard/Microsoft) attributes
+                    // are not solution components and may have layers from unrelated managed
+                    // solutions, producing false positives. Any non-custom attribute that IS
+                    // explicitly in the solution will already be captured by Phase 1.
+                    if (attr.IsCustomAttribute != true) continue;
+
                     if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
-                        componentList.Add((attr.MetadataId.Value, 2, entityLogicalName)); // 2 = Attribute
+                        componentList.Add((attr.MetadataId.Value, 2, entityLogicalName, entityDisplayName)); // 2 = Attribute
                 }
             }
             catch
@@ -499,51 +507,84 @@ public class DataverseClient : IDataverseClient
         phaseLog?.Invoke($"Phase 1b ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after attribute enumeration.");
         sw.Restart();
 
-        // Phase 2: query msdyn_componentlayer per component using the type name + component ID.
-        // msdyn_solutioncomponentname must be the PascalCase enum name (e.g. "SystemForm", not
-        // "System Form") — Dataverse uses these as routing keys for this virtual entity.
-        // Components whose type code has no mapping in our dictionary are skipped.
+        // Phase 2: batch individual msdyn_componentlayer queries into ExecuteMultiple calls.
+        // msdyn_componentlayer requires exactly one msdyn_componentid per query (IN clauses
+        // are silently ignored by the virtual entity provider), so we pack batchSize individual
+        // RetrieveMultipleRequests into each ExecuteMultipleRequest. This cuts HTTP round-trips
+        // from ~6,867 to ~35 while preserving the per-component query semantics.
+        const int batchSize = 200;
         const int maxConcurrency = 10;
         var layerBag = new System.Collections.Concurrent.ConcurrentBag<Entity>();
         var semaphore = new SemaphoreSlim(maxConcurrency);
         var completed = 0;
         var total = componentList.Count;
 
-        var tasks = componentList.Select(async component =>
-        {
-            if (!ComponentLayerTypeNames.TryGetValue(component.TypeCode, out var typeName))
-            {
-                batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
-                return;
-            }
+        // Pre-count unmapped components (no type-name mapping) so progress reaches 100%.
+        var unmappedCount = componentList.Count(c => !ComponentLayerTypeNames.ContainsKey(c.TypeCode));
+        Interlocked.Add(ref completed, unmappedCount);
 
+        // Build one RetrieveMultipleRequest per known component, then chunk into batches.
+        var componentRequests = componentList
+            .Where(c => ComponentLayerTypeNames.ContainsKey(c.TypeCode))
+            .Select(c => (
+                Component: c,
+                Request: (OrganizationRequest)new RetrieveMultipleRequest
+                {
+                    Query = new QueryExpression("msdyn_componentlayer")
+                    {
+                        NoLock = true,
+                        ColumnSet = new ColumnSet(true),
+                        Criteria = new FilterExpression
+                        {
+                            Conditions =
+                            {
+                                new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, ComponentLayerTypeNames[c.TypeCode]),
+                                new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, c.Id),
+                            }
+                        }
+                    }
+                }
+            ))
+            .ToList();
+
+        var batches = componentRequests.Chunk(batchSize).ToList();
+
+        var tasks = batches.Select(async batch =>
+        {
             await semaphore.WaitAsync();
             try
             {
-                var query = new QueryExpression("msdyn_componentlayer")
-                {
-                    NoLock = true,
-                    ColumnSet = new ColumnSet(true),
-                    Criteria = new FilterExpression
+                var requests = new OrganizationRequestCollection();
+                foreach (var item in batch)
+                    requests.Add(item.Request);
+
+                var multipleResponse = (ExecuteMultipleResponse)await Task.Run(() =>
+                    _serviceClient.Execute(new ExecuteMultipleRequest
                     {
-                        Conditions =
-                        {
-                            new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, typeName),
-                            new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, component.Id),
-                        }
-                    }
-                };
-                var result = await Task.Run(() => _serviceClient.RetrieveMultiple(query));
-                foreach (var entity in result.Entities)
+                        Requests = requests,
+                        Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = true }
+                    }));
+
+                foreach (var responseItem in multipleResponse.Responses)
                 {
-                    // Stamp the parent entity name for attribute components so the service
-                    // can surface it in the report without additional API calls.
-                    if (component.EntityName != null)
-                        entity["_entityname"] = component.EntityName;
-                    layerBag.Add(entity);
+                    if (responseItem.Fault != null) continue;
+                    var component = batch[responseItem.RequestIndex].Component;
+                    var entityCollection = ((RetrieveMultipleResponse)responseItem.Response).EntityCollection;
+
+                    foreach (var entity in entityCollection.Entities)
+                    {
+                        // Stamp the parent entity info for attribute components so the service
+                        // can surface it in the report without additional API calls.
+                        if (component.EntityLogicalName != null)
+                            entity["_entityname"] = component.EntityLogicalName;
+                        if (component.EntityDisplayName != null)
+                            entity["_entitydisplayname"] = component.EntityDisplayName;
+                        layerBag.Add(entity);
+                    }
                 }
 
-                batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
+                var newCompleted = Interlocked.Add(ref completed, batch.Length);
+                batchProgress?.Invoke(total, newCompleted, total);
             }
             finally
             {
@@ -553,7 +594,7 @@ public class DataverseClient : IDataverseClient
 
         await Task.WhenAll(tasks);
 
-        phaseLog?.Invoke($"Phase 2 ({sw.ElapsedMilliseconds}ms): {layerBag.Count} layer record(s) retrieved across {total} component(s).");
+        phaseLog?.Invoke($"Phase 2 ({sw.ElapsedMilliseconds}ms): {layerBag.Count} layer record(s) from {batches.Count} ExecuteMultiple batch(es) across {total} component(s).");
 
         var allLayers = new EntityCollection();
         allLayers.Entities.AddRange(layerBag);

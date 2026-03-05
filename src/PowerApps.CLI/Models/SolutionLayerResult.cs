@@ -15,6 +15,7 @@ public class LayeredComponent
 {
     public string ComponentName { get; set; } = string.Empty;
     public string ComponentType { get; set; } = string.Empty;
+    public string ParentEntity { get; set; } = string.Empty;
     public string UnmanagedLayerOwner { get; set; } = string.Empty;
     public List<string> AllLayers { get; set; } = new();
 }

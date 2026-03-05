@@ -64,9 +64,10 @@ public class SolutionLayerReporter : ISolutionLayerReporter
             // Summary table header
             ws.Cell(row, 1).Value = "Component Type";
             ws.Cell(row, 2).Value = "Component Name";
-            ws.Cell(row, 3).Value = "Layer Stack (bottom to top)";
+            ws.Cell(row, 3).Value = "Table";
+            ws.Cell(row, 4).Value = "Layer Stack (bottom to top)";
 
-            var headerRange = ws.Range(row, 1, row, 3);
+            var headerRange = ws.Range(row, 1, row, 4);
             headerRange.Style.Font.Bold = true;
             headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
 
@@ -77,12 +78,13 @@ public class SolutionLayerReporter : ISolutionLayerReporter
             {
                 ws.Cell(row, 1).Value = component.ComponentType;
                 ws.Cell(row, 2).Value = component.ComponentName;
-                ws.Cell(row, 3).Value = string.Join(" → ", component.AllLayers);
-                ws.Cell(row, 3).Style.Font.FontColor = XLColor.Red;
+                ws.Cell(row, 3).Value = component.ParentEntity;
+                ws.Cell(row, 4).Value = string.Join(" → ", component.AllLayers);
+                ws.Cell(row, 4).Style.Font.FontColor = XLColor.Red;
                 row++;
             }
 
-            var tableRange = ws.Range(startRow - 1, 1, row - 1, 3);
+            var tableRange = ws.Range(startRow - 1, 1, row - 1, 4);
             var table = tableRange.CreateTable("UnmanagedLayerSummary");
             table.Theme = XLTableTheme.TableStyleLight9;
         }
@@ -101,10 +103,11 @@ public class SolutionLayerReporter : ISolutionLayerReporter
         var row = 3;
         ws.Cell(row, 1).Value = "Component Type";
         ws.Cell(row, 2).Value = "Component Name";
-        ws.Cell(row, 3).Value = "Unmanaged Layer";
-        ws.Cell(row, 4).Value = "Full Layer Stack (bottom to top)";
+        ws.Cell(row, 3).Value = "Table";
+        ws.Cell(row, 4).Value = "Unmanaged Layer";
+        ws.Cell(row, 5).Value = "Full Layer Stack (bottom to top)";
 
-        var headerRange = ws.Range(row, 1, row, 4);
+        var headerRange = ws.Range(row, 1, row, 5);
         headerRange.Style.Font.Bold = true;
         headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
 
@@ -115,15 +118,16 @@ public class SolutionLayerReporter : ISolutionLayerReporter
         {
             ws.Cell(row, 1).Value = component.ComponentType;
             ws.Cell(row, 2).Value = component.ComponentName;
-            ws.Cell(row, 3).Value = component.UnmanagedLayerOwner;
-            ws.Cell(row, 3).Style.Font.FontColor = XLColor.Red;
-            ws.Cell(row, 4).Value = string.Join(" → ", component.AllLayers);
+            ws.Cell(row, 3).Value = component.ParentEntity;
+            ws.Cell(row, 4).Value = component.UnmanagedLayerOwner;
+            ws.Cell(row, 4).Style.Font.FontColor = XLColor.Red;
+            ws.Cell(row, 5).Value = string.Join(" → ", component.AllLayers);
             row++;
         }
 
         if (row > startRow)
         {
-            var tableRange = ws.Range(startRow - 1, 1, row - 1, 4);
+            var tableRange = ws.Range(startRow - 1, 1, row - 1, 5);
             var table = tableRange.CreateTable("LayerDetail");
             table.Theme = XLTableTheme.TableStyleLight9;
         }

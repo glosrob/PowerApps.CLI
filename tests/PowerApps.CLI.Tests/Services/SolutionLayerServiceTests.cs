@@ -121,15 +121,22 @@ public class SolutionLayerServiceTests
     [Fact]
     public async Task GetUnmanagedLayersAsync_WhenComponentTypeNameMissing_FallsBackToUnknown()
     {
-        var entity = new Entity("msdyn_componentlayer");
-        entity["msdyn_componentid"] = "comp-1";
-        entity["msdyn_name"] = "SomeComponent";
+        var activeLayer = new Entity("msdyn_componentlayer");
+        activeLayer["msdyn_componentid"] = "comp-1";
+        activeLayer["msdyn_name"] = "SomeComponent";
         // msdyn_solutioncomponentname deliberately omitted
-        entity["msdyn_solutionname"] = "Active";
-        entity["msdyn_order"] = 2;
+        activeLayer["msdyn_solutionname"] = "Active";
+        activeLayer["msdyn_order"] = 2;
+
+        // Managed layer below so the component is not filtered as Active-only
+        var managedLayer = new Entity("msdyn_componentlayer");
+        managedLayer["msdyn_componentid"] = "comp-1";
+        managedLayer["msdyn_name"] = "SomeComponent";
+        managedLayer["msdyn_solutionname"] = "MySolution";
+        managedLayer["msdyn_order"] = 1;
 
         _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
-            .ReturnsAsync(new EntityCollection(new List<Entity> { entity }));
+            .ReturnsAsync(new EntityCollection(new List<Entity> { activeLayer, managedLayer }));
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
 

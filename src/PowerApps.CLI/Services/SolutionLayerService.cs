@@ -54,9 +54,11 @@ public class SolutionLayerService : ISolutionLayerService
             var componentName = topLayer.GetAttributeValue<string>("msdyn_name") ?? group.Key;
             var componentType = topLayer.GetAttributeValue<string>("msdyn_solutioncomponentname") ?? "Unknown";
 
-            // For attribute components, append the parent entity logical name for clarity.
-            if (topLayer.Contains("_entityname") && topLayer["_entityname"] is string entityName)
-                componentName = $"{componentName} ({entityName})";
+            var parentEntity = string.Empty;
+            if (topLayer.Contains("_entitydisplayname") && topLayer["_entitydisplayname"] is string displayName)
+                parentEntity = displayName;
+            else if (topLayer.Contains("_entityname") && topLayer["_entityname"] is string logicalName)
+                parentEntity = logicalName;
 
             var allLayerNames = group
                 .OrderBy(e => e.GetAttributeValue<int>("msdyn_order"))
@@ -67,6 +69,7 @@ public class SolutionLayerService : ISolutionLayerService
             {
                 ComponentName = componentName,
                 ComponentType = componentType,
+                ParentEntity = parentEntity,
                 UnmanagedLayerOwner = "Active (Unmanaged Customisations)",
                 AllLayers = allLayerNames
             });

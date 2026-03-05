@@ -48,7 +48,7 @@ public class SolutionLayersCommand
                     if (current % 50 == 0 || current == total)
                         _logger.LogInfo($"  Querying component layers: {current}/{total}...");
                 },
-                phaseLog: msg => _logger.LogVerbose($"  [Timing] {msg}"));
+                phaseLog: msg => _logger.LogInfo($"  [Timing] {msg}"));
             _logger.LogInfo($"Layer analysis complete. {result.TotalComponentsChecked} component(s) checked.");
 
             if (!result.HasUnmanagedLayers)
