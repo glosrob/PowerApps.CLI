@@ -39,7 +39,7 @@ public class SolutionLayersCommandTests
             ReportDate = DateTime.UtcNow
         };
 
-        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(result);
         _mockReporter.Setup(r => r.GenerateReportAsync(result, "solution-layers.xlsx"))
             .Returns(Task.CompletedTask);
@@ -64,7 +64,7 @@ public class SolutionLayersCommandTests
             }
         };
 
-        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(result);
         _mockReporter.Setup(r => r.GenerateReportAsync(result, "solution-layers.xlsx"))
             .Returns(Task.CompletedTask);
@@ -80,7 +80,7 @@ public class SolutionLayersCommandTests
     {
         var result = new SolutionLayerResult { SolutionName = "MySolution" };
 
-        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(result);
         _mockReporter.Setup(r => r.GenerateReportAsync(result, "output.xlsx"))
             .Returns(Task.CompletedTask);
@@ -93,7 +93,7 @@ public class SolutionLayersCommandTests
     [Fact]
     public async Task ExecuteAsync_WhenServiceThrows_Returns1()
     {
-        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ThrowsAsync(new InvalidOperationException("Connection failed"));
 
         var exitCode = await _command.ExecuteAsync("MySolution", "output.xlsx");
@@ -107,7 +107,7 @@ public class SolutionLayersCommandTests
     {
         var result = new SolutionLayerResult { SolutionName = "MySolution" };
 
-        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockService.Setup(s => s.GetUnmanagedLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(result);
         _mockReporter.Setup(r => r.GenerateReportAsync(It.IsAny<SolutionLayerResult>(), It.IsAny<string>()))
             .ThrowsAsync(new IOException("Disk full"));

@@ -15,7 +15,7 @@ public class SolutionLayerService : ISolutionLayerService
         _client = client ?? throw new ArgumentNullException(nameof(client));
     }
 
-    public async Task<SolutionLayerResult> GetUnmanagedLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null)
+    public async Task<SolutionLayerResult> GetUnmanagedLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null, Action<string>? phaseLog = null)
     {
         var result = new SolutionLayerResult
         {
@@ -24,7 +24,7 @@ public class SolutionLayerService : ISolutionLayerService
             ReportDate = DateTime.UtcNow
         };
 
-        var layers = await _client.GetSolutionComponentLayersAsync(solutionName, batchProgress);
+        var layers = await _client.GetSolutionComponentLayersAsync(solutionName, batchProgress, phaseLog);
 
         // Group layers by component ID so we can inspect the full stack per component.
         var componentGroups = layers.Entities

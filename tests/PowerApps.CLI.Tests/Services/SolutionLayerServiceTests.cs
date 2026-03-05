@@ -30,7 +30,7 @@ public class SolutionLayerServiceTests
     [Fact]
     public async Task GetUnmanagedLayersAsync_WhenNoLayers_ReturnsEmptyResult()
     {
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(new EntityCollection());
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -50,7 +50,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-1", "rob_myentity", "Entity", "MySolution", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -72,7 +72,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-1", "rob_myentity", "Entity", "Active", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -91,7 +91,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-1", "rob_form", "Form", "BaseLayer", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -110,7 +110,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-1", "rob_myform", "Model-driven Form", "MySolution", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -128,7 +128,7 @@ public class SolutionLayerServiceTests
         entity["msdyn_solutionname"] = "Active";
         entity["msdyn_order"] = 2;
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(new EntityCollection(new List<Entity> { entity }));
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -151,7 +151,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-3", "rob_form_a", "Form", "MySolution", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -173,7 +173,7 @@ public class SolutionLayerServiceTests
             MakeLayer("comp-2", "B_entity", "Entity", "MySolution", 1),
         });
 
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(layers);
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");
@@ -189,7 +189,7 @@ public class SolutionLayerServiceTests
     [Fact]
     public async Task GetUnmanagedLayersAsync_SetsEnvironmentUrlAndSolutionName()
     {
-        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>()))
+        _mockClient.Setup(c => c.GetSolutionComponentLayersAsync("MySolution", It.IsAny<Action<int, int, int>?>(), It.IsAny<Action<string>?>()))
             .ReturnsAsync(new EntityCollection());
 
         var result = await _service.GetUnmanagedLayersAsync("MySolution");

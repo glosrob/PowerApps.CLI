@@ -37,16 +37,18 @@ public class SolutionLayersCommand
 
             _logger.LogInfo("Retrieving solution components...");
             var componentCountLogged = false;
-            var result = await _service.GetUnmanagedLayersAsync(solution, (componentCount, current, total) =>
-            {
-                if (!componentCountLogged)
+            var result = await _service.GetUnmanagedLayersAsync(solution,
+                batchProgress: (componentCount, current, total) =>
                 {
-                    _logger.LogVerbose($"  {componentCount} component(s) to check (includes attributes expanded from entity metadata). Querying layer data...");
-                    componentCountLogged = true;
-                }
-                if (current % 50 == 0 || current == total)
-                    _logger.LogInfo($"  Querying component layers: {current}/{total}...");
-            });
+                    if (!componentCountLogged)
+                    {
+                        _logger.LogVerbose($"  {componentCount} component(s) to check (includes attributes expanded from entity metadata). Querying layer data...");
+                        componentCountLogged = true;
+                    }
+                    if (current % 50 == 0 || current == total)
+                        _logger.LogInfo($"  Querying component layers: {current}/{total}...");
+                },
+                phaseLog: msg => _logger.LogVerbose($"  [Timing] {msg}"));
             _logger.LogInfo($"Layer analysis complete. {result.TotalComponentsChecked} component(s) checked.");
 
             if (!result.HasUnmanagedLayers)

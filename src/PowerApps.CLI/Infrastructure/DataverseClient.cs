@@ -417,8 +417,10 @@ public class DataverseClient : IDataverseClient
         return (ManyToManyRelationshipMetadata)response.RelationshipMetadata;
     }
 
-    public async Task<EntityCollection> GetSolutionComponentLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null)
+    public async Task<EntityCollection> GetSolutionComponentLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null, Action<string>? phaseLog = null)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         // Phase 1: get component object IDs and type names from solutioncomponent.
         // msdyn_componentlayer requires BOTH msdyn_componentid AND msdyn_solutioncomponentname
         // to return results — the type name acts as a routing key for this virtual entity.
@@ -458,6 +460,9 @@ public class DataverseClient : IDataverseClient
         if (componentList.Count == 0)
             return new EntityCollection();
 
+        phaseLog?.Invoke($"Phase 1 ({sw.ElapsedMilliseconds}ms): {componentList.Count} solution component(s) from solutioncomponent.");
+        sw.Restart();
+
         // Phase 1b: Expand attribute (column) components.
         // Managed solutions don't store individual Attribute records in solutioncomponent —
         // only the entity itself (componenttype=1) is listed. We enumerate each entity's
@@ -488,6 +493,9 @@ public class DataverseClient : IDataverseClient
                 // Skip if entity metadata cannot be retrieved
             }
         }
+
+        phaseLog?.Invoke($"Phase 1b ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after attribute enumeration.");
+        sw.Restart();
 
         // Phase 2: query msdyn_componentlayer per component using the type name + component ID.
         // msdyn_solutioncomponentname must be the PascalCase enum name (e.g. "SystemForm", not
@@ -536,6 +544,8 @@ public class DataverseClient : IDataverseClient
         }).ToList();
 
         await Task.WhenAll(tasks);
+
+        phaseLog?.Invoke($"Phase 2 ({sw.ElapsedMilliseconds}ms): {layerBag.Count} layer record(s) retrieved across {total} component(s).");
 
         var allLayers = new EntityCollection();
         allLayers.Entities.AddRange(layerBag);
