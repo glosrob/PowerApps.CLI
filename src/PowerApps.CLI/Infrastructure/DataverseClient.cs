@@ -16,6 +16,48 @@ public class DataverseClient : IDataverseClient
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
 
+    // Maps solutioncomponent.componenttype (int) to the msdyn_solutioncomponentname string
+    // required by the msdyn_componentlayer virtual entity. Both filters must be provided.
+    // Values match the ComponentType enum names used by the Dataverse SDK (PascalCase).
+    private static readonly Dictionary<int, string> ComponentLayerTypeNames = new()
+    {
+        [1]   = "Entity",
+        [2]   = "Attribute",
+        [3]   = "Relationship",
+        [9]   = "OptionSet",
+        [10]  = "OptionSetValue",
+        [11]  = "PluginAssembly",
+        [12]  = "PluginType",
+        [13]  = "SdkMessage",
+        [14]  = "SdkMessageFilter",
+        [16]  = "ServiceEndpoint",
+        [17]  = "MessageProcessingStep",
+        [18]  = "MessageProcessingStepImage",
+        [24]  = "RibbonCustomization",
+        [25]  = "RibbonCommand",
+        [26]  = "RibbonContextGroup",
+        [29]  = "Workflow",
+        [33]  = "SystemForm",
+        [36]  = "AttributeMap",
+        [47]  = "RibbonTabToCommandMap",
+        [48]  = "RibbonDiff",
+        [59]  = "SavedQueryVisualization",
+        [60]  = "SystemForm",
+        [61]  = "WebResource",
+        [62]  = "SiteMap",
+        [63]  = "ConnectionRole",
+        [65]  = "HierarchyRule",
+        [66]  = "CustomControl",
+        [70]  = "FieldSecurityProfile",
+        [71]  = "FieldPermission",
+        [90]  = "PluginAssembly",
+        [91]  = "PluginType",
+        [92]  = "SDKMessageProcessingStep",
+        [93]  = "SDKMessageProcessingStepImage",
+        [95]  = "ServiceEndpoint",
+        [418] = "msdyn_dataflow",
+    };
+
     private string _url { get; set; } = string.Empty;
     private string _clientId {get;set; } = string.Empty;
     private string _clientSecret {get;set;} = string.Empty;
@@ -373,6 +415,99 @@ public class DataverseClient : IDataverseClient
         };
         var response = (RetrieveRelationshipResponse)_serviceClient.Execute(request);
         return (ManyToManyRelationshipMetadata)response.RelationshipMetadata;
+    }
+
+    public async Task<EntityCollection> GetSolutionComponentLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null)
+    {
+        // Phase 1: get component object IDs and component types from solutioncomponent.
+        // msdyn_componentlayer requires BOTH msdyn_componentid AND msdyn_solutioncomponentname
+        // to return results — the type name acts as a routing key for this virtual entity.
+        var componentQuery = new QueryExpression("solutioncomponent")
+        {
+            ColumnSet = new ColumnSet("objectid", "componenttype"),
+            LinkEntities =
+            {
+                new LinkEntity
+                {
+                    LinkFromEntityName = "solutioncomponent",
+                    LinkFromAttributeName = "solutionid",
+                    LinkToEntityName = "solution",
+                    LinkToAttributeName = "solutionid",
+                    LinkCriteria = new FilterExpression
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression("uniquename", ConditionOperator.Equal, solutionName)
+                        }
+                    }
+                }
+            }
+        };
+
+        var components = await Task.Run(() => _serviceClient.RetrieveMultiple(componentQuery));
+        var componentList = components.Entities
+            .Select(e => (
+                Id: e.GetAttributeValue<Guid>("objectid"),
+                TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0
+            ))
+            .Where(c => c.Id != Guid.Empty && c.TypeCode != 0)
+            .GroupBy(c => c.Id)
+            .Select(g => g.First())
+            .ToList();
+
+        if (componentList.Count == 0)
+            return new EntityCollection();
+
+        // Phase 2: query msdyn_componentlayer per component.
+        // Both msdyn_solutioncomponentname (type name) and msdyn_componentid are required.
+        // Components whose type code has no mapping are skipped — they won't have layer data.
+        const int maxConcurrency = 10;
+        var layerBag = new System.Collections.Concurrent.ConcurrentBag<Entity>();
+        var semaphore = new SemaphoreSlim(maxConcurrency);
+        var completed = 0;
+        var total = componentList.Count;
+
+        var tasks = componentList.Select(async component =>
+        {
+            if (!ComponentLayerTypeNames.TryGetValue(component.TypeCode, out var typeName))
+            {
+                batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
+                return;
+            }
+
+            await semaphore.WaitAsync();
+            try
+            {
+                var query = new QueryExpression("msdyn_componentlayer")
+                {
+                    NoLock = true,
+                    ColumnSet = new ColumnSet(true),
+                    Criteria = new FilterExpression
+                    {
+                        Conditions =
+                        {
+                            new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, typeName),
+                            new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, component.Id),
+                        }
+                    }
+                };
+                var result = await Task.Run(() => _serviceClient.RetrieveMultiple(query));
+                foreach (var entity in result.Entities)
+                    layerBag.Add(entity);
+
+                batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }).ToList();
+
+        await Task.WhenAll(tasks);
+
+        var allLayers = new EntityCollection();
+        allLayers.Entities.AddRange(layerBag);
+        return allLayers;
     }
 
     private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)

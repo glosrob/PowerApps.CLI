@@ -133,4 +133,13 @@ public interface IDataverseClient
     /// <param name="relationshipName">The schema name of the N:N relationship.</param>
     /// <returns>The many-to-many relationship metadata.</returns>
     ManyToManyRelationshipMetadata GetManyToManyRelationshipMetadata(string relationshipName);
+
+    /// <summary>
+    /// Retrieves solution component layer data for a given solution, identifying components
+    /// that have unmanaged layers sitting above the managed solution layer.
+    /// </summary>
+    /// <param name="solutionName">The unique name of the solution.</param>
+    /// <param name="batchProgress">Optional callback invoked with (componentCount, currentBatch, totalBatches) as each batch is queried.</param>
+    /// <returns>Collection of component layer entities from msdyn_componentlayer.</returns>
+    Task<EntityCollection> GetSolutionComponentLayersAsync(string solutionName, Action<int, int, int>? batchProgress = null);
 }
