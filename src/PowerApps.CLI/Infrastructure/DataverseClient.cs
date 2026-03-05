@@ -450,7 +450,8 @@ public class DataverseClient : IDataverseClient
         var componentList = components.Entities
             .Select(e => (
                 Id: e.GetAttributeValue<Guid>("objectid"),
-                TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0
+                TypeCode: e.GetAttributeValue<OptionSetValue>("componenttype")?.Value ?? 0,
+                EntityName: (string?)null
             ))
             .Where(c => c.Id != Guid.Empty && c.TypeCode != 0)
             .GroupBy(c => c.Id)
@@ -482,10 +483,11 @@ public class DataverseClient : IDataverseClient
                         RetrieveAsIfPublished = false
                     }));
 
+                var entityLogicalName = entityResponse.EntityMetadata.LogicalName;
                 foreach (var attr in entityResponse.EntityMetadata.Attributes)
                 {
                     if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
-                        componentList.Add((attr.MetadataId.Value, 2)); // 2 = Attribute
+                        componentList.Add((attr.MetadataId.Value, 2, entityLogicalName)); // 2 = Attribute
                 }
             }
             catch
@@ -533,7 +535,13 @@ public class DataverseClient : IDataverseClient
                 };
                 var result = await Task.Run(() => _serviceClient.RetrieveMultiple(query));
                 foreach (var entity in result.Entities)
+                {
+                    // Stamp the parent entity name for attribute components so the service
+                    // can surface it in the report without additional API calls.
+                    if (component.EntityName != null)
+                        entity["_entityname"] = component.EntityName;
                     layerBag.Add(entity);
+                }
 
                 batchProgress?.Invoke(total, Interlocked.Increment(ref completed), total);
             }

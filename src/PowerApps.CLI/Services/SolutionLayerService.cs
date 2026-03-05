@@ -43,8 +43,20 @@ public class SolutionLayerService : ISolutionLayerService
             if (!topSolutionName.Equals("Active", StringComparison.OrdinalIgnoreCase))
                 continue;
 
+            // Ignore components that only have an Active layer — these are system attributes or
+            // fields that were never part of any managed solution layer. We only care about
+            // Active layers sitting on top of a managed layer.
+            var hasNonActiveLayer = group.Any(e => !string.Equals(
+                e.GetAttributeValue<string>("msdyn_solutionname"), "Active", StringComparison.OrdinalIgnoreCase));
+            if (!hasNonActiveLayer)
+                continue;
+
             var componentName = topLayer.GetAttributeValue<string>("msdyn_name") ?? group.Key;
             var componentType = topLayer.GetAttributeValue<string>("msdyn_solutioncomponentname") ?? "Unknown";
+
+            // For attribute components, append the parent entity logical name for clarity.
+            if (topLayer.Contains("_entityname") && topLayer["_entityname"] is string entityName)
+                componentName = $"{componentName} ({entityName})";
 
             var allLayerNames = group
                 .OrderBy(e => e.GetAttributeValue<int>("msdyn_order"))
