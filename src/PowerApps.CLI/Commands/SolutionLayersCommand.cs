@@ -41,7 +41,7 @@ public class SolutionLayersCommand
             {
                 if (!componentCountLogged)
                 {
-                    _logger.LogVerbose($"  {componentCount} component(s) found in solution '{solution}'. Querying layer data...");
+                    _logger.LogVerbose($"  {componentCount} component(s) to check (includes attributes expanded from entity metadata). Querying layer data...");
                     componentCountLogged = true;
                 }
                 if (current % 50 == 0 || current == total)

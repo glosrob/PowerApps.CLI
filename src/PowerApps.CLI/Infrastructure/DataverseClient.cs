@@ -458,6 +458,37 @@ public class DataverseClient : IDataverseClient
         if (componentList.Count == 0)
             return new EntityCollection();
 
+        // Phase 1b: Expand attribute (column) components.
+        // Managed solutions don't store individual Attribute records in solutioncomponent —
+        // only the entity itself (componenttype=1) is listed. We enumerate each entity's
+        // attributes via metadata to get their MetadataIds and include them in the layer scan.
+        var entityIds = componentList.Where(c => c.TypeCode == 1).Select(c => c.Id).ToList();
+        var seenIds = new HashSet<Guid>(componentList.Select(c => c.Id));
+
+        foreach (var entityId in entityIds)
+        {
+            try
+            {
+                var entityResponse = await Task.Run(() => (RetrieveEntityResponse)_serviceClient.Execute(
+                    new RetrieveEntityRequest
+                    {
+                        MetadataId = entityId,
+                        EntityFilters = EntityFilters.Attributes,
+                        RetrieveAsIfPublished = false
+                    }));
+
+                foreach (var attr in entityResponse.EntityMetadata.Attributes)
+                {
+                    if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
+                        componentList.Add((attr.MetadataId.Value, 2)); // 2 = Attribute
+                }
+            }
+            catch
+            {
+                // Skip if entity metadata cannot be retrieved
+            }
+        }
+
         // Phase 2: query msdyn_componentlayer per component using the type name + component ID.
         // msdyn_solutioncomponentname must be the PascalCase enum name (e.g. "SystemForm", not
         // "System Form") — Dataverse uses these as routing keys for this virtual entity.
