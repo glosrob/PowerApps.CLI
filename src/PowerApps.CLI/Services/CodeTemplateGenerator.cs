@@ -55,12 +55,13 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine();
         }
 
-        // Attributes
+        // Attributes — seed used names with className to prevent CS0542
+        var usedAttributeNames = new HashSet<string> { className };
         foreach (var attr in entity.Attributes)
         {
             if (attr.OptionSet == null || !IsStateOrStatusCode(attr.AttributeType))
             {
-                AppendAttributeConstant(sb, attr);
+                AppendAttributeConstant(sb, attr, usedAttributeNames);
             }
         }
 
@@ -93,9 +94,10 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         sb.AppendLine($"    public static class {className}");
         sb.AppendLine("    {");
 
+        var usedOptionNames = new HashSet<string>();
         foreach (var option in optionSet.Options)
         {
-            AppendOptionConstant(sb, option, 8);
+            AppendOptionConstant(sb, option, 8, usedOptionNames);
         }
 
         sb.AppendLine("    }");
@@ -126,9 +128,14 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         return sb.ToString();
     }
 
-    private void AppendAttributeConstant(StringBuilder sb, AttributeSchema attr)
+    private void AppendAttributeConstant(StringBuilder sb, AttributeSchema attr, HashSet<string> usedNames)
     {
         var attributeName = _formatter.ToIdentifier(attr.DisplayName ?? attr.SchemaName ?? attr.LogicalName);
+
+        // Deduplicate — also handles CS0542 (class name pre-seeded into usedNames)
+        attributeName = _formatter.MakeUnique(attributeName, usedNames, "_");
+        usedNames.Add(attributeName);
+
         var comment = BuildAttributeComment(attr);
 
         AppendComment(sb, 8, comment);
@@ -146,9 +153,10 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine("        public static class StateCode");
             sb.AppendLine("        {");
 
+            var usedStateCodeNames = new HashSet<string>();
             foreach (var option in stateCodeAttr.OptionSet.Options)
             {
-                AppendOptionConstant(sb, option, 12);
+                AppendOptionConstant(sb, option, 12, usedStateCodeNames);
             }
 
             sb.AppendLine("        }");
@@ -163,9 +171,10 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine("        public static class StatusCode");
             sb.AppendLine("        {");
 
+            var usedStatusCodeNames = new HashSet<string>();
             foreach (var option in statusCodeAttr.OptionSet.Options)
             {
-                AppendOptionConstant(sb, option, 12);
+                AppendOptionConstant(sb, option, 12, usedStatusCodeNames);
             }
 
             sb.AppendLine("        }");
@@ -191,9 +200,10 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine($"        public static class {className}");
             sb.AppendLine("        {");
 
+            var usedOptionNames = new HashSet<string>();
             foreach (var option in attr.OptionSet.Options)
             {
-                AppendOptionConstant(sb, option, 12);
+                AppendOptionConstant(sb, option, 12, usedOptionNames);
             }
 
             sb.AppendLine("        }");
@@ -201,9 +211,14 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         }
     }
 
-    private void AppendOptionConstant(StringBuilder sb, OptionSchema option, int indent)
+    private void AppendOptionConstant(StringBuilder sb, OptionSchema option, int indent, HashSet<string> usedNames)
     {
         var optionName = _formatter.ToIdentifier(option.Label ?? $"Option{option.Value}");
+
+        // Deduplicate using the option value as suffix to keep names meaningful (CS0102)
+        optionName = _formatter.MakeUnique(optionName, usedNames, option.Value.ToString());
+        usedNames.Add(optionName);
+
         var spaces = new string(' ', indent);
 
         AppendComment(sb, indent, option.Label ?? optionName);
