@@ -55,14 +55,11 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine();
         }
 
-        // Attributes — seed used names with className to prevent CS0542
-        var usedAttributeNames = new HashSet<string> { className };
+        // Attributes — seed used names with className to prevent CS0542, and with nested class names to prevent member name conflicts
+        var usedAttributeNames = new HashSet<string> { className, "StateCodeOptions", "StatusCodeOptions" };
         foreach (var attr in entity.Attributes)
         {
-            if (attr.OptionSet == null || !IsStateOrStatusCode(attr.AttributeType))
-            {
-                AppendAttributeConstant(sb, attr, usedAttributeNames);
-            }
+            AppendAttributeConstant(sb, attr, usedAttributeNames);
         }
 
         // State/Status codes
@@ -150,7 +147,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         if (stateCodeAttr?.OptionSet != null && stateCodeAttr.OptionSet.Options.Count > 0)
         {
             AppendComment(sb, 8, $"State Code options for {entity.DisplayName ?? entity.LogicalName}.");
-            sb.AppendLine("        public static class StateCode");
+            sb.AppendLine("        public static class StateCodeOptions");
             sb.AppendLine("        {");
 
             var usedStateCodeNames = new HashSet<string>();
@@ -168,7 +165,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         if (statusCodeAttr?.OptionSet != null && statusCodeAttr.OptionSet.Options.Count > 0)
         {
             AppendComment(sb, 8, $"Status Code options for {entity.DisplayName ?? entity.LogicalName}.");
-            sb.AppendLine("        public static class StatusCode");
+            sb.AppendLine("        public static class StatusCodeOptions");
             sb.AppendLine("        {");
 
             var usedStatusCodeNames = new HashSet<string>();
