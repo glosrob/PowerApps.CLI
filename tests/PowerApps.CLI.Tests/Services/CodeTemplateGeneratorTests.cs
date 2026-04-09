@@ -78,6 +78,7 @@ public class CodeTemplateGeneratorTests
                 new AttributeSchema
                 {
                     LogicalName = "statecode",
+                    DisplayName = "State Code",
                     AttributeType = "State",
                     OptionSet = new OptionSetSchema
                     {
@@ -96,7 +97,8 @@ public class CodeTemplateGeneratorTests
         var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
 
         // Assert
-        Assert.Contains("public static class StateCode", result);
+        Assert.Contains("public const string StateCode = \"statecode\";", result);
+        Assert.Contains("public static class StateCodeOptions", result);
         Assert.Contains("public const int Active = 0;", result);
         Assert.Contains("public const int Inactive = 1;", result);
     }
@@ -116,6 +118,7 @@ public class CodeTemplateGeneratorTests
                 new AttributeSchema
                 {
                     LogicalName = "statuscode",
+                    DisplayName = "Status Code",
                     AttributeType = "Status",
                     OptionSet = new OptionSetSchema
                     {
@@ -134,7 +137,8 @@ public class CodeTemplateGeneratorTests
         var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
 
         // Assert
-        Assert.Contains("public static class StatusCode", result);
+        Assert.Contains("public const string StatusCode = \"statuscode\";", result);
+        Assert.Contains("public static class StatusCodeOptions", result);
         Assert.Contains("public const int Active = 1;", result);
         Assert.Contains("public const int Inactive = 2;", result);
     }
