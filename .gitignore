@@ -36,7 +36,7 @@ bld/
 [Bb]uild[Ll]og.*
 
 # Code Coverage
-tests/coverage/
+coverage/
 *.coverage
 *.coveragexml
 
