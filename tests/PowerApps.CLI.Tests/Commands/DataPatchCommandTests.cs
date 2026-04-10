@@ -450,4 +450,210 @@ public class DataPatchCommandTests
         Assert.NotNull(command);
         Assert.Equal("data-patch", command.Name);
     }
+
+    // --- ToTypedValue: untyped fallback arms ---
+
+    [Fact]
+    public async Task ExecuteAsync_WithBoolTrueValue_UpdatesWithTrue()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = [ new PatchEntry { Entity = "contact", KeyField = "fullname", Key = "Jane", ValueField = "donotphone", Value = JsonDocument.Parse("true").RootElement } ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["donotphone"] = false;
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["donotphone"] != null &&
+            r.Target["donotphone"].GetType() == typeof(bool) &&
+            (bool)r.Target["donotphone"] == true)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithBoolFalseValue_UpdatesWithFalse()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = [ new PatchEntry { Entity = "contact", KeyField = "fullname", Key = "Jane", ValueField = "donotphone", Value = JsonDocument.Parse("false").RootElement } ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["donotphone"] = true;
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["donotphone"] != null &&
+            r.Target["donotphone"].GetType() == typeof(bool) &&
+            (bool)r.Target["donotphone"] == false)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithIntegerValue_UpdatesWithInt()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = [ new PatchEntry { Entity = "contact", KeyField = "fullname", Key = "Jane", ValueField = "numberofchildren", Value = JsonDocument.Parse("3").RootElement } ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["numberofchildren"] = 1;
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["numberofchildren"] != null &&
+            r.Target["numberofchildren"].GetType() == typeof(int) &&
+            (int)r.Target["numberofchildren"] == 3)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithNullValue_UpdatesWithNull()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = [ new PatchEntry { Entity = "contact", KeyField = "fullname", Key = "Jane", ValueField = "telephone1", Value = JsonDocument.Parse("null").RootElement } ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["telephone1"] = "01234";
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["telephone1"] == null)), Times.Once);
+    }
+
+    // --- ToTypedValue: typed guid arm ---
+
+    [Fact]
+    public async Task ExecuteAsync_WithGuidType_UpdatesWithGuid()
+    {
+        var newGuid = Guid.NewGuid();
+        var config = new DataPatchConfig
+        {
+            Patches =
+            [
+                new PatchEntry
+                {
+                    Entity     = "contact",
+                    KeyField   = "fullname",
+                    Key        = "Jane",
+                    ValueField = "anc_uniqueref",
+                    Value      = JsonDocument.Parse($"\"{newGuid}\"").RootElement,
+                    Type       = "guid"
+                }
+            ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["anc_uniqueref"] = Guid.NewGuid().ToString(); // different value
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["anc_uniqueref"] != null &&
+            r.Target["anc_uniqueref"].GetType() == typeof(Guid) &&
+            (Guid)r.Target["anc_uniqueref"] == newGuid)), Times.Once);
+    }
+
+    // --- ToTypedValue: optionset bool arms ---
+
+    [Fact]
+    public async Task ExecuteAsync_WithOptionSetType_AndBoolTrueValue_WrapsAs1()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches =
+            [
+                new PatchEntry
+                {
+                    Entity     = "contact",
+                    KeyField   = "fullname",
+                    Key        = "Jane",
+                    ValueField = "anc_status",
+                    Value      = JsonDocument.Parse("true").RootElement,
+                    Type       = "optionset"
+                }
+            ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["anc_status"] = new OptionSetValue(0);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["anc_status"] != null &&
+            r.Target["anc_status"].GetType() == typeof(OptionSetValue) &&
+            ((OptionSetValue)r.Target["anc_status"]).Value == 1)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithOptionSetType_AndBoolFalseValue_WrapsAs0()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches =
+            [
+                new PatchEntry
+                {
+                    Entity     = "contact",
+                    KeyField   = "fullname",
+                    Key        = "Jane",
+                    ValueField = "anc_status",
+                    Value      = JsonDocument.Parse("false").RootElement,
+                    Type       = "optionset"
+                }
+            ]
+        };
+        SetupConfigFile("config.json", config);
+
+        var record = new Entity("contact", Guid.NewGuid());
+        record["anc_status"] = new OptionSetValue(1);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { record }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>())).Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["anc_status"] != null &&
+            r.Target["anc_status"].GetType() == typeof(OptionSetValue) &&
+            ((OptionSetValue)r.Target["anc_status"]).Value == 0)), Times.Once);
+    }
 }
