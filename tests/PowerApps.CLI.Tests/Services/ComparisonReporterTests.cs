@@ -350,4 +350,232 @@ public class ComparisonReporterTests : IDisposable
     }
 
     #endregion
+
+    #region No Differences Tests
+
+    [Fact]
+    public async Task GenerateReportAsync_WithNoDifferences_WritesSyncMessageToSummary()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "no-diff-message.xlsx");
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            TableResults = { new TableComparisonResult { TableName = "account" } }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        var ws = workbook.Worksheet("Summary");
+        var used = ws.RangeUsed()!;
+        var found = used.Cells().Any(c => c.GetString().Contains("No differences found"));
+        Assert.True(found);
+    }
+
+    #endregion
+
+    #region Relationship Detail Sheet Tests
+
+    [Fact]
+    public async Task GenerateReportAsync_WithRelationshipDifferences_CreatesRelationshipDetailSheet()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "rel-detail.xlsx");
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            RelationshipResults =
+            {
+                new RelationshipComparisonResult
+                {
+                    RelationshipName  = "account_contact",
+                    IntersectEntity   = "accountcontact",
+                    SourceAssociationCount = 3,
+                    TargetAssociationCount = 2,
+                    Differences =
+                    {
+                        new AssociationDifference
+                        {
+                            Entity1Id   = Guid.NewGuid(),
+                            Entity1Name = "Contoso",
+                            Entity2Id   = Guid.NewGuid(),
+                            Entity2Name = "Jane Doe",
+                            DifferenceType = DifferenceType.New
+                        }
+                    }
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("account_contact"));
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_RelationshipDetailSheet_ContainsCorrectData()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "rel-detail-data.xlsx");
+        var entity1Id = Guid.NewGuid();
+        var entity2Id = Guid.NewGuid();
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            RelationshipResults =
+            {
+                new RelationshipComparisonResult
+                {
+                    RelationshipName       = "account_contact",
+                    IntersectEntity        = "accountcontact",
+                    SourceAssociationCount = 3,
+                    TargetAssociationCount = 2,
+                    Differences =
+                    {
+                        new AssociationDifference
+                        {
+                            Entity1Id      = entity1Id,
+                            Entity1Name    = "Contoso",
+                            Entity2Id      = entity2Id,
+                            Entity2Name    = "Jane Doe",
+                            DifferenceType = DifferenceType.New
+                        }
+                    }
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        var ws = workbook.Worksheet("account_contact");
+        var dataRow = ws.RangeUsed()!.Rows().First(r => r.Cell(1).GetString() == "Contoso");
+
+        Assert.Equal(entity1Id.ToString(), dataRow.Cell(2).GetString());
+        Assert.Equal("Jane Doe",           dataRow.Cell(3).GetString());
+        Assert.Equal(entity2Id.ToString(), dataRow.Cell(4).GetString());
+        Assert.Equal("New",                dataRow.Cell(5).GetString());
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_RelationshipWithNullEntityNames_FallsBackToId()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "rel-null-names.xlsx");
+        var entity1Id = Guid.NewGuid();
+        var entity2Id = Guid.NewGuid();
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            RelationshipResults =
+            {
+                new RelationshipComparisonResult
+                {
+                    RelationshipName = "account_contact",
+                    Differences =
+                    {
+                        new AssociationDifference
+                        {
+                            Entity1Id      = entity1Id,
+                            Entity1Name    = null,
+                            Entity2Id      = entity2Id,
+                            Entity2Name    = null,
+                            DifferenceType = DifferenceType.Deleted
+                        }
+                    }
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        var ws = workbook.Worksheet("account_contact");
+        var dataRow = ws.RangeUsed()!.Rows().First(r => r.Cell(1).GetString() == entity1Id.ToString());
+
+        Assert.Equal(entity2Id.ToString(), dataRow.Cell(3).GetString());
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_WithNoRelationshipDifferences_DoesNotCreateRelationshipSheet()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "rel-no-diff.xlsx");
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            RelationshipResults =
+            {
+                new RelationshipComparisonResult
+                {
+                    RelationshipName       = "account_contact",
+                    SourceAssociationCount = 2,
+                    TargetAssociationCount = 2
+                    // No Differences
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.False(workbook.Worksheets.Contains("account_contact"));
+    }
+
+    #endregion
+
+    #region SanitizeSheetName Tests
+
+    [Fact]
+    public async Task GenerateReportAsync_TableNameOver31Chars_TruncatesSheetName()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "long-name.xlsx");
+        var longName = "this_is_a_very_long_table_name_that_exceeds_31_chars";
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            TableResults =
+            {
+                new TableComparisonResult
+                {
+                    TableName = longName,
+                    Differences = { new RecordDifference { RecordId = Guid.NewGuid(), DifferenceType = DifferenceType.New } }
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.Contains(workbook.Worksheets, ws => ws.Name == longName.Substring(0, 31));
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_TableNameWithInvalidChars_SanitisesSheetName()
+    {
+        var outputPath = Path.Combine(_tempDirectory, "invalid-chars.xlsx");
+        var result = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            TableResults =
+            {
+                new TableComparisonResult
+                {
+                    TableName = "table/name",
+                    Differences = { new RecordDifference { RecordId = Guid.NewGuid(), DifferenceType = DifferenceType.New } }
+                }
+            }
+        };
+
+        await _reporter.GenerateReportAsync(result, outputPath);
+
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("table_name"));
+    }
+
+    #endregion
 }
