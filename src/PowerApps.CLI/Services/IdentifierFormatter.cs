@@ -129,25 +129,23 @@ public class IdentifierFormatter : IIdentifierFormatter
 
     /// <summary>
     /// Generates a unique identifier when duplicates are found.
+    /// First collision appends "_", subsequent collisions append "_1", "_2", etc.
     /// </summary>
-    public string MakeUnique(string identifier, HashSet<string> existingIdentifiers, string? suffix = null)
+    public string MakeUnique(string identifier, HashSet<string> existingIdentifiers)
     {
         if (!existingIdentifiers.Contains(identifier))
             return identifier;
 
-        // Append suffix (e.g., short GUID)
-        var uniqueIdentifier = suffix != null
-            ? $"{identifier}_{suffix}"
-            : $"{identifier}_{Guid.NewGuid().ToString().Substring(0, 6)}";
+        var candidate = $"{identifier}_";
+        if (!existingIdentifiers.Contains(candidate))
+            return candidate;
 
-        // Ensure uniqueness
         int counter = 1;
-        var baseIdentifier = uniqueIdentifier;
-        while (existingIdentifiers.Contains(uniqueIdentifier))
+        while (true)
         {
-            uniqueIdentifier = $"{baseIdentifier}_{counter++}";
+            candidate = $"{identifier}_{counter++}";
+            if (!existingIdentifiers.Contains(candidate))
+                return candidate;
         }
-
-        return uniqueIdentifier;
     }
 }

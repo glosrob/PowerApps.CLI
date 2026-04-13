@@ -264,7 +264,7 @@ public class IdentifierFormatterTests
     }
 
     [Fact]
-    public void MakeUnique_DuplicateIdentifier_AppendsGuid()
+    public void MakeUnique_DuplicateIdentifier_AppendsUnderscore()
     {
         // Arrange
         var formatter = new IdentifierFormatter();
@@ -274,35 +274,34 @@ public class IdentifierFormatterTests
         var result = formatter.MakeUnique("Contact", existingIdentifiers);
 
         // Assert
-        Assert.NotEqual("Contact", result);
-        Assert.StartsWith("Contact_", result);
+        Assert.Equal("Contact_", result);
     }
 
     [Fact]
-    public void MakeUnique_WithCustomSuffix_AppendsCustomSuffix()
+    public void MakeUnique_FirstSuffixTaken_AppendsOne()
     {
         // Arrange
         var formatter = new IdentifierFormatter();
-        var existingIdentifiers = new HashSet<string> { "Contact" };
+        var existingIdentifiers = new HashSet<string> { "Contact", "Contact_" };
 
         // Act
-        var result = formatter.MakeUnique("Contact", existingIdentifiers, "V2");
+        var result = formatter.MakeUnique("Contact", existingIdentifiers);
 
         // Assert
-        Assert.Equal("Contact_V2", result);
+        Assert.Equal("Contact_1", result);
     }
 
     [Fact]
-    public void MakeUnique_MultipleDuplicates_AppendsCounter()
+    public void MakeUnique_MultipleDuplicates_IncrementsCounter()
     {
         // Arrange
         var formatter = new IdentifierFormatter();
-        var existingIdentifiers = new HashSet<string> { "Contact", "Contact_abc123", "Contact_abc123_1" };
+        var existingIdentifiers = new HashSet<string> { "Contact", "Contact_", "Contact_1" };
 
         // Act
-        var result = formatter.MakeUnique("Contact", existingIdentifiers, "abc123");
+        var result = formatter.MakeUnique("Contact", existingIdentifiers);
 
         // Assert
-        Assert.Equal("Contact_abc123_2", result);
+        Assert.Equal("Contact_2", result);
     }
 }
