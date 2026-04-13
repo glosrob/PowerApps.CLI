@@ -185,6 +185,60 @@ public class CodeTemplateGeneratorTests
     }
 
     [Fact]
+    public void GenerateEntityClass_TwoLocalOptionSetsWithSamePascalCasedName_DeduplicatesCS0102()
+    {
+        // Arrange — two attributes with the same display name both resolve to FavouriteColourOptions
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema
+        {
+            LogicalName = "sample_entity",
+            DisplayName = "Sample Entity",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "favouritecolourcode",
+                    DisplayName = "Favourite Colour",
+                    AttributeType = "Picklist",
+                    OptionSet = new OptionSetSchema
+                    {
+                        IsGlobal = false,
+                        Options = new List<OptionSchema>
+                        {
+                            new OptionSchema { Value = 1, Label = "Red" }
+                        }
+                    }
+                },
+                new AttributeSchema
+                {
+                    LogicalName = "rob_favouritecolourcode",
+                    DisplayName = "Favourite Colour",
+                    AttributeType = "Picklist",
+                    OptionSet = new OptionSetSchema
+                    {
+                        IsGlobal = false,
+                        Options = new List<OptionSchema>
+                        {
+                            new OptionSchema { Value = 1, Label = "Blue" }
+                        }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert — first class keeps the original name, second is renamed to avoid CS0102
+        Assert.Contains("public static class FavouriteColourOptions", result);
+        Assert.Contains("public static class FavouriteColourOptions_", result); // second gets disambiguated suffix
+        // Both option values must be present (proving both classes were emitted)
+        Assert.Contains("public const int Red = 1;", result);
+        Assert.Contains("public const int Blue = 1;", result);
+    }
+
+    [Fact]
     public void GenerateEntityClass_WithCommentsDisabled_DoesNotGenerateComments()
     {
         // Arrange
@@ -238,6 +292,32 @@ public class CodeTemplateGeneratorTests
         Assert.Contains("public static class AccountStatuscode", result);
         Assert.Contains("public const int Active = 1;", result);
         Assert.Contains("public const int Inactive = 2;", result);
+    }
+
+    [Fact]
+    public void GenerateGlobalOptionSetClass_OptionLabelMatchesClassName_DeduplicatesCS0542()
+    {
+        // Arrange — global option set "day" with an option also called "Day" would cause CS0542
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: true, includeRelationships: true, formatter);
+        var optionSet = new OptionSetSchema
+        {
+            Name = "day",
+            IsGlobal = true,
+            Options = new List<OptionSchema>
+            {
+                new OptionSchema { Value = 1, Label = "Day" },
+                new OptionSchema { Value = 2, Label = "Night" }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateGlobalOptionSetClass(optionSet, "MyCompany.Constants");
+
+        // Assert — "Day" constant must be renamed to avoid CS0542 clash with class "Day"
+        Assert.Contains("public static class Day", result);
+        Assert.DoesNotContain("public const int Day = 1;", result);
+        Assert.Contains("public const int Night = 2;", result);
     }
 
     [Fact]

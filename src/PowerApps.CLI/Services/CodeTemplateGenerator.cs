@@ -91,7 +91,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         sb.AppendLine($"    public static class {className}");
         sb.AppendLine("    {");
 
-        var usedOptionNames = new HashSet<string>();
+        var usedOptionNames = new HashSet<string> { className };
         foreach (var option in optionSet.Options)
         {
             AppendOptionConstant(sb, option, 8, usedOptionNames);
@@ -187,11 +187,15 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
                         !IsStateOrStatusCode(a.AttributeType))
             .ToList();
 
+        var usedClassNames = new HashSet<string>();
         foreach (var attr in localOptionSetAttrs)
         {
             if (attr.OptionSet == null) continue;
 
-            var className = _formatter.ToIdentifier(attr.DisplayName ?? attr.LogicalName) + "Options";
+            var className = _formatter.MakeUnique(
+                _formatter.ToIdentifier(attr.DisplayName ?? attr.LogicalName) + "Options",
+                usedClassNames, "_");
+            usedClassNames.Add(className);
 
             AppendComment(sb, 8, $"{attr.DisplayName ?? attr.LogicalName} option set values.");
             sb.AppendLine($"        public static class {className}");
