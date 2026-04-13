@@ -185,6 +185,60 @@ public class CodeTemplateGeneratorTests
     }
 
     [Fact]
+    public void GenerateEntityClass_TwoLocalOptionSetsWithSamePascalCasedName_DeduplicatesCS0102()
+    {
+        // Arrange — two attributes with the same display name both resolve to FavouriteColourOptions
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema
+        {
+            LogicalName = "sample_entity",
+            DisplayName = "Sample Entity",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "favouritecolourcode",
+                    DisplayName = "Favourite Colour",
+                    AttributeType = "Picklist",
+                    OptionSet = new OptionSetSchema
+                    {
+                        IsGlobal = false,
+                        Options = new List<OptionSchema>
+                        {
+                            new OptionSchema { Value = 1, Label = "Red" }
+                        }
+                    }
+                },
+                new AttributeSchema
+                {
+                    LogicalName = "rob_favouritecolourcode",
+                    DisplayName = "Favourite Colour",
+                    AttributeType = "Picklist",
+                    OptionSet = new OptionSetSchema
+                    {
+                        IsGlobal = false,
+                        Options = new List<OptionSchema>
+                        {
+                            new OptionSchema { Value = 1, Label = "Blue" }
+                        }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert — first class keeps the original name, second is renamed to avoid CS0102
+        Assert.Contains("public static class FavouriteColourOptions", result);
+        Assert.Contains("public static class FavouriteColourOptions_", result); // second gets disambiguated suffix
+        // Both option values must be present (proving both classes were emitted)
+        Assert.Contains("public const int Red = 1;", result);
+        Assert.Contains("public const int Blue = 1;", result);
+    }
+
+    [Fact]
     public void GenerateEntityClass_WithCommentsDisabled_DoesNotGenerateComments()
     {
         // Arrange
