@@ -130,7 +130,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         var attributeName = _formatter.ToIdentifier(attr.DisplayName ?? attr.SchemaName ?? attr.LogicalName);
 
         // Deduplicate — also handles CS0542 (class name pre-seeded into usedNames)
-        attributeName = _formatter.MakeUnique(attributeName, usedNames, "_");
+        attributeName = _formatter.MakeUnique(attributeName, usedNames);
         usedNames.Add(attributeName);
 
         var comment = BuildAttributeComment(attr);
@@ -194,7 +194,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
 
             var className = _formatter.MakeUnique(
                 _formatter.ToIdentifier(attr.DisplayName ?? attr.LogicalName) + "Options",
-                usedClassNames, "_");
+                usedClassNames);
             usedClassNames.Add(className);
 
             AppendComment(sb, 8, $"{attr.DisplayName ?? attr.LogicalName} option set values.");
@@ -217,7 +217,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         var optionName = _formatter.ToIdentifier(option.Label ?? $"Option{option.Value}");
 
         // Deduplicate using the option value as suffix to keep names meaningful (CS0102)
-        optionName = _formatter.MakeUnique(optionName, usedNames, option.Value.ToString());
+        optionName = _formatter.MakeUnique(optionName, usedNames);
         usedNames.Add(optionName);
 
         var spaces = new string(' ', indent);

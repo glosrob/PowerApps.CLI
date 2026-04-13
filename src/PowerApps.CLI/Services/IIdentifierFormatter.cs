@@ -18,5 +18,5 @@ public interface IIdentifierFormatter
     /// <summary>
     /// Generates a unique identifier when duplicates are found.
     /// </summary>
-    string MakeUnique(string identifier, HashSet<string> existingIdentifiers, string? suffix = null);
+    string MakeUnique(string identifier, HashSet<string> existingIdentifiers);
 }
