@@ -91,7 +91,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         sb.AppendLine($"    public static class {className}");
         sb.AppendLine("    {");
 
-        var usedOptionNames = new HashSet<string>();
+        var usedOptionNames = new HashSet<string> { className };
         foreach (var option in optionSet.Options)
         {
             AppendOptionConstant(sb, option, 8, usedOptionNames);
