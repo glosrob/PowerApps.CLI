@@ -256,6 +256,114 @@ public class ConstantsFilterTests
     }
 
     [Fact]
+    public void FilterAttributes_SkipVirtualFields_RemovesVirtualAttributes()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "owneridname", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "lastname", AttributeType = "String" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "firstname");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "lastname");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "createdbyname");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "owneridname");
+    }
+
+    [Fact]
+    public void FilterAttributes_SkipVirtualFieldsFalse_RetainsVirtualAttributes()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = false };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "createdbyname");
+    }
+
+    [Fact]
+    public void FilterAttributes_SkipVirtualFieldsCaseInsensitive_RemovesVirtualAttributes()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "virtual" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Single(result.Attributes);
+        Assert.Equal("firstname", result.Attributes[0].LogicalName);
+    }
+
+    [Fact]
+    public void FilterAttributes_SkipVirtualFieldsWithExclusions_AppliesBothFilters()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig
+        {
+            SkipVirtualFields = true,
+            ExcludeAttributes = new List<string> { "createdon" }
+        };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
+                new AttributeSchema { LogicalName = "createdon", AttributeType = "DateTime" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "lastname", AttributeType = "String" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "firstname");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "lastname");
+    }
+
+    [Fact]
     public void ExtractGlobalOptionSets_NoGlobalOptionSets_ReturnsEmptyList()
     {
         // Arrange

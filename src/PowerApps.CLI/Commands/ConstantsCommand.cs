@@ -41,7 +41,8 @@ public class ConstantsCommand
         string? excludeEntities,
         string? excludeAttributes,
         string? attributePrefix,
-        bool pascalCase)
+        bool pascalCase,
+        bool skipVirtualFields)
     {
         try
         {
@@ -100,7 +101,8 @@ public class ConstantsCommand
                     PascalCaseConversion = pascalCase,
                     SingleFile = singleFile,
                     IncludeEntities = includeEntities,
-                    IncludeGlobalOptionSets = includeOptionSets
+                    IncludeGlobalOptionSets = includeOptionSets,
+                    SkipVirtualFields = skipVirtualFields
                 };
             }
 
@@ -113,7 +115,7 @@ public class ConstantsCommand
             }
 
             // Filter attributes on each entity
-            if (filterConfig.ExcludeAttributes.Count > 0 || !string.IsNullOrWhiteSpace(filterConfig.AttributePrefix))
+            if (filterConfig.ExcludeAttributes.Count > 0 || !string.IsNullOrWhiteSpace(filterConfig.AttributePrefix) || filterConfig.SkipVirtualFields)
             {
                 for (int i = 0; i < entities.Count; i++)
                 {
@@ -226,6 +228,11 @@ public class ConstantsCommand
             getDefaultValue: () => true,
             description: "Convert identifiers to PascalCase");
 
+        var skipVirtualFieldsOption = new Option<bool>(
+            aliases: new[] { "--skip-virtual-fields" },
+            getDefaultValue: () => false,
+            description: "Skip virtual fields (e.g. createdbyname, owneridname) from generated constants");
+
         constantsGenerateCommand.AddOption(urlOption);
         constantsGenerateCommand.AddOption(solutionOption);
         constantsGenerateCommand.AddOption(outputOption);
@@ -242,6 +249,7 @@ public class ConstantsCommand
         constantsGenerateCommand.AddOption(excludeAttributesOption);
         constantsGenerateCommand.AddOption(attributePrefixOption);
         constantsGenerateCommand.AddOption(pascalCaseOption);
+        constantsGenerateCommand.AddOption(skipVirtualFieldsOption);
 
         constantsGenerateCommand.SetHandler(async (context) =>
         {
@@ -261,6 +269,7 @@ public class ConstantsCommand
             var excludeAttributes = context.ParseResult.GetValueForOption(excludeAttributesOption);
             var attributePrefix = context.ParseResult.GetValueForOption(attributePrefixOption);
             var pascalCase = context.ParseResult.GetValueForOption(pascalCaseOption);
+            var skipVirtualFields = context.ParseResult.GetValueForOption(skipVirtualFieldsOption);
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
 
@@ -297,7 +306,7 @@ public class ConstantsCommand
             context.ExitCode = await command.ExecuteAsync(
                 config, url, solution, output, namespaceName, singleFile,
                 connectionString, includeEntities, includeOptionSets,
-                excludeEntities, excludeAttributes, attributePrefix, pascalCase);
+                excludeEntities, excludeAttributes, attributePrefix, pascalCase, skipVirtualFields);
         });
 
         return constantsGenerateCommand;

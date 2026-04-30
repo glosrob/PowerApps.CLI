@@ -88,8 +88,15 @@ public class ConstantsFilter : IConstantsFilter
         // Apply attribute prefix filter
         if (!string.IsNullOrWhiteSpace(config.AttributePrefix))
         {
-            filteredAttributes = filteredAttributes.Where(a => 
+            filteredAttributes = filteredAttributes.Where(a =>
                 a.LogicalName.StartsWith(config.AttributePrefix, StringComparison.OrdinalIgnoreCase));
+        }
+
+        // Skip virtual fields (e.g. createdbyname, owneridname)
+        if (config.SkipVirtualFields)
+        {
+            filteredAttributes = filteredAttributes.Where(a =>
+                !string.Equals(a.AttributeType, "Virtual", StringComparison.OrdinalIgnoreCase));
         }
 
         return filteredAttributes.ToList();

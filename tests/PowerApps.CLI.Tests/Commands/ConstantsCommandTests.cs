@@ -34,7 +34,7 @@ public class ConstantsCommandTests
     {
         var result = await _command.ExecuteAsync(
             null, null, null, "./output", "MyNamespace", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         Assert.Equal(1, result);
         _mockLogger.Verify(l => l.LogError(It.Is<string>(s => s.Contains("--url or --connection-string"))), Times.Once);
@@ -51,7 +51,7 @@ public class ConstantsCommandTests
         // Act
         var result = await _command.ExecuteAsync(
             null, "https://test.crm.dynamics.com", "MySolution", "./output", "MyNamespace", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         // Assert
         Assert.Equal(0, result);
@@ -70,7 +70,7 @@ public class ConstantsCommandTests
         // Act
         await _command.ExecuteAsync(
             null, "https://test.crm.dynamics.com", null, "./Generated", "My.Namespace", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         // Assert
         _mockGenerator.Verify(g => g.GenerateAsync(
@@ -110,7 +110,7 @@ public class ConstantsCommandTests
         // Act
         await _command.ExecuteAsync(
             config, "https://test.crm.dynamics.com", null, "./output", "NS", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         // Assert
         _mockFilter.Verify(f => f.FilterEntities(entities, config), Times.Once);
@@ -130,7 +130,7 @@ public class ConstantsCommandTests
         // Act - pass attribute prefix to trigger attribute filtering
         await _command.ExecuteAsync(
             null, "https://test.crm.dynamics.com", null, "./output", "NS", false,
-            null, true, true, null, null, "rob_", true);
+            null, true, true, null, null, "rob_", true, false);
 
         // Assert
         _mockFilter.Verify(f => f.FilterAttributes(entity, It.IsAny<ConstantsConfig>()), Times.Once);
@@ -150,7 +150,7 @@ public class ConstantsCommandTests
         // Act - pass comma-separated exclude entities
         await _command.ExecuteAsync(
             null, "https://test.crm.dynamics.com", null, "./output", "NS", false,
-            null, true, true, "systemuser,team", "modifiedby,createdon", null, true);
+            null, true, true, "systemuser,team", "modifiedby,createdon", null, true, false);
 
         // Assert - filter should be called with the parsed exclusion list
         _mockFilter.Verify(f => f.FilterEntities(
@@ -171,7 +171,7 @@ public class ConstantsCommandTests
         // Act
         await _command.ExecuteAsync(
             null, "https://myorg.crm.dynamics.com", null, "./output", "NS", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         // Assert
         _mockLogger.Verify(l => l.LogVerbose(It.Is<string>(s => s.Contains("https://myorg.crm.dynamics.com"))), Times.Once);
@@ -187,7 +187,7 @@ public class ConstantsCommandTests
         // Act
         var result = await _command.ExecuteAsync(
             null, "https://test.crm.dynamics.com", null, "./output", "NS", false,
-            null, true, true, null, null, null, true);
+            null, true, true, null, null, null, true, false);
 
         // Assert
         Assert.Equal(1, result);

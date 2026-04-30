@@ -12,6 +12,7 @@ public class ConstantsConfig
     public bool IncludeComments { get; set; } = true;
     public bool IncludeRelationships { get; set; } = true;
     public bool PascalCaseConversion { get; set; } = true;
+    public bool SkipVirtualFields { get; set; } = false;
     public string? AttributePrefix { get; set; }
     public List<string> ExcludeAttributes { get; set; } = new();
     public List<string> ExcludeEntities { get; set; } = new();
