@@ -92,11 +92,12 @@ public class ConstantsFilter : IConstantsFilter
                 a.LogicalName.StartsWith(config.AttributePrefix, StringComparison.OrdinalIgnoreCase));
         }
 
-        // Skip virtual fields (e.g. createdbyname, owneridname)
+        // Skip virtual fields (e.g. createdbyname, owneridname) — identified by AttributeOf being set,
+        // meaning Dataverse generates them as derived companions to another attribute (e.g. a lookup).
         if (config.SkipVirtualFields)
         {
             filteredAttributes = filteredAttributes.Where(a =>
-                !string.Equals(a.AttributeType, "Virtual", StringComparison.OrdinalIgnoreCase));
+                string.IsNullOrEmpty(a.AttributeOf));
         }
 
         return filteredAttributes.ToList();

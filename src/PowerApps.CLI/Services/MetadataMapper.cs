@@ -39,7 +39,8 @@ public class MetadataMapper : IMetadataMapper
             IsValidForCreate = attributeMetadata.IsValidForCreate ?? false,
             IsValidForUpdate = attributeMetadata.IsValidForUpdate ?? false,
             IsValidForRead = attributeMetadata.IsValidForRead ?? false,
-            RequiredLevel = attributeMetadata.RequiredLevel?.Value.ToString()
+            RequiredLevel = attributeMetadata.RequiredLevel?.Value.ToString(),
+            AttributeOf = attributeMetadata.AttributeOf
         };
 
         // Type-specific mappings
@@ -77,6 +78,10 @@ public class MetadataMapper : IMetadataMapper
         else if (attributeMetadata is LookupAttributeMetadata lookupAttr)
         {
             attribute.Targets = lookupAttr.Targets;
+        }
+        else if (attributeMetadata is FileAttributeMetadata)
+        {
+            attribute.AttributeType = "File";
         }
 
         // Map option sets

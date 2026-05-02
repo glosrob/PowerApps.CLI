@@ -256,7 +256,7 @@ public class ConstantsFilterTests
     }
 
     [Fact]
-    public void FilterAttributes_SkipVirtualFields_RemovesVirtualAttributes()
+    public void FilterAttributes_SkipVirtualFields_RemovesDerivedAttributes()
     {
         // Arrange
         var filter = new ConstantsFilter();
@@ -266,10 +266,10 @@ public class ConstantsFilterTests
             LogicalName = "contact",
             Attributes = new List<AttributeSchema>
             {
-                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
-                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" },
-                new AttributeSchema { LogicalName = "owneridname", AttributeType = "Virtual" },
-                new AttributeSchema { LogicalName = "lastname", AttributeType = "String" }
+                new AttributeSchema { LogicalName = "firstname" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeOf = "createdby" },
+                new AttributeSchema { LogicalName = "owneridname", AttributeOf = "ownerid" },
+                new AttributeSchema { LogicalName = "lastname" }
             }
         };
 
@@ -285,7 +285,7 @@ public class ConstantsFilterTests
     }
 
     [Fact]
-    public void FilterAttributes_SkipVirtualFieldsFalse_RetainsVirtualAttributes()
+    public void FilterAttributes_SkipVirtualFieldsFalse_RetainsDerivedAttributes()
     {
         // Arrange
         var filter = new ConstantsFilter();
@@ -295,8 +295,8 @@ public class ConstantsFilterTests
             LogicalName = "contact",
             Attributes = new List<AttributeSchema>
             {
-                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
-                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" }
+                new AttributeSchema { LogicalName = "firstname" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeOf = "createdby" }
             }
         };
 
@@ -309,7 +309,7 @@ public class ConstantsFilterTests
     }
 
     [Fact]
-    public void FilterAttributes_SkipVirtualFieldsCaseInsensitive_RemovesVirtualAttributes()
+    public void FilterAttributes_SkipVirtualFields_RetainsAttributesWithNoAttributeOf()
     {
         // Arrange
         var filter = new ConstantsFilter();
@@ -319,8 +319,8 @@ public class ConstantsFilterTests
             LogicalName = "contact",
             Attributes = new List<AttributeSchema>
             {
-                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
-                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "virtual" }
+                new AttributeSchema { LogicalName = "firstname", AttributeOf = null },
+                new AttributeSchema { LogicalName = "lastname", AttributeOf = string.Empty }
             }
         };
 
@@ -328,8 +328,7 @@ public class ConstantsFilterTests
         var result = filter.FilterAttributes(entity, config);
 
         // Assert
-        Assert.Single(result.Attributes);
-        Assert.Equal("firstname", result.Attributes[0].LogicalName);
+        Assert.Equal(2, result.Attributes.Count);
     }
 
     [Fact]
@@ -347,10 +346,10 @@ public class ConstantsFilterTests
             LogicalName = "contact",
             Attributes = new List<AttributeSchema>
             {
-                new AttributeSchema { LogicalName = "firstname", AttributeType = "String" },
-                new AttributeSchema { LogicalName = "createdon", AttributeType = "DateTime" },
-                new AttributeSchema { LogicalName = "createdbyname", AttributeType = "Virtual" },
-                new AttributeSchema { LogicalName = "lastname", AttributeType = "String" }
+                new AttributeSchema { LogicalName = "firstname" },
+                new AttributeSchema { LogicalName = "createdon" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeOf = "createdby" },
+                new AttributeSchema { LogicalName = "lastname" }
             }
         };
 
