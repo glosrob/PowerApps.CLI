@@ -137,6 +137,27 @@ public class ConstantsCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_WithSkipVirtualFields_CallsFilterAttributesWithSkipVirtualFieldsTrue()
+    {
+        // Arrange
+        var entity = new EntitySchema { LogicalName = "account" };
+        var schema = new PowerAppsSchema { Entities = new List<EntitySchema> { entity } };
+        _mockSchemaExtractor.Setup(e => e.ExtractSchemaAsync(It.IsAny<string?>()))
+            .ReturnsAsync(schema);
+        _mockFilter.Setup(f => f.FilterAttributes(entity, It.IsAny<ConstantsConfig>()))
+            .Returns(entity);
+
+        // Act
+        await _command.ExecuteAsync(
+            null, "https://test.crm.dynamics.com", null, "./output", "NS", false,
+            null, true, true, null, null, null, true, skipVirtualFields: true);
+
+        // Assert
+        _mockFilter.Verify(f => f.FilterAttributes(entity,
+            It.Is<ConstantsConfig>(c => c.SkipVirtualFields == true)), Times.Once);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithCliExcludeOptions_BuildsConfigCorrectly()
     {
         // Arrange

@@ -363,6 +363,64 @@ public class ConstantsFilterTests
     }
 
     [Fact]
+    public void FilterAttributes_SkipVirtualFields_RemovesVirtualTypeAttributes()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname" },
+                new AttributeSchema { LogicalName = "entityimage_url", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "entityimage_timestamp", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "lastname" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "firstname");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "lastname");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "entityimage_url");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "entityimage_timestamp");
+    }
+
+    [Fact]
+    public void FilterAttributes_SkipVirtualFields_RemovesBothAttributeOfAndVirtualType()
+    {
+        // Arrange
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "firstname" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeOf = "createdby" },
+                new AttributeSchema { LogicalName = "entityimage_url", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "lastname" }
+            }
+        };
+
+        // Act
+        var result = filter.FilterAttributes(entity, config);
+
+        // Assert
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "firstname");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "lastname");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "createdbyname");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "entityimage_url");
+    }
+
+    [Fact]
     public void ExtractGlobalOptionSets_NoGlobalOptionSets_ReturnsEmptyList()
     {
         // Arrange

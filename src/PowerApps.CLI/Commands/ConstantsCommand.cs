@@ -231,7 +231,7 @@ public class ConstantsCommand
         var skipVirtualFieldsOption = new Option<bool>(
             aliases: new[] { "--skip-virtual-fields" },
             getDefaultValue: () => false,
-            description: "Skip virtual fields (e.g. createdbyname, owneridname) from generated constants");
+            description: "Exclude virtual fields from generated constants — skips lookup companion fields (AttributeOf is set, e.g. createdbyname) and Virtual-type attributes (e.g. EntityImage_URL)");
 
         constantsGenerateCommand.AddOption(urlOption);
         constantsGenerateCommand.AddOption(solutionOption);
