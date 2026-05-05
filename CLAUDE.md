@@ -62,7 +62,7 @@ Claude Code implements the plan, writes tests, ensures `dotnet build` and `dotne
 Cowork reviews the PR — checking the implementation against the agreed plan, looking for gaps, testing weaknesses, naming issues, and convention drift. Rob participates in this review. Cowork gives a frank verdict and raises comments; the Developer addresses them.
 
 ### 6. PR Merged into Main
-Once Reviewer and Rob are satisfied, the PR is merged.
+Once Reviewer and Rob are satisfied, the Developer merges the PR, closes the related issue, and prunes both the local and remote feature branch.
 
 ---
 
