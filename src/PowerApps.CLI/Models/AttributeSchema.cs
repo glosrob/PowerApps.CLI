@@ -22,6 +22,7 @@ public class AttributeSchema
     public int? Precision { get; set; }
     public OptionSetSchema? OptionSet { get; set; }
     public string[]? Targets { get; set; }
+    public string? AttributeOf { get; set; }
 
     public override string ToString()
     {

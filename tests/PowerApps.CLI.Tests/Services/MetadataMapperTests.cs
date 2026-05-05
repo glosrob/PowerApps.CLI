@@ -127,6 +127,24 @@ public class MetadataMapperTests
     }
 
     [Fact]
+    public void MapAttribute_ShouldMapFileAttribute()
+    {
+        // Arrange
+        var attributeMetadata = new FileAttributeMetadata
+        {
+            LogicalName = "entityimage",
+            SchemaName = "EntityImage"
+        };
+
+        // Act
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        // Assert
+        Assert.Equal("entityimage", result.LogicalName);
+        Assert.Equal("File", result.AttributeType);
+    }
+
+    [Fact]
     public void MapOptionSet_ShouldMapPicklistAttribute()
     {
         // Arrange
