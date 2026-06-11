@@ -55,8 +55,13 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
             sb.AppendLine();
         }
 
-        // Attributes — seed used names with className to prevent CS0542, and with nested class names to prevent member name conflicts
-        var usedAttributeNames = new HashSet<string> { className, "StateCodeOptions", "StatusCodeOptions" };
+        // Attributes — seed used names with className to prevent CS0542, with nested class names, and with the
+        // hard-coded entity-level constant names so columns like "Entity Logical Name" don't collide
+        var usedAttributeNames = new HashSet<string> { className, "StateCodeOptions", "StatusCodeOptions", "EntityLogicalName" };
+        if (!string.IsNullOrEmpty(entity.PrimaryIdAttribute))
+            usedAttributeNames.Add("PrimaryIdAttribute");
+        if (!string.IsNullOrEmpty(entity.PrimaryNameAttribute))
+            usedAttributeNames.Add("PrimaryNameAttribute");
         foreach (var attr in entity.Attributes)
         {
             AppendAttributeConstant(sb, attr, usedAttributeNames);
