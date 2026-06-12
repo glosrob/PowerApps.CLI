@@ -79,6 +79,10 @@ public class MetadataMapper : IMetadataMapper
         {
             attribute.Targets = lookupAttr.Targets;
         }
+        else if (attributeMetadata is MultiSelectPicklistAttributeMetadata)
+        {
+            attribute.AttributeType = "MultiSelectPicklist";
+        }
         else if (attributeMetadata is FileAttributeMetadata)
         {
             attribute.AttributeType = "File";
@@ -92,6 +96,22 @@ public class MetadataMapper : IMetadataMapper
 
     public OptionSetSchema? MapOptionSet(AttributeMetadata attributeMetadata)
     {
+        if (attributeMetadata is MultiSelectPicklistAttributeMetadata multiSelectAttr && multiSelectAttr.OptionSet != null)
+        {
+            var optionSet = multiSelectAttr.OptionSet;
+            return new OptionSetSchema
+            {
+                Name = optionSet.Name,
+                DisplayName = optionSet.DisplayName?.UserLocalizedLabel?.Label,
+                IsGlobal = optionSet.IsGlobal ?? false,
+                Options = optionSet.Options.Select(o => new OptionSchema
+                {
+                    Value = o.Value ?? 0,
+                    Label = o.Label?.UserLocalizedLabel?.Label
+                }).ToList()
+            };
+        }
+
         if (attributeMetadata is PicklistAttributeMetadata picklistAttr && picklistAttr.OptionSet != null)
         {
             var optionSet = picklistAttr.OptionSet;
