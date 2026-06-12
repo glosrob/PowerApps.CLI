@@ -231,7 +231,7 @@ public class ConstantsCommand
         var skipVirtualFieldsOption = new Option<bool>(
             aliases: new[] { "--skip-virtual-fields" },
             getDefaultValue: () => false,
-            description: "Exclude virtual fields from generated constants — skips lookup companion fields (AttributeOf is set, e.g. createdbyname) and Virtual-type attributes (e.g. EntityImage_URL)");
+            description: "Exclude virtual fields from generated constants — skips lookup companion fields (AttributeOf is set, e.g. createdbyname) and Virtual-type attributes without an option set (e.g. EntityImage_URL). Multi-select choice columns are Virtual-typed in the SDK but have an option set, so they are preserved.");
 
         constantsGenerateCommand.AddOption(urlOption);
         constantsGenerateCommand.AddOption(solutionOption);
