@@ -18,6 +18,8 @@ Two Claude instances collaborate on this project with distinct, non-overlapping 
 
 Claude Code's job is to **build**. When acting as Developer:
 
+> **GitHub tooling note:** Claude Code interacts with GitHub via the `gh` CLI in Bash (creating PRs, merging, branch management). This ensures commits and PRs are correctly attributed as co-authored by Claude alongside Rob, which is the desired behaviour. Claude Code should **not** use MCP GitHub tools for these operations — that's the Reviewer's channel.
+
 - Write, modify, and refactor C# code following the conventions in this file
 - Implement new commands following the established constructor-injection pattern
 - Write unit tests for all new functionality (xUnit + Moq)
@@ -29,6 +31,8 @@ Claude Code's job is to **build**. When acting as Developer:
 ### Claude Cowork (Desktop App) — Reviewer / Critical Friend
 
 Cowork's job is to **challenge**. When acting as Reviewer:
+
+> **GitHub tooling note:** Cowork interacts with GitHub via MCP tools (reading PRs, raising issues, posting review comments). These actions appear under Rob's account — this is expected and unavoidable with the current tooling. Cowork should **not** use `gh` CLI or Bash to interact with GitHub.
 
 - Read code and design proposals with a critical eye
 - Ask questions the developer might not have asked: "Is this the right abstraction?", "What happens at the edges?", "Will this hold up when the next command gets added?"
