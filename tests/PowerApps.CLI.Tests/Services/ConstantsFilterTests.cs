@@ -421,6 +421,34 @@ public class ConstantsFilterTests
     }
 
     [Fact]
+    public void FilterAttributes_SkipVirtualFields_RetainsMultiSelectPicklistAttributes()
+    {
+        // MultiSelectPicklist fields have AttributeTypeCode.Virtual in the raw SDK enum, but MetadataMapper
+        // corrects them to "MultiSelectPicklist". The filter must not strip them.
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "wvuk_childprofile",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "wvuk_agegrouppreference", AttributeType = "MultiSelectPicklist" },
+                new AttributeSchema { LogicalName = "entityimage_url", AttributeType = "Virtual" },
+                new AttributeSchema { LogicalName = "createdbyname", AttributeOf = "createdby" },
+                new AttributeSchema { LogicalName = "wvuk_name" }
+            }
+        };
+
+        var result = filter.FilterAttributes(entity, config);
+
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "wvuk_agegrouppreference");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "wvuk_name");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "entityimage_url");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "createdbyname");
+    }
+
+    [Fact]
     public void ExtractGlobalOptionSets_NoGlobalOptionSets_ReturnsEmptyList()
     {
         // Arrange

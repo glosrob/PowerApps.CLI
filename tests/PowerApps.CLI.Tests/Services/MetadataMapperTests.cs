@@ -539,4 +539,49 @@ public class MetadataMapperTests
         // Assert
         Assert.Null(result);
     }
+
+    [Fact]
+    public void MapAttribute_MultiSelectPicklist_AttributeTypeIsMultiSelectPicklist_NotVirtual()
+    {
+        // The Dataverse SDK returns AttributeTypeCode.Virtual for MultiSelectPicklist fields.
+        // MetadataMapper must override this to "MultiSelectPicklist" so the virtual-field filter
+        // does not incorrectly strip them when --skip-virtual-fields is set.
+        var attributeMetadata = new MultiSelectPicklistAttributeMetadata
+        {
+            LogicalName = "wvuk_agegrouppreference",
+            SchemaName = "wvuk_AgeGroupPreference"
+        };
+
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        Assert.Equal("MultiSelectPicklist", result.AttributeType);
+    }
+
+    [Fact]
+    public void MapOptionSet_MultiSelectPicklist_MapsOptionsCorrectly()
+    {
+        var optionSet = new OptionSetMetadata
+        {
+            Name = "wvuk_agegrouppreference",
+            DisplayName = new Label(new LocalizedLabel("Age Group Preference", 1033), Array.Empty<LocalizedLabel>()),
+            IsGlobal = false
+        };
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("Under 5", 1033), Array.Empty<LocalizedLabel>()), 1));
+        optionSet.Options.Add(new OptionMetadata(new Label(new LocalizedLabel("5-10", 1033), Array.Empty<LocalizedLabel>()), 2));
+
+        var attributeMetadata = new MultiSelectPicklistAttributeMetadata
+        {
+            LogicalName = "wvuk_agegrouppreference",
+            OptionSet = optionSet
+        };
+
+        var result = _mapper.MapOptionSet(attributeMetadata);
+
+        Assert.NotNull(result);
+        Assert.Equal("wvuk_agegrouppreference", result!.Name);
+        Assert.Equal("Age Group Preference", result.DisplayName);
+        Assert.Equal(2, result.Options.Count);
+        Assert.Equal(1, result.Options[0].Value);
+        Assert.Equal("Under 5", result.Options[0].Label);
+    }
 }
