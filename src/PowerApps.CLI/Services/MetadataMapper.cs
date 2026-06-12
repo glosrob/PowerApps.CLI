@@ -79,6 +79,8 @@ public class MetadataMapper : IMetadataMapper
         {
             attribute.Targets = lookupAttr.Targets;
         }
+        // MultiSelectPicklistAttributeMetadata inherits from PicklistAttributeMetadata — this branch must
+        // remain above any future PicklistAttributeMetadata branch, or the subtype check will never be reached.
         else if (attributeMetadata is MultiSelectPicklistAttributeMetadata)
         {
             attribute.AttributeType = "MultiSelectPicklist";
