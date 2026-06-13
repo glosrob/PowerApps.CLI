@@ -543,4 +543,96 @@ public class CodeTemplateGeneratorTests
         Assert.Contains("public static class PreferredMethodOptions", result);
         Assert.Contains("public static class Address1TypeOptions", result);
     }
+
+    [Fact]
+    public void GenerateEntityClass_ColumnNamedEntityLogicalName_DeduplicatesAgainstHardCodedConstant()
+    {
+        // Arrange — column whose display name formats to EntityLogicalName would duplicate the hard-coded constant
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema
+        {
+            LogicalName = "sample_table",
+            DisplayName = "Sample Table",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "sample_entitylogicalname",
+                    DisplayName = "Entity Logical Name",
+                    AttributeType = "String"
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert — hard-coded EntityLogicalName constant is present and the column gets a disambiguated name
+        Assert.Contains("public const string EntityLogicalName = \"sample_table\";", result);
+        Assert.DoesNotContain("public const string EntityLogicalName = \"sample_entitylogicalname\";", result);
+        Assert.Contains("public const string EntityLogicalName_ = \"sample_entitylogicalname\";", result);
+    }
+
+    [Fact]
+    public void GenerateEntityClass_ColumnNamedPrimaryIdAttribute_DeduplicatesAgainstHardCodedConstant()
+    {
+        // Arrange — column whose display name formats to PrimaryIdAttribute would duplicate the hard-coded constant
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema
+        {
+            LogicalName = "sample_table",
+            DisplayName = "Sample Table",
+            PrimaryIdAttribute = "sample_tableid",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "sample_primaryidattribute",
+                    DisplayName = "Primary Id Attribute",
+                    AttributeType = "String"
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert
+        Assert.Contains("public const string PrimaryIdAttribute = \"sample_tableid\";", result);
+        Assert.DoesNotContain("public const string PrimaryIdAttribute = \"sample_primaryidattribute\";", result);
+        Assert.Contains("public const string PrimaryIdAttribute_ = \"sample_primaryidattribute\";", result);
+    }
+
+    [Fact]
+    public void GenerateEntityClass_ColumnNamedPrimaryNameAttribute_DeduplicatesAgainstHardCodedConstant()
+    {
+        // Arrange — column whose display name formats to PrimaryNameAttribute would duplicate the hard-coded constant
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema
+        {
+            LogicalName = "sample_table",
+            DisplayName = "Sample Table",
+            PrimaryNameAttribute = "sample_name",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "sample_primarynameattribute",
+                    DisplayName = "Primary Name Attribute",
+                    AttributeType = "String"
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert
+        Assert.Contains("public const string PrimaryNameAttribute = \"sample_name\";", result);
+        Assert.DoesNotContain("public const string PrimaryNameAttribute = \"sample_primarynameattribute\";", result);
+        Assert.Contains("public const string PrimaryNameAttribute_ = \"sample_primarynameattribute\";", result);
+    }
 }
