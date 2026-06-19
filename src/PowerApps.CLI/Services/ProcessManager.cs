@@ -58,6 +58,24 @@ public class ProcessManager : IProcessManager
             }
         }
 
+        // Retrieve plugin steps — statecode 0 = Enabled (Active), unlike workflows where 1 = Active
+        var pluginStepResults = _client.RetrievePluginSteps(solutions);
+        foreach (var entity in pluginStepResults.Entities)
+        {
+            if (!processes.ContainsKey(entity.Id))
+            {
+                processes[entity.Id] = new ProcessInfo
+                {
+                    Id = entity.Id,
+                    Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
+                    Type = ProcessType.PluginStep,
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 0
+                        ? ProcessState.Active
+                        : ProcessState.Inactive
+                };
+            }
+        }
+
         return processes.Values.ToList();
     }
 
@@ -162,6 +180,8 @@ public class ProcessManager : IProcessManager
                 {
                     if (process.Type == ProcessType.DuplicateDetectionRule)
                         _client.ActivateDuplicateRule(process.Id);
+                    else if (process.Type == ProcessType.PluginStep)
+                        _client.EnablePluginStep(process.Id);
                     else
                         _client.ActivateProcess(process.Id);
 
@@ -172,6 +192,8 @@ public class ProcessManager : IProcessManager
                 {
                     if (process.Type == ProcessType.DuplicateDetectionRule)
                         _client.DeactivateDuplicateRule(process.Id);
+                    else if (process.Type == ProcessType.PluginStep)
+                        _client.DisablePluginStep(process.Id);
                     else
                         _client.DeactivateProcess(process.Id);
 

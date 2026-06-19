@@ -106,6 +106,25 @@ public interface IDataverseClient
     void DeactivateDuplicateRule(Guid ruleId);
 
     /// <summary>
+    /// Retrieves plugin step records, optionally filtered by solution names.
+    /// </summary>
+    /// <param name="solutions">Solution unique names to filter by. If empty, retrieves all steps.</param>
+    /// <returns>Collection of sdkmessageprocessingstep entities.</returns>
+    EntityCollection RetrievePluginSteps(List<string> solutions);
+
+    /// <summary>
+    /// Enables a plugin step (statecode=0, statuscode=1).
+    /// </summary>
+    /// <param name="stepId">The ID of the plugin step to enable.</param>
+    void EnablePluginStep(Guid stepId);
+
+    /// <summary>
+    /// Disables a plugin step (statecode=1, statuscode=2).
+    /// </summary>
+    /// <param name="stepId">The ID of the plugin step to disable.</param>
+    void DisablePluginStep(Guid stepId);
+
+    /// <summary>
     /// Retrieves records using a FetchXML query.
     /// </summary>
     /// <param name="fetchXml">The FetchXML query string.</param>

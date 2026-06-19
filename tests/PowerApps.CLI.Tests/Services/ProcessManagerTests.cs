@@ -17,8 +17,10 @@ public class ProcessManagerTests
     {
         _mockLogger = new Mock<IConsoleLogger>();
         _mockClient = new Mock<IDataverseClient>();
-        // Default: return empty collections so tests that don't care about duplicate rules still work
+        // Default: return empty collections so tests that don't care about these types still work
+        _mockClient.Setup(c => c.RetrieveProcesses(It.IsAny<List<string>>())).Returns(new EntityCollection());
         _mockClient.Setup(c => c.RetrieveDuplicateRules(It.IsAny<List<string>>())).Returns(new EntityCollection());
+        _mockClient.Setup(c => c.RetrievePluginSteps(It.IsAny<List<string>>())).Returns(new EntityCollection());
         _manager = new ProcessManager(_mockLogger.Object, _mockClient.Object);
     }
 
@@ -512,6 +514,178 @@ public class ProcessManagerTests
         entity["name"] = name;
         entity["statecode"] = new OptionSetValue(state == ProcessState.Active ? 1 : 0);
         return entity;
+    }
+
+    // Plugin steps: statecode 0 = Enabled (Active), statecode 1 = Disabled (Inactive)
+    private static Entity CreatePluginStepEntity(Guid id, string name, ProcessState state)
+    {
+        var entity = new Entity("sdkmessageprocessingstep", id);
+        entity["name"] = name;
+        entity["statecode"] = new OptionSetValue(state == ProcessState.Active ? 0 : 1);
+        return entity;
+    }
+
+    #endregion
+
+    #region PluginStep Tests
+
+    [Fact]
+    public void RetrieveProcesses_IncludesPluginSteps()
+    {
+        // Arrange
+        var workflowId = Guid.NewGuid();
+        var stepId = Guid.NewGuid();
+
+        _mockClient.Setup(c => c.RetrieveProcesses(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity>
+            {
+                CreateProcessEntity(workflowId, "My Workflow", ProcessType.Workflow, ProcessState.Active)
+            }));
+
+        _mockClient.Setup(c => c.RetrievePluginSteps(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity>
+            {
+                CreatePluginStepEntity(stepId, "My Plugin Step", ProcessState.Active)
+            }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string> { "MySolution" });
+
+        // Assert
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, p => p.Name == "My Workflow" && p.Type == ProcessType.Workflow);
+        Assert.Contains(result, p => p.Name == "My Plugin Step" && p.Type == ProcessType.PluginStep);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_DeduplicatesPluginSteps()
+    {
+        // Arrange
+        var stepId = Guid.NewGuid();
+
+        _mockClient.Setup(c => c.RetrievePluginSteps(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity>
+            {
+                CreatePluginStepEntity(stepId, "My Plugin Step", ProcessState.Active),
+                CreatePluginStepEntity(stepId, "My Plugin Step", ProcessState.Active)
+            }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string>());
+
+        // Assert
+        Assert.Single(result);
+        Assert.Equal(stepId, result[0].Id);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_MapsPluginStepEnabledStateAsActive()
+    {
+        // Arrange — statecode 0 = Enabled = Active for plugin steps
+        _mockClient.Setup(c => c.RetrievePluginSteps(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity>
+            {
+                CreatePluginStepEntity(Guid.NewGuid(), "Enabled Step", ProcessState.Active)
+            }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string>());
+
+        // Assert
+        Assert.Equal(ProcessState.Active, result[0].CurrentState);
+        Assert.Equal(ProcessType.PluginStep, result[0].Type);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_MapsPluginStepDisabledStateAsInactive()
+    {
+        // Arrange — statecode 1 = Disabled = Inactive for plugin steps
+        _mockClient.Setup(c => c.RetrievePluginSteps(It.IsAny<List<string>>()))
+            .Returns(new EntityCollection(new List<Entity>
+            {
+                CreatePluginStepEntity(Guid.NewGuid(), "Disabled Step", ProcessState.Inactive)
+            }));
+
+        // Act
+        var result = _manager.RetrieveProcesses(new List<string>());
+
+        // Assert
+        Assert.Equal(ProcessState.Inactive, result[0].CurrentState);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_PassesSolutionsToPluginStepRetrieval()
+    {
+        // Arrange
+        var solutions = new List<string> { "Solution1", "Solution2" };
+        _mockClient.Setup(c => c.RetrievePluginSteps(solutions)).Returns(new EntityCollection());
+
+        // Act
+        _manager.RetrieveProcesses(solutions);
+
+        // Assert
+        _mockClient.Verify(c => c.RetrievePluginSteps(solutions), Times.Once);
+    }
+
+    [Fact]
+    public void ManageProcessStates_EnablesPluginStepViaCorrectClientMethod()
+    {
+        // Arrange
+        var stepId = Guid.NewGuid();
+        var processes = new List<ProcessInfo>
+        {
+            new() { Id = stepId, Name = "My Plugin Step", Type = ProcessType.PluginStep,
+                    CurrentState = ProcessState.Inactive, ExpectedState = ProcessState.Active }
+        };
+
+        // Act
+        _manager.ManageProcessStates(processes, false, 0);
+
+        // Assert
+        _mockClient.Verify(c => c.EnablePluginStep(stepId), Times.Once);
+        _mockClient.Verify(c => c.ActivateProcess(It.IsAny<Guid>()), Times.Never);
+        _mockClient.Verify(c => c.ActivateDuplicateRule(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public void ManageProcessStates_DisablesPluginStepViaCorrectClientMethod()
+    {
+        // Arrange
+        var stepId = Guid.NewGuid();
+        var processes = new List<ProcessInfo>
+        {
+            new() { Id = stepId, Name = "My Plugin Step", Type = ProcessType.PluginStep,
+                    CurrentState = ProcessState.Active, ExpectedState = ProcessState.Inactive }
+        };
+
+        // Act
+        _manager.ManageProcessStates(processes, false, 0);
+
+        // Assert
+        _mockClient.Verify(c => c.DisablePluginStep(stepId), Times.Once);
+        _mockClient.Verify(c => c.DeactivateProcess(It.IsAny<Guid>()), Times.Never);
+        _mockClient.Verify(c => c.DeactivateDuplicateRule(It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public void ManageProcessStates_PluginStep_NoChangeNeeded()
+    {
+        // Arrange
+        var stepId = Guid.NewGuid();
+        var processes = new List<ProcessInfo>
+        {
+            new() { Id = stepId, Name = "Already Enabled Step", Type = ProcessType.PluginStep,
+                    CurrentState = ProcessState.Active, ExpectedState = ProcessState.Active }
+        };
+
+        // Act
+        var summary = _manager.ManageProcessStates(processes, false, 0);
+
+        // Assert
+        _mockClient.Verify(c => c.EnablePluginStep(It.IsAny<Guid>()), Times.Never);
+        _mockClient.Verify(c => c.DisablePluginStep(It.IsAny<Guid>()), Times.Never);
+        Assert.Single(summary.Results);
+        Assert.Equal(ProcessAction.NoChangeNeeded, summary.Results[0].Action);
     }
 
     #endregion
