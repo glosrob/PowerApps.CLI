@@ -63,6 +63,7 @@ public class DataverseClient : IDataverseClient
     private string _clientSecret {get;set;} = string.Empty;
     private string _connectionString {get;set;} = string.Empty;
     private readonly ServiceClient _serviceClient;
+    private readonly IOrganizationService _orgService;
 
     public DataverseClient(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
@@ -71,6 +72,14 @@ public class DataverseClient : IDataverseClient
         _clientSecret = clientSecret ?? string.Empty;
         _connectionString = connectionString ?? string.Empty;
         _serviceClient = Connect(_url, _clientId, _clientSecret, _connectionString);
+        _orgService = _serviceClient;
+    }
+
+    // For unit testing only — ServiceClient-specific members (GetOrganizationName, GetEnvironmentUrl) are unavailable.
+    internal DataverseClient(IOrganizationService orgService)
+    {
+        _serviceClient = null!;
+        _orgService = orgService;
     }
 
     public string GetOrganizationName()
@@ -354,6 +363,49 @@ public class DataverseClient : IDataverseClient
             Status = new OptionSetValue(0)  // Unpublished
         };
         _serviceClient.Execute(request);
+    }
+
+    public EntityCollection RetrievePluginSteps(List<string> solutions)
+    {
+        var query = new QueryExpression("sdkmessageprocessingstep")
+        {
+            ColumnSet = new ColumnSet("sdkmessageprocessingstepid", "name", "statecode"),
+            Criteria = new FilterExpression(LogicalOperator.And)
+        };
+
+        if (solutions.Any())
+        {
+            foreach (var solution in solutions)
+            {
+                var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
+                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
+            }
+        }
+
+        return _orgService.RetrieveMultiple(query);
+    }
+
+    public void EnablePluginStep(Guid stepId)
+    {
+        var request = new SetStateRequest
+        {
+            EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
+            State = new OptionSetValue(0), // Enabled
+            Status = new OptionSetValue(1)  // Enabled
+        };
+        _orgService.Execute(request);
+    }
+
+    public void DisablePluginStep(Guid stepId)
+    {
+        var request = new SetStateRequest
+        {
+            EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
+            State = new OptionSetValue(1), // Disabled
+            Status = new OptionSetValue(2)  // Disabled
+        };
+        _orgService.Execute(request);
     }
 
     public EntityCollection RetrieveRecordsByFetchXml(string fetchXml)

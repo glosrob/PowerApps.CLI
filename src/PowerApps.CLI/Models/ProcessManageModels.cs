@@ -23,7 +23,8 @@ public enum ProcessType
     Action = 3,
     BusinessProcessFlow = 4,
     CloudFlow = 5,
-    DuplicateDetectionRule = 100
+    DuplicateDetectionRule = 100,
+    PluginStep = 101
 }
 
 /// <summary>

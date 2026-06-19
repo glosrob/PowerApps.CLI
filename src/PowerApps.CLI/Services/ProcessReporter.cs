@@ -121,6 +121,7 @@ public class ProcessReporter : IProcessReporter
             ProcessType.BusinessProcessFlow => "Business Process Flow",
             ProcessType.CloudFlow => "Cloud Flow",
             ProcessType.DuplicateDetectionRule => "Duplicate Detection Rule",
+            ProcessType.PluginStep => "Plugin Step",
             _ => "Unknown"
         };
     }
