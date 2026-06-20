@@ -62,10 +62,7 @@ tests/scripts/
   "IntegrationTests": {
     "Url": "https://your-environment.crm11.dynamics.com/",
     "ClientId": "your-client-id",
-    "ClientSecret": "your-client-secret",
-    "SolutionName": "XRTSoftIntegrationTests",
-    "PrimaryTable": "xrt_integrationtest",
-    "SecondaryTable": "xrt_integrationothertest"
+    "ClientSecret": "your-client-secret"
   }
 }
 ```

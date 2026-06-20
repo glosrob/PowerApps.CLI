@@ -5,15 +5,17 @@ namespace PowerApps.CLI.IntegrationTests.Infrastructure;
 
 public class DataverseFixture : IDisposable
 {
-    public DataverseClient Client { get; }
+    private readonly DataverseClient _client;
+
+    public IDataverseClient Client => _client;
 
     public DataverseFixture()
     {
         var config = IntegrationTestConfig.Load();
-        Client = new DataverseClient(config.Url, config.ClientId, config.ClientSecret);
+        _client = new DataverseClient(config.Url, config.ClientId, config.ClientSecret);
     }
 
-    public void Dispose() => Client.Dispose();
+    public void Dispose() => _client.Dispose();
 }
 
 [CollectionDefinition("Dataverse")]

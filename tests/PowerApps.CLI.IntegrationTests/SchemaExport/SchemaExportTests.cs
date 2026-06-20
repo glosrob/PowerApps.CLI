@@ -33,7 +33,8 @@ public class SchemaExportTests(DataverseFixture fixture)
     [Fact(Skip = "Attribute prefix filtering is not implemented in SchemaExtractor — tracked as a gap in SchemaService.ExportSchemaAsync")]
     public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributes()
     {
-        return Task.CompletedTask;
+        throw new NotImplementedException(
+            "Attribute prefix filtering not yet implemented — see SchemaService.ExportSchemaAsync.");
     }
 
     [Fact]

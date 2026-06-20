@@ -82,7 +82,14 @@ public class DataverseClient : IDataverseClient, IDisposable
         _orgService = orgService;
     }
 
-    public void Dispose() => _serviceClient?.Dispose();
+    private bool _disposed;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _serviceClient?.Dispose();
+        _disposed = true;
+    }
 
     public string GetOrganizationName()
     {
