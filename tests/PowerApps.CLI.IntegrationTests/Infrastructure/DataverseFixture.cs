@@ -1,4 +1,6 @@
 using PowerApps.CLI.Infrastructure;
+using PowerApps.CLI.Models;
+using PowerApps.CLI.Services;
 using Xunit;
 
 namespace PowerApps.CLI.IntegrationTests.Infrastructure;
@@ -6,6 +8,7 @@ namespace PowerApps.CLI.IntegrationTests.Infrastructure;
 public class DataverseFixture : IDisposable
 {
     private readonly DataverseClient? _client;
+    private readonly Dictionary<string, PowerAppsSchema> _schemaCache = new();
 
     /// <summary>
     /// The shared Dataverse client. Only valid when <see cref="ConfigurationError"/> is null —
@@ -31,6 +34,24 @@ public class DataverseFixture : IDisposable
         {
             ConfigurationError = ex.Message;
         }
+    }
+
+    /// <summary>
+    /// Extracts and caches the schema for a solution. Extraction is the expensive part of an
+    /// integration run, so the result is reused across tests in the collection. Tests within a
+    /// collection run serially, so no synchronisation is required. Returned schema is read-only
+    /// from the tests' perspective — do not mutate it.
+    /// </summary>
+    public async Task<PowerAppsSchema> GetSolutionSchemaAsync(string solutionName)
+    {
+        if (!_schemaCache.TryGetValue(solutionName, out var schema))
+        {
+            var extractor = new SchemaExtractor(new MetadataMapper(), Client);
+            schema = await extractor.ExtractSchemaAsync(solutionName);
+            _schemaCache[solutionName] = schema;
+        }
+
+        return schema;
     }
 
     public void Dispose() => _client?.Dispose();

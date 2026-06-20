@@ -1,4 +1,5 @@
 using PowerApps.CLI.IntegrationTests.Infrastructure;
+using PowerApps.CLI.Models;
 using PowerApps.CLI.Services;
 using Xunit;
 
@@ -8,6 +9,9 @@ namespace PowerApps.CLI.IntegrationTests.SchemaExport;
 [Trait("Category", "Integration")]
 public class SchemaExportTests(DataverseFixture fixture)
 {
+    private const string IntegrationSolution = "XRTSoftIntegrationTests";
+    private const string PrimaryTable = "xrt_integrationtest";
+
     private readonly DataverseFixture _fixture = fixture;
 
     [SkippableFact]
@@ -15,7 +19,8 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
+        // Arrange — no solution filter retrieves all-table metadata, so this test
+        // extracts directly rather than via the solution-scoped cache.
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
         // Act
@@ -30,23 +35,17 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
-
         // Act
-        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
 
         // Assert
-        Assert.Contains(schema.Entities, e => e.LogicalName == "xrt_integrationtest");
+        Assert.Contains(schema.Entities, e => e.LogicalName == PrimaryTable);
     }
 
     [SkippableFact]
     public async Task ExtractSchema_PrimaryTable_MapsAttributeTypesAsync()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
-
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
         // Expected AttributeType for each column on xrt_integrationtest. Values are the SDK
         // AttributeTypeCode names, except MultiSelectPicklist/File/Image which MetadataMapper
@@ -78,12 +77,9 @@ public class SchemaExportTests(DataverseFixture fixture)
         };
 
         // Act
-        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
-        var table = schema.Entities.SingleOrDefault(e => e.LogicalName == "xrt_integrationtest");
+        var table = await GetPrimaryTableAsync();
 
         // Assert
-        Assert.NotNull(table);
-
         var mismatches = new List<string>();
         foreach (var (logicalName, expectedType) in expectedTypes)
         {
@@ -106,13 +102,9 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
-
         // Act
-        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
-        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
-        var choice = table.Attributes.Single(a => a.LogicalName == "xrt_globalchoice");
+        var table = await GetPrimaryTableAsync();
+        var choice = GetAttribute(table, "xrt_globalchoice");
 
         // Assert
         Assert.NotNull(choice.OptionSet);
@@ -127,20 +119,20 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
+        // Act — fetch both the picklist and multi-select columns from the same schema so we can
+        // assert they genuinely resolve to the same global option set, not just coincidentally
+        // matching values.
+        var table = await GetPrimaryTableAsync();
+        var globalChoice = GetAttribute(table, "xrt_globalchoice");
+        var multiSelect = GetAttribute(table, "xrt_multiselectglobalchoicefield");
 
-        // Act
-        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
-        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
-        var multiSelect = table.Attributes.Single(a => a.LogicalName == "xrt_multiselectglobalchoicefield");
-
-        // Assert — the multi-select column references the same global choice
+        // Assert
+        Assert.NotNull(globalChoice.OptionSet);
         Assert.NotNull(multiSelect.OptionSet);
         Assert.True(multiSelect.OptionSet!.IsGlobal);
-        Assert.Equal("xrt_globalchoice", multiSelect.OptionSet.Name);
-        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940000);
-        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940001);
+        Assert.Equal(globalChoice.OptionSet!.Name, multiSelect.OptionSet.Name);
+        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940000 && o.Label == "Choice 1");
+        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940001 && o.Label == "Choice 2");
     }
 
     [SkippableFact]
@@ -148,13 +140,9 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
-
         // Act
-        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
-        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
-        var localChoice = table.Attributes.Single(a => a.LogicalName == "xrt_localchoice");
+        var table = await GetPrimaryTableAsync();
+        var localChoice = GetAttribute(table, "xrt_localchoice");
 
         // Assert — local choice has an inline option set that is not global
         // (canonical values per tests/fixtures/integration-test-schema.json)
@@ -177,13 +165,25 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Arrange
-        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
-
         // Act
-        var schema = await extractor.ExtractSchemaAsync("NonExistentSolution_DoesNotExist");
+        var schema = await _fixture.GetSolutionSchemaAsync("NonExistentSolution_DoesNotExist");
 
         // Assert
         Assert.Empty(schema.Entities);
+    }
+
+    private async Task<EntitySchema> GetPrimaryTableAsync()
+    {
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+        var table = schema.Entities.SingleOrDefault(e => e.LogicalName == PrimaryTable);
+        Assert.NotNull(table);
+        return table!;
+    }
+
+    private static AttributeSchema GetAttribute(EntitySchema table, string logicalName)
+    {
+        var attribute = table.Attributes.SingleOrDefault(a => a.LogicalName == logicalName);
+        Assert.NotNull(attribute);
+        return attribute!;
     }
 }
