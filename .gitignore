@@ -91,6 +91,10 @@ Desktop.ini
 # Mac
 .DS_Store
 
+# Certificates and keys
+*.pfx
+*.p12
+
 # Test scripts with credentials (per-command subfolders)
 tests/scripts/connections.json
 tests/scripts/manual/schema-export/
@@ -102,7 +106,4 @@ tests/scripts/manual/*/*config.json
 Generated/
 tests/scripts/manual/*/output/
 **/refdata-comparison*.xlsx
-**/migration-report*.xlsx
-**/process-report*.xlsx
-**/data-patch-report*.xlsx
-temp-schema.json
+**/migration-report*.x

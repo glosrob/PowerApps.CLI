@@ -1,0 +1,24 @@
+{
+  "batchSize": 1000,
+  "tables": [
+    {
+      "logicalName": "businessunit",
+      "manageState": true
+    },
+    {
+      "logicalName": "team",
+      "filter": "<filter type='and'><condition operator='eq' attribute='isdefault' value='0' /></filter>",
+      "includeFields": ["name", "description"]
+    },
+    {
+      "logicalName": "queue",
+      "manageState": true,
+      "includeFields": ["name", "description", "queuetypecode"]
+    }
+  ],
+  "relationships": [
+    {
+      "relationshipName": "teamroles_association"
+    }
+  ]
+}

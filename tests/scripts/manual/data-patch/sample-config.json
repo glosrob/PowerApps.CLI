@@ -1,0 +1,25 @@
+{
+  "patches": [
+    {
+      "entity": "mspp_sitesetting",
+      "keyField": "mspp_name",
+      "key": "Authentication/OpenIdConnect/AzureADB2C/Authority",
+      "valueField": "mspp_value",
+      "value": "https://yourtenant.b2clogin.com/yourtenant.onmicrosoft.com/B2C_1A_YourPolicy"
+    },
+    {
+      "entity": "mspp_sitesetting",
+      "keyField": "mspp_name",
+      "key": "Authentication/OpenIdConnect/AzureADB2C/ClientId",
+      "valueField": "mspp_value",
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    {
+      "entity": "mspp_sitesetting",
+      "keyField": "mspp_name",
+      "key": "Authentication/OpenIdConnect/AzureADB2C/RedirectUri",
+      "valueField": "mspp_value",
+      "value": "https://yourportal.powerappsportals.com/signin-oidc"
+    }
+  ]
+}

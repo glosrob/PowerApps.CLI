@@ -97,7 +97,7 @@ Alternatively, set these before running:
 
 ### Test Solution
 
-**Unique name:** `XRTSoftIntegrationTests`  
+**Unique name:** `XRTSoftIntegrationTests`
 **Publisher prefix:** `xrt_`
 
 The solution must exist in the target environment before running any integration tests. The committed file `tests/fixtures/integration-test-schema.json` is the canonical reference for its contents — regenerate it with:
@@ -186,8 +186,8 @@ All processes below should be **deactivated** in the test solution by default.
 
 ### Plugin Assembly (for `process-manage` tests)
 
-**Assembly:** `XRT.IntegrationTestPluginLib`  
-**Source:** `tests/XRT.IntegrationTestPluginLib/`  
+**Assembly:** `XRT.IntegrationTestPluginLib`
+**Source:** `tests/XRT.IntegrationTestPluginLib/`
 **Class:** `XRT.IntegrationTestPluginLib.ExamplePlugin`
 
 The assembly must be registered in the environment via the Plugin Registration Tool. Two plugin steps must be added to the test solution and left **disabled** by default.
