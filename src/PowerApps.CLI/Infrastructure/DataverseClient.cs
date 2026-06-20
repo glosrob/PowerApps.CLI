@@ -11,7 +11,7 @@ namespace PowerApps.CLI.Infrastructure;
 /// <summary>
 /// Handles authentication and connection to Dataverse environments.
 /// </summary>
-public class DataverseClient : IDataverseClient
+public class DataverseClient : IDataverseClient, IDisposable
 {
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
@@ -80,6 +80,15 @@ public class DataverseClient : IDataverseClient
     internal DataverseClient(IOrganizationService orgService)
     {
         _orgService = orgService;
+    }
+
+    private bool _disposed;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _serviceClient?.Dispose();
+        _disposed = true;
     }
 
     public string GetOrganizationName()

@@ -1,6 +1,13 @@
 {
-  "Url": "https://your-environment.crm11.dynamics.com/",
-  "ClientId": "your-client-id",
-  "ClientSecret": "your-client-secret",
-  "Solution": "your_solution_unique_name"
+  "Default": {
+    "Url": "https://your-environment.crm11.dynamics.com/",
+    "ClientId": "your-client-id",
+    "ClientSecret": "your-client-secret",
+    "Solution": "your_solution_unique_name"
+  },
+  "IntegrationTests": {
+    "Url": "https://your-environment.crm11.dynamics.com/",
+    "ClientId": "your-client-id",
+    "ClientSecret": "your-client-secret"
+  }
 }

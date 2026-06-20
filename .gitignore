@@ -91,6 +91,12 @@ Desktop.ini
 # Mac
 .DS_Store
 
+# Certificates and keys
+*.pfx
+*.p12
+# Exception: committed test stub signing key (no real secret — password is in the filename)
+!tests/XRT.IntegrationTestPluginLib/*.pfx
+
 # Test scripts with credentials (per-command subfolders)
 tests/scripts/connections.json
 tests/scripts/manual/schema-export/

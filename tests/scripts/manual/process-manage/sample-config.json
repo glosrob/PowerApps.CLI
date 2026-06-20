@@ -1,0 +1,12 @@
+{
+  "solutions": [
+    "YourSolutionName1",
+    "YourSolutionName2"
+  ],
+  "inactivePatterns": [
+    "ZZ*",
+    "Test - *",
+    "Specific Process Name"
+  ],
+  "maxRetries": 3
+}
