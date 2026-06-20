@@ -68,10 +68,14 @@ public class SchemaExportTests(DataverseFixture fixture)
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
         // Arrange
-        var table = await GetPrimaryTableAsync();
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+
+        // Act
+        var table = schema.Entities.SingleOrDefault(e => e.LogicalName == PrimaryTable);
 
         // Assert — entity-level metadata (canonical values per tests/fixtures/integration-test-schema.json)
-        Assert.Equal("xrt_IntegrationTest", table.SchemaName);
+        Assert.NotNull(table);
+        Assert.Equal("xrt_IntegrationTest", table!.SchemaName);
         Assert.Equal("Integration Test", table.DisplayName);
         Assert.Equal("xrt_integrationtestid", table.PrimaryIdAttribute);
         Assert.Equal("xrt_name", table.PrimaryNameAttribute);
@@ -327,8 +331,7 @@ public class SchemaExportTests(DataverseFixture fixture)
             var json = await File.ReadAllTextAsync(outputPath);
             var roundTripped = JsonSerializer.Deserialize<PowerAppsSchema>(json);
 
-            // Assert
-            Assert.True(File.Exists(outputPath));
+            // Assert (the read above would have thrown if the file were missing)
             Assert.NotNull(roundTripped);
             Assert.NotEmpty(roundTripped!.Entities);
             Assert.Contains(roundTripped.Entities, e => e.LogicalName == PrimaryTable);
