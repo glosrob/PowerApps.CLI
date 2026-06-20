@@ -157,9 +157,12 @@ public class SchemaExportTests(DataverseFixture fixture)
         var localChoice = table.Attributes.Single(a => a.LogicalName == "xrt_localchoice");
 
         // Assert — local choice has an inline option set that is not global
+        // (canonical values per tests/fixtures/integration-test-schema.json)
         Assert.NotNull(localChoice.OptionSet);
         Assert.False(localChoice.OptionSet!.IsGlobal);
-        Assert.NotEmpty(localChoice.OptionSet.Options);
+        Assert.Equal("xrt_integrationtest_xrt_localchoice", localChoice.OptionSet.Name);
+        Assert.Contains(localChoice.OptionSet.Options, o => o.Value == 971940000 && o.Label == "Local 1");
+        Assert.Contains(localChoice.OptionSet.Options, o => o.Value == 971940001 && o.Label == "Local 2");
     }
 
     [SkippableFact]
