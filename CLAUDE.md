@@ -191,3 +191,5 @@ dotnet run --project src/PowerApps.CLI -- [command] [options]
 ```
 
 Coverage reports are generated to `tests/coverage/report/index.html`.
+
+For integration tests, test scripts, and the integration test solution reference, see [`tests/tests.md`](tests/tests.md).
