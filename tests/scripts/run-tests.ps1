@@ -4,7 +4,9 @@
 .SYNOPSIS
     Runs all unit tests for the PowerApps CLI project.
 .DESCRIPTION
-    Builds and runs the complete test suite with clear output.
+    Builds and runs the unit test suite with clear output. Integration tests
+    (Category=Integration) are excluded by default. To run integration tests
+    explicitly: dotnet test --filter "Category=Integration"
 .PARAMETER Configuration
     Build configuration (Debug or Release). Default is Debug.
 .EXAMPLE
@@ -22,7 +24,7 @@ Write-Host "==========================`n" -ForegroundColor Cyan
 
 # Build and test
 Write-Host "Building and running tests ($Configuration)...`n" -ForegroundColor Green
-dotnet test --configuration $Configuration
+dotnet test --configuration $Configuration --filter "Category!=Integration"
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "`n✓ All tests passed!" -ForegroundColor Green

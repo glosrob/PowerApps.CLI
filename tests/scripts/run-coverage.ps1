@@ -24,6 +24,7 @@ New-Item -ItemType Directory -Path $coverageDir -Force | Out-Null
 
 # Run tests with coverage
 dotnet test --configuration $Configuration `
+    --filter "Category!=Integration" `
     --collect:"XPlat Code Coverage" `
     --results-directory $coverageDir `
     --settings tests/coverlet.runsettings `
