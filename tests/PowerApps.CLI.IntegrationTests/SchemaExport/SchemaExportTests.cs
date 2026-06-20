@@ -154,6 +154,65 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [SkippableFact]
+    public async Task ExtractSchema_LookupColumn_ProducesOneToManyRelationshipAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Act — the xrt_lookupfield column produces a custom N:1 relationship
+        // (canonical values per tests/fixtures/integration-test-schema.json)
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+        var relationship = schema.Relationships
+            .SingleOrDefault(r => r.SchemaName == "xrt_integrationtest_LookupField_xrt_integrationothertest");
+
+        // Assert
+        Assert.NotNull(relationship);
+        Assert.Equal("OneToMany", relationship!.RelationshipType);
+        Assert.Equal(PrimaryTable, relationship.ReferencingEntity);
+        Assert.Equal("xrt_lookupfield", relationship.ReferencingAttribute);
+        Assert.Equal("xrt_integrationothertest", relationship.ReferencedEntity);
+        Assert.Equal("xrt_integrationothertestid", relationship.ReferencedAttribute);
+        Assert.True(relationship.IsCustomRelationship);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_ManyToManyRelationship_IsExtractedAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Act — the custom N:N between the two test tables
+        // (canonical values per tests/fixtures/integration-test-schema.json)
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+        var relationship = schema.Relationships
+            .SingleOrDefault(r => r.SchemaName == "xrt_IntegrationTest_xrt_IntegrationOtherTest_xrt_IntegrationOtherTest");
+
+        // Assert
+        Assert.NotNull(relationship);
+        Assert.Equal("ManyToMany", relationship!.RelationshipType);
+        Assert.Equal("xrt_integrationothertest", relationship.Entity1LogicalName);
+        Assert.Equal(PrimaryTable, relationship.Entity2LogicalName);
+        Assert.Equal("xrt_integrationtest_xrt_integrationothe", relationship.IntersectEntityName);
+        Assert.True(relationship.IsCustomRelationship);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_Relationships_AreDeduplicatedBySchemaNameAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // The N:N relationship is reachable from both endpoint tables, so without deduplication
+        // it would appear twice when both tables are in scope. Assert each SchemaName is unique.
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+
+        var duplicates = schema.Relationships
+            .GroupBy(r => r.SchemaName)
+            .Where(g => g.Count() > 1)
+            .Select(g => $"{g.Key} (x{g.Count()})")
+            .ToList();
+
+        Assert.True(duplicates.Count == 0, "Duplicate relationships:\n" + string.Join("\n", duplicates));
+    }
+
+    [SkippableFact]
     public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
     {
         Skip.If(true, "Attribute prefix filtering is not implemented — see SchemaService.ExportSchemaAsync.");
