@@ -15,10 +15,13 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
+        // Act
         var schema = await extractor.ExtractSchemaAsync();
 
+        // Assert
         Assert.NotEmpty(schema.Entities);
     }
 
@@ -27,18 +30,21 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
+        // Act
         var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
 
+        // Assert
         Assert.Contains(schema.Entities, e => e.LogicalName == "xrt_integrationtest");
     }
 
-    [Fact(Skip = "Attribute prefix filtering is not implemented in SchemaExtractor — tracked as a gap in SchemaService.ExportSchemaAsync")]
+    [SkippableFact]
     public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
     {
-        throw new NotImplementedException(
-            "Attribute prefix filtering not yet implemented — see SchemaService.ExportSchemaAsync.");
+        Skip.If(true, "Attribute prefix filtering is not implemented — see SchemaService.ExportSchemaAsync.");
+        return Task.CompletedTask;
     }
 
     [SkippableFact]
@@ -46,10 +52,13 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
+        // Act
         var schema = await extractor.ExtractSchemaAsync("NonExistentSolution_DoesNotExist");
 
+        // Assert
         Assert.Empty(schema.Entities);
     }
 }
