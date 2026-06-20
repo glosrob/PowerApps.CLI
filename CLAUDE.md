@@ -192,4 +192,6 @@ dotnet run --project src/PowerApps.CLI -- [command] [options]
 
 Coverage reports are generated to `tests/coverage/report/index.html`.
 
+> **Plugin lib is not in the solution.** `tests/XRT.IntegrationTestPluginLib` is a .NET Framework 4.7.1, PFX-signed Dynamics plugin assembly used only to exercise `process-manage`'s plugin-step path. The .NET SDK cannot build PFX-signed .NET Framework projects, so it is deliberately **excluded from `PowerApps.CLI.sln`** — including it breaks `dotnet restore`/`build` and CI. Build it separately with full MSBuild / Visual Studio when the assembly needs regenerating; never add it back to the solution.
+
 For integration tests, test scripts, and the integration test solution reference, see [`tests/tests.md`](tests/tests.md).
