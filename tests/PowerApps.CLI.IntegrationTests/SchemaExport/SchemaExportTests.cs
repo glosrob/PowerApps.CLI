@@ -1,3 +1,5 @@
+using System.Text.Json;
+using PowerApps.CLI.Infrastructure;
 using PowerApps.CLI.IntegrationTests.Infrastructure;
 using PowerApps.CLI.Models;
 using PowerApps.CLI.Services;
@@ -43,6 +45,38 @@ public class SchemaExportTests(DataverseFixture fixture)
 
         // Assert
         Assert.NotNull(table);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_IntegrationTestSolution_ContainsSecondaryTableAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+
+        // Act
+        var table = schema.Entities.SingleOrDefault(e => e.LogicalName == "xrt_integrationothertest");
+
+        // Assert — proves solution scoping returns both tables, not just the first
+        Assert.NotNull(table);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_PrimaryTable_MapsEntityMetadataAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var table = await GetPrimaryTableAsync();
+
+        // Assert — entity-level metadata (canonical values per tests/fixtures/integration-test-schema.json)
+        Assert.Equal("xrt_IntegrationTest", table.SchemaName);
+        Assert.Equal("Integration Test", table.DisplayName);
+        Assert.Equal("xrt_integrationtestid", table.PrimaryIdAttribute);
+        Assert.Equal("xrt_name", table.PrimaryNameAttribute);
+        Assert.Equal("xrt_integrationtests", table.EntitySetName);
+        Assert.True(table.IsCustomEntity);
     }
 
     [SkippableFact]
@@ -157,6 +191,39 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [SkippableFact]
+    public async Task ExtractSchema_LookupColumn_PopulatesTargetsAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var table = await GetPrimaryTableAsync();
+
+        // Act
+        var lookup = GetAttribute(table, "xrt_lookupfield");
+
+        // Assert — the attribute's Targets array names the referenced table
+        Assert.NotNull(lookup.Targets);
+        Assert.Contains("xrt_integrationothertest", lookup.Targets!);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_DateColumns_DifferentiateFormatAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var table = await GetPrimaryTableAsync();
+
+        // Act — both columns map to AttributeType "DateTime"; the distinction is in Format
+        var dateOnly = GetAttribute(table, "xrt_dateonlyfield");
+        var dateTime = GetAttribute(table, "xrt_datetimefield");
+
+        // Assert (canonical values per tests/fixtures/integration-test-schema.json)
+        Assert.Equal("DateOnly", dateOnly.Format);
+        Assert.Equal("DateAndTime", dateTime.Format);
+    }
+
+    [SkippableFact]
     public async Task ExtractSchema_LookupColumn_ProducesOneToManyRelationshipAsync()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
@@ -241,6 +308,38 @@ public class SchemaExportTests(DataverseFixture fixture)
 
         // Assert
         Assert.Empty(schema.Entities);
+    }
+
+    [SkippableFact]
+    public async Task ExportSchema_ToJsonFile_RoundTripsAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange — exercises the real write path: SchemaExporter (JSON serialize) + FileWriter
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+        var exporter = new SchemaExporter(new FileWriter());
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-roundtrip-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            // Act — write to disk, read back, deserialise
+            await exporter.ExportAsync(schema, outputPath, "json");
+            var json = await File.ReadAllTextAsync(outputPath);
+            var roundTripped = JsonSerializer.Deserialize<PowerAppsSchema>(json);
+
+            // Assert
+            Assert.True(File.Exists(outputPath));
+            Assert.NotNull(roundTripped);
+            Assert.NotEmpty(roundTripped!.Entities);
+            Assert.Contains(roundTripped.Entities, e => e.LogicalName == PrimaryTable);
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
     }
 
     // Helpers
