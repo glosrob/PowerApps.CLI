@@ -102,6 +102,67 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [SkippableFact]
+    public async Task ExtractSchema_GlobalChoiceColumn_PopulatesOptionSetAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
+
+        // Act
+        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
+        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
+        var choice = table.Attributes.Single(a => a.LogicalName == "xrt_globalchoice");
+
+        // Assert
+        Assert.NotNull(choice.OptionSet);
+        Assert.True(choice.OptionSet!.IsGlobal);
+        Assert.Equal("xrt_globalchoice", choice.OptionSet.Name);
+        Assert.Contains(choice.OptionSet.Options, o => o.Value == 971940000 && o.Label == "Choice 1");
+        Assert.Contains(choice.OptionSet.Options, o => o.Value == 971940001 && o.Label == "Choice 2");
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_MultiSelectChoiceColumn_ResolvesSameGlobalOptionSetAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
+
+        // Act
+        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
+        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
+        var multiSelect = table.Attributes.Single(a => a.LogicalName == "xrt_multiselectglobalchoicefield");
+
+        // Assert — the multi-select column references the same global choice
+        Assert.NotNull(multiSelect.OptionSet);
+        Assert.True(multiSelect.OptionSet!.IsGlobal);
+        Assert.Equal("xrt_globalchoice", multiSelect.OptionSet.Name);
+        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940000);
+        Assert.Contains(multiSelect.OptionSet.Options, o => o.Value == 971940001);
+    }
+
+    [SkippableFact]
+    public async Task ExtractSchema_LocalChoiceColumn_PopulatesNonGlobalOptionSetAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange
+        var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
+
+        // Act
+        var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
+        var table = schema.Entities.Single(e => e.LogicalName == "xrt_integrationtest");
+        var localChoice = table.Attributes.Single(a => a.LogicalName == "xrt_localchoice");
+
+        // Assert — local choice has an inline option set that is not global
+        Assert.NotNull(localChoice.OptionSet);
+        Assert.False(localChoice.OptionSet!.IsGlobal);
+        Assert.NotEmpty(localChoice.OptionSet.Options);
+    }
+
+    [SkippableFact]
     public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
     {
         Skip.If(true, "Attribute prefix filtering is not implemented — see SchemaService.ExportSchemaAsync.");
