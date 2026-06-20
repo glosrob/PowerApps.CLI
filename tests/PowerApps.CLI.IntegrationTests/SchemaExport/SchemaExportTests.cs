@@ -52,11 +52,7 @@ public class SchemaExportTests(DataverseFixture fixture)
 
         // Arrange — expected AttributeType for each column on xrt_integrationtest. Values are the
         // SDK AttributeTypeCode names, except MultiSelectPicklist/File/Image which MetadataMapper
-        // overrides (the SDK reports those as "Virtual").
-        //
-        // NOTE: xrt_imagefield currently FAILS — the mapper reports "Virtual" instead of "Image".
-        // This is an intentional failing assertion documenting the bug tracked in #69; it turns
-        // green once the ImageAttributeMetadata override is added.
+        // overrides (the SDK reports those as "Virtual"; see #69 for the Image override).
         var expectedTypes = new Dictionary<string, string>
         {
             ["xrt_name"] = "String",
