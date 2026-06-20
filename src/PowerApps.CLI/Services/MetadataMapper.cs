@@ -89,6 +89,12 @@ public class MetadataMapper : IMetadataMapper
         {
             attribute.AttributeType = "File";
         }
+        // ImageAttributeMetadata also reports AttributeTypeCode.Virtual, so the concrete subtype
+        // is the only reliable signal. Derives directly from AttributeMetadata — no ordering hazard.
+        else if (attributeMetadata is ImageAttributeMetadata)
+        {
+            attribute.AttributeType = "Image";
+        }
 
         // Map option sets
         attribute.OptionSet = MapOptionSet(attributeMetadata);

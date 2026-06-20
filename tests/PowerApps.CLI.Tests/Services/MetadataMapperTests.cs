@@ -145,6 +145,25 @@ public class MetadataMapperTests
     }
 
     [Fact]
+    public void MapAttribute_ShouldMapImageAttribute()
+    {
+        // Arrange — ImageAttributeMetadata reports AttributeTypeCode.Virtual, so the mapper must
+        // override based on the concrete subtype (regression test for #69).
+        var attributeMetadata = new ImageAttributeMetadata
+        {
+            LogicalName = "xrt_imagefield",
+            SchemaName = "xrt_ImageField"
+        };
+
+        // Act
+        var result = _mapper.MapAttribute(attributeMetadata);
+
+        // Assert
+        Assert.Equal("xrt_imagefield", result.LogicalName);
+        Assert.Equal("Image", result.AttributeType);
+    }
+
+    [Fact]
     public void MapOptionSet_ShouldMapPicklistAttribute()
     {
         // Arrange
