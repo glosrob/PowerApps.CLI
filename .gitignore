@@ -106,4 +106,7 @@ tests/scripts/manual/*/*config.json
 Generated/
 tests/scripts/manual/*/output/
 **/refdata-comparison*.xlsx
-**/migration-report*.x
+**/migration-report*.xlsx
+**/process-report*.xlsx
+**/data-patch-report*.xlsx
+temp-schema.json
