@@ -11,7 +11,7 @@ public class SchemaExportTests(DataverseFixture fixture)
     private readonly DataverseFixture _fixture = fixture;
 
     [Fact]
-    public async Task ExtractSchema_NoFilter_ReturnsNonEmptySchema()
+    public async Task ExtractSchema_NoFilter_ReturnsNonEmptySchemaAsync()
     {
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
@@ -21,7 +21,7 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [Fact]
-    public async Task ExtractSchema_IntegrationTestSolution_ContainsPrimaryTable()
+    public async Task ExtractSchema_IntegrationTestSolution_ContainsPrimaryTableAsync()
     {
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
@@ -31,14 +31,14 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [Fact(Skip = "Attribute prefix filtering is not implemented in SchemaExtractor — tracked as a gap in SchemaService.ExportSchemaAsync")]
-    public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributes()
+    public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
     {
         throw new NotImplementedException(
             "Attribute prefix filtering not yet implemented — see SchemaService.ExportSchemaAsync.");
     }
 
     [Fact]
-    public async Task ExtractSchema_NonExistentSolution_ReturnsEmptySchema()
+    public async Task ExtractSchema_NonExistentSolution_ReturnsEmptySchemaAsync()
     {
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
