@@ -1,4 +1,5 @@
 using PowerApps.CLI.Infrastructure;
+using PowerApps.CLI.Models;
 
 namespace PowerApps.CLI.Services;
 
@@ -53,10 +54,56 @@ public class SchemaService : ISchemaService
 
         _logger.LogSuccess($"✓ Extracted {schema.Entities?.Count ?? 0} entities");
 
+        ApplyAttributeFilters(schema, attributePrefix, excludeAttributes);
+
         // Export schema to file
         _logger.LogInfo($"Writing {format.ToUpperInvariant()} file...");
         await _schemaExporter.ExportAsync(schema, outputPath, format);
 
         _logger.LogSuccess($"✓ Schema exported to {outputPath}");
+    }
+
+    /// <summary>
+    /// Filters each entity's attributes in place by exclusion list and prefix. Semantics mirror
+    /// ConstantsFilter: exclusion (case-insensitive name match) is applied first, then the prefix
+    /// (case-insensitive StartsWith). Both filters apply uniformly to all attributes.
+    /// </summary>
+    private void ApplyAttributeFilters(PowerAppsSchema schema, string? attributePrefix, string? excludeAttributes)
+    {
+        if (schema.Entities == null || schema.Entities.Count == 0)
+        {
+            return;
+        }
+
+        var excludeSet = string.IsNullOrWhiteSpace(excludeAttributes)
+            ? null
+            : new HashSet<string>(
+                excludeAttributes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                StringComparer.OrdinalIgnoreCase);
+
+        var hasPrefix = !string.IsNullOrWhiteSpace(attributePrefix);
+
+        if (excludeSet == null && !hasPrefix)
+        {
+            return;
+        }
+
+        foreach (var entity in schema.Entities)
+        {
+            entity.Attributes = entity.Attributes.Where(a =>
+            {
+                if (excludeSet != null && excludeSet.Contains(a.LogicalName))
+                {
+                    return false;
+                }
+
+                if (hasPrefix && !a.LogicalName.StartsWith(attributePrefix!, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return true;
+            }).ToList();
+        }
     }
 }
