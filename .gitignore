@@ -93,14 +93,14 @@ Desktop.ini
 
 # Test scripts with credentials (per-command subfolders)
 tests/scripts/connections.json
-tests/scripts/schema-export/
-tests/scripts/*/test-*.ps1
-tests/scripts/*/*config.json
-!tests/scripts/*/sample-config.json
+tests/scripts/manual/schema-export/
+tests/scripts/manual/*/test-*.ps1
+tests/scripts/manual/*/*config.json
+!tests/scripts/manual/*/sample-config.json
 
 # Command output (generated during testing/dev)
 Generated/
-tests/scripts/*/output/
+tests/scripts/manual/*/output/
 **/refdata-comparison*.xlsx
 **/migration-report*.xlsx
 **/process-report*.xlsx

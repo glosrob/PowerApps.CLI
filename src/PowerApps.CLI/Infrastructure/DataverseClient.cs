@@ -62,8 +62,8 @@ public class DataverseClient : IDataverseClient
     private string _clientId {get;set; } = string.Empty;
     private string _clientSecret {get;set;} = string.Empty;
     private string _connectionString {get;set;} = string.Empty;
-    private readonly ServiceClient _serviceClient;
     private readonly IOrganizationService _orgService;
+    private readonly ServiceClient? _serviceClient; // Narrow reference for org-info members not on IOrganizationService
 
     public DataverseClient(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
@@ -71,24 +71,28 @@ public class DataverseClient : IDataverseClient
         _clientId = clientId ?? string.Empty;
         _clientSecret = clientSecret ?? string.Empty;
         _connectionString = connectionString ?? string.Empty;
-        _serviceClient = Connect(_url, _clientId, _clientSecret, _connectionString);
-        _orgService = _serviceClient;
+        var sc = Connect(_url, _clientId, _clientSecret, _connectionString);
+        _serviceClient = sc;
+        _orgService = sc;
     }
 
     // For unit testing only — ServiceClient-specific members (GetOrganizationName, GetEnvironmentUrl) are unavailable.
     internal DataverseClient(IOrganizationService orgService)
     {
-        _serviceClient = null!;
         _orgService = orgService;
     }
 
     public string GetOrganizationName()
     {
+        if (_serviceClient is null)
+            throw new NotSupportedException("GetOrganizationName is not available in test context.");
         return _serviceClient.ConnectedOrgFriendlyName ?? string.Empty;
     }
 
     public string GetEnvironmentUrl()
     {
+        if (_serviceClient is null)
+            throw new NotSupportedException("GetEnvironmentUrl is not available in test context.");
         if (_serviceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
         {
             return _serviceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
@@ -106,7 +110,7 @@ public class DataverseClient : IDataverseClient
         if (!string.IsNullOrWhiteSpace(fetchXml))
         {
             // Use provided FetchXML
-            return _serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
+            return _orgService.RetrieveMultiple(new FetchExpression(fetchXml));
         }
         else
         {
@@ -126,7 +130,7 @@ public class DataverseClient : IDataverseClient
 
             do
             {
-                pageResults = _serviceClient.RetrieveMultiple(query);
+                pageResults = _orgService.RetrieveMultiple(query);
                 results.Entities.AddRange(pageResults.Entities);
 
                 if (pageResults.MoreRecords)
@@ -147,7 +151,7 @@ public class DataverseClient : IDataverseClient
             throw new ArgumentNullException(nameof(query));
         }
 
-        return _serviceClient.RetrieveMultiple(query);
+        return _orgService.RetrieveMultiple(query);
     }
 
     public OrganizationResponse Execute(OrganizationRequest request)
@@ -157,7 +161,7 @@ public class DataverseClient : IDataverseClient
             throw new ArgumentNullException(nameof(request));
         }
 
-        return _serviceClient.Execute(request);
+        return _orgService.Execute(request);
     }
 
     public async Task<Dictionary<string, List<string>>> GetAllEntityMetadataAsync()
@@ -168,7 +172,7 @@ public class DataverseClient : IDataverseClient
             RetrieveAsIfPublished = false
         };
 
-        var response = await Task.Run(() => (RetrieveAllEntitiesResponse)_serviceClient.Execute(request));
+        var response = await Task.Run(() => (RetrieveAllEntitiesResponse)_orgService.Execute(request));
 
         var entities = new Dictionary<string, List<string>>();
         foreach (var entity in response.EntityMetadata)
@@ -216,12 +220,12 @@ public class DataverseClient : IDataverseClient
             }
         };
 
-        var results = await Task.Run(() => _serviceClient.RetrieveMultiple(query));
+        var results = await Task.Run(() => _orgService.RetrieveMultiple(query));
 
         foreach (var component in results.Entities)
         {
             var objectId = component.GetAttributeValue<Guid>("objectid");
-            
+
             // Get entity metadata to find logical name
             var metadataRequest = new RetrieveEntityRequest
             {
@@ -231,8 +235,8 @@ public class DataverseClient : IDataverseClient
 
             try
             {
-                var response = await Task.Run(() => 
-                    (RetrieveEntityResponse)_serviceClient.Execute(metadataRequest));
+                var response = await Task.Run(() =>
+                    (RetrieveEntityResponse)_orgService.Execute(metadataRequest));
                 
                 var logicalName = response.EntityMetadata.LogicalName;
 
@@ -267,7 +271,7 @@ public class DataverseClient : IDataverseClient
                 RetrieveAsIfPublished = false
             };
 
-            var response = await Task.Run(() => (RetrieveEntityResponse)_serviceClient.Execute(request));
+            var response = await Task.Run(() => (RetrieveEntityResponse)_orgService.Execute(request));
             return response.EntityMetadata;
         }
         catch
@@ -298,7 +302,7 @@ public class DataverseClient : IDataverseClient
             }
         }
 
-        return _serviceClient.RetrieveMultiple(query);
+        return _orgService.RetrieveMultiple(query);
     }
 
     public void ActivateProcess(Guid processId)
@@ -309,7 +313,7 @@ public class DataverseClient : IDataverseClient
             State = new OptionSetValue(1), // Active
             Status = new OptionSetValue(2)  // Activated
         };
-        _serviceClient.Execute(request);
+        _orgService.Execute(request);
     }
 
     public void DeactivateProcess(Guid processId)
@@ -320,7 +324,7 @@ public class DataverseClient : IDataverseClient
             State = new OptionSetValue(0), // Inactive
             Status = new OptionSetValue(1)  // Draft
         };
-        _serviceClient.Execute(request);
+        _orgService.Execute(request);
     }
 
     public EntityCollection RetrieveDuplicateRules(List<string> solutions)
@@ -342,7 +346,7 @@ public class DataverseClient : IDataverseClient
             }
         }
 
-        return _serviceClient.RetrieveMultiple(query);
+        return _orgService.RetrieveMultiple(query);
     }
 
     public void ActivateDuplicateRule(Guid ruleId)
@@ -351,7 +355,7 @@ public class DataverseClient : IDataverseClient
         {
             DuplicateRuleId = ruleId
         };
-        _serviceClient.Execute(request);
+        _orgService.Execute(request);
     }
 
     public void DeactivateDuplicateRule(Guid ruleId)
@@ -362,7 +366,7 @@ public class DataverseClient : IDataverseClient
             State = new OptionSetValue(0), // Inactive
             Status = new OptionSetValue(0)  // Unpublished
         };
-        _serviceClient.Execute(request);
+        _orgService.Execute(request);
     }
 
     public EntityCollection RetrievePluginSteps(List<string> solutions)
@@ -415,7 +419,7 @@ public class DataverseClient : IDataverseClient
             throw new ArgumentException("FetchXML query must be provided.", nameof(fetchXml));
         }
 
-        return _serviceClient.RetrieveMultiple(new FetchExpression(fetchXml));
+        return _orgService.RetrieveMultiple(new FetchExpression(fetchXml));
     }
 
     public ExecuteMultipleResponse ExecuteMultiple(OrganizationRequestCollection requests, bool continueOnError)
@@ -434,7 +438,7 @@ public class DataverseClient : IDataverseClient
                 ReturnResponses = true
             }
         };
-        return (ExecuteMultipleResponse)_serviceClient.Execute(batch);
+        return (ExecuteMultipleResponse)_orgService.Execute(batch);
     }
 
     public EntityMetadata GetEntityMetadata(string entityLogicalName)
@@ -450,7 +454,7 @@ public class DataverseClient : IDataverseClient
             EntityFilters = EntityFilters.Attributes,
             RetrieveAsIfPublished = false
         };
-        var response = (RetrieveEntityResponse)_serviceClient.Execute(request);
+        var response = (RetrieveEntityResponse)_orgService.Execute(request);
         return response.EntityMetadata;
     }
 
@@ -465,7 +469,7 @@ public class DataverseClient : IDataverseClient
         {
             Name = relationshipName
         };
-        var response = (RetrieveRelationshipResponse)_serviceClient.Execute(request);
+        var response = (RetrieveRelationshipResponse)_orgService.Execute(request);
         return (ManyToManyRelationshipMetadata)response.RelationshipMetadata;
     }
 
@@ -498,7 +502,7 @@ public class DataverseClient : IDataverseClient
             }
         };
 
-        var components = await Task.Run(() => _serviceClient.RetrieveMultiple(componentQuery));
+        var components = await Task.Run(() => _orgService.RetrieveMultiple(componentQuery));
         var componentList = components.Entities
             .Select(e => (
                 Id: e.GetAttributeValue<Guid>("objectid"),
@@ -528,7 +532,7 @@ public class DataverseClient : IDataverseClient
         {
             try
             {
-                var entityResponse = await Task.Run(() => (RetrieveEntityResponse)_serviceClient.Execute(
+                var entityResponse = await Task.Run(() => (RetrieveEntityResponse)_orgService.Execute(
                     new RetrieveEntityRequest
                     {
                         MetadataId = entityId,
@@ -611,7 +615,7 @@ public class DataverseClient : IDataverseClient
                     requests.Add(item.Request);
 
                 var multipleResponse = (ExecuteMultipleResponse)await Task.Run(() =>
-                    _serviceClient.Execute(new ExecuteMultipleRequest
+                    _orgService.Execute(new ExecuteMultipleRequest
                     {
                         Requests = requests,
                         Settings = new ExecuteMultipleSettings { ContinueOnError = true, ReturnResponses = true }
