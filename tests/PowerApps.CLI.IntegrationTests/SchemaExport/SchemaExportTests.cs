@@ -35,11 +35,14 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Act
+        // Arrange
         var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
 
+        // Act
+        var table = schema.Entities.SingleOrDefault(e => e.LogicalName == PrimaryTable);
+
         // Assert
-        Assert.Contains(schema.Entities, e => e.LogicalName == PrimaryTable);
+        Assert.NotNull(table);
     }
 
     [SkippableFact]
@@ -47,8 +50,8 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Expected AttributeType for each column on xrt_integrationtest. Values are the SDK
-        // AttributeTypeCode names, except MultiSelectPicklist/File/Image which MetadataMapper
+        // Arrange — expected AttributeType for each column on xrt_integrationtest. Values are the
+        // SDK AttributeTypeCode names, except MultiSelectPicklist/File/Image which MetadataMapper
         // overrides (the SDK reports those as "Virtual").
         //
         // NOTE: xrt_imagefield currently FAILS — the mapper reports "Virtual" instead of "Image".
@@ -75,11 +78,9 @@ public class SchemaExportTests(DataverseFixture fixture)
             ["xrt_imagefield"] = "Image",
             ["xrt_formulafield"] = "String",
         };
-
-        // Act
         var table = await GetPrimaryTableAsync();
 
-        // Assert
+        // Act
         var mismatches = new List<string>();
         foreach (var (logicalName, expectedType) in expectedTypes)
         {
@@ -94,6 +95,7 @@ public class SchemaExportTests(DataverseFixture fixture)
             }
         }
 
+        // Assert
         Assert.True(mismatches.Count == 0, "Attribute type mismatches:\n" + string.Join("\n", mismatches));
     }
 
@@ -102,8 +104,10 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Act
+        // Arrange
         var table = await GetPrimaryTableAsync();
+
+        // Act
         var choice = GetAttribute(table, "xrt_globalchoice");
 
         // Assert
@@ -119,10 +123,11 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Act — fetch both the picklist and multi-select columns from the same schema so we can
-        // assert they genuinely resolve to the same global option set, not just coincidentally
-        // matching values.
+        // Arrange
         var table = await GetPrimaryTableAsync();
+
+        // Act — fetch both the picklist and multi-select columns so we can assert they genuinely
+        // resolve to the same global option set, not just coincidentally matching values.
         var globalChoice = GetAttribute(table, "xrt_globalchoice");
         var multiSelect = GetAttribute(table, "xrt_multiselectglobalchoicefield");
 
@@ -140,8 +145,10 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Act
+        // Arrange
         var table = await GetPrimaryTableAsync();
+
+        // Act
         var localChoice = GetAttribute(table, "xrt_localchoice");
 
         // Assert — local choice has an inline option set that is not global
@@ -158,9 +165,11 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+
         // Act — the xrt_lookupfield column produces a custom N:1 relationship
         // (canonical values per tests/fixtures/integration-test-schema.json)
-        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
         var relationship = schema.Relationships
             .SingleOrDefault(r => r.SchemaName == "xrt_integrationtest_LookupField_xrt_integrationothertest");
 
@@ -179,9 +188,11 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
+        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
+
         // Act — the custom N:N between the two test tables
         // (canonical values per tests/fixtures/integration-test-schema.json)
-        var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
         var relationship = schema.Relationships
             .SingleOrDefault(r => r.SchemaName == "xrt_IntegrationTest_xrt_IntegrationOtherTest_xrt_IntegrationOtherTest");
 
@@ -199,16 +210,18 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // The N:N relationship is reachable from both endpoint tables, so without deduplication
-        // it would appear twice when both tables are in scope. Assert each SchemaName is unique.
+        // Arrange — the N:N relationship is reachable from both endpoint tables, so without
+        // deduplication it would appear twice when both tables are in scope.
         var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
 
+        // Act
         var duplicates = schema.Relationships
             .GroupBy(r => r.SchemaName)
             .Where(g => g.Count() > 1)
             .Select(g => $"{g.Key} (x{g.Count()})")
             .ToList();
 
+        // Assert
         Assert.True(duplicates.Count == 0, "Duplicate relationships:\n" + string.Join("\n", duplicates));
     }
 
@@ -224,12 +237,17 @@ public class SchemaExportTests(DataverseFixture fixture)
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Arrange
+        const string missingSolution = "NonExistentSolution_DoesNotExist";
+
         // Act
-        var schema = await _fixture.GetSolutionSchemaAsync("NonExistentSolution_DoesNotExist");
+        var schema = await _fixture.GetSolutionSchemaAsync(missingSolution);
 
         // Assert
         Assert.Empty(schema.Entities);
     }
+
+    // Helpers
 
     private async Task<EntitySchema> GetPrimaryTableAsync()
     {
