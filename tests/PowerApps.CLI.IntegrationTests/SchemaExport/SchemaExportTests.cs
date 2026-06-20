@@ -10,9 +10,11 @@ public class SchemaExportTests(DataverseFixture fixture)
 {
     private readonly DataverseFixture _fixture = fixture;
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractSchema_NoFilter_ReturnsNonEmptySchemaAsync()
     {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
         var schema = await extractor.ExtractSchemaAsync();
@@ -20,9 +22,11 @@ public class SchemaExportTests(DataverseFixture fixture)
         Assert.NotEmpty(schema.Entities);
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractSchema_IntegrationTestSolution_ContainsPrimaryTableAsync()
     {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
         var schema = await extractor.ExtractSchemaAsync("XRTSoftIntegrationTests");
@@ -37,9 +41,11 @@ public class SchemaExportTests(DataverseFixture fixture)
             "Attribute prefix filtering not yet implemented — see SchemaService.ExportSchemaAsync.");
     }
 
-    [Fact]
+    [SkippableFact]
     public async Task ExtractSchema_NonExistentSolution_ReturnsEmptySchemaAsync()
     {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
         var extractor = new SchemaExtractor(new MetadataMapper(), _fixture.Client);
 
         var schema = await extractor.ExtractSchemaAsync("NonExistentSolution_DoesNotExist");
