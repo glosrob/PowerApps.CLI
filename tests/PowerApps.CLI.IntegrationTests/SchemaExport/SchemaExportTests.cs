@@ -293,10 +293,39 @@ public class SchemaExportTests(DataverseFixture fixture)
     }
 
     [SkippableFact]
-    public Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
+    public async Task ExtractSchema_AttributePrefix_ReturnsOnlyPrefixedAttributesAsync()
     {
-        Skip.If(true, "Attribute prefix filtering is not implemented — see SchemaService.ExportSchemaAsync.");
-        return Task.CompletedTask;
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Arrange — the prefix filter lives in SchemaService, so this goes through the full
+        // export path rather than the extractor directly.
+        var service = new SchemaService(
+            new ConsoleLogger(),
+            new SchemaExporter(new FileWriter()),
+            _fixture.Client,
+            new SchemaExtractor(new MetadataMapper(), _fixture.Client));
+        var outputPath = Path.Combine(Path.GetTempPath(), $"schema-prefix-{Guid.NewGuid():N}.json");
+
+        try
+        {
+            // Act
+            await service.ExportSchemaAsync(outputPath, "json", IntegrationSolution, attributePrefix: "xrt_");
+            var schema = JsonSerializer.Deserialize<PowerAppsSchema>(await File.ReadAllTextAsync(outputPath));
+
+            // Assert — every column on the primary table is xrt_-prefixed, and the custom columns survived
+            var table = schema!.Entities.Single(e => e.LogicalName == PrimaryTable);
+            Assert.NotEmpty(table.Attributes);
+            Assert.All(table.Attributes, a =>
+                Assert.StartsWith("xrt_", a.LogicalName, StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(table.Attributes, a => a.LogicalName == "xrt_name");
+        }
+        finally
+        {
+            if (File.Exists(outputPath))
+            {
+                File.Delete(outputPath);
+            }
+        }
     }
 
     [SkippableFact]
