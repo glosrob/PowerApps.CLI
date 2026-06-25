@@ -132,7 +132,9 @@ public class DataPatchCommand
   </entity>
 </fetch>";
 
+            _logger.LogVerbose($"FetchXML:\n{fetchXml}");
             var records = _client.RetrieveRecordsByFetchXml(fetchXml);
+            _logger.LogVerbose($"Query returned {records.Entities.Count} record(s)");
 
             if (records.Entities.Count == 0)
             {
