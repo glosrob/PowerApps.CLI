@@ -123,7 +123,7 @@ public class DataPatchCommand
 
         try
         {
-            var fetchXml = $@"<fetch top='2'>
+            var fetchXml = $@"<fetch count='2'>
   <entity name='{patch.Entity}'>
     <attribute name='{patch.ValueField}' />
     <filter>
