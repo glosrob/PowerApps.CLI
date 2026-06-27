@@ -71,8 +71,10 @@ public class ProcessManageTests : IAsyncLifetime
         var baseline = manager.RetrieveProcesses([IntegrationSolution]);
         var stillActive = baseline.Where(p => p.CurrentState != ProcessState.Inactive).Select(p => p.Name).ToList();
         if (stillActive.Count > 0)
+        {
             throw new InvalidOperationException(
                 $"Failed to establish inactive baseline — still active: {string.Join(", ", stillActive)}");
+        }
 
         return Task.CompletedTask;
     }
