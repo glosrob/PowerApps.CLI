@@ -14,13 +14,18 @@ namespace PowerApps.CLI.IntegrationTests.DataPatch;
 public class DataPatchTests : IAsyncLifetime
 {
     private readonly DataverseFixture _fixture;
-    private Guid _testRecordId;
+
+    // Cached statically — IDs are stable for the lifetime of the environment; re-fetching
+    // before every test would waste 8 round-trips per run for data that never changes.
+    private static Guid _testRecordId;
+    private static Guid _otherTestRecordId;
 
     private const string TestEntity = "xrt_integrationtest";
     private const string TestKey = "DataPatch-Test-1";
     private const string AmbiguousKey = "DataPatch-Ambiguous";
     private const string KeyField = "xrt_name";
-    private static readonly Guid OtherTestRecordId = new("4e7e9bd9-d370-f111-ab0e-002248c655aa");
+    private const string OtherTestEntity = "xrt_integrationothertest";
+    private const string OtherTestKey = "DataPatch-OtherRecord-1";
 
     public DataPatchTests(DataverseFixture fixture)
     {
@@ -31,7 +36,9 @@ public class DataPatchTests : IAsyncLifetime
     {
         if (_fixture.ConfigurationError is not null) return Task.CompletedTask;
 
-        var records = _fixture.Client.RetrieveRecordsByFetchXml($@"<fetch count='1'>
+        if (_testRecordId == Guid.Empty)
+        {
+            var records = _fixture.Client.RetrieveRecordsByFetchXml($@"<fetch count='1'>
   <entity name='{TestEntity}'>
     <attribute name='{TestEntity}id' />
     <filter>
@@ -40,11 +47,46 @@ public class DataPatchTests : IAsyncLifetime
   </entity>
 </fetch>");
 
-        if (records.Entities.Count == 0)
-            throw new InvalidOperationException(
-                $"Test record '{TestKey}' not found in xrt_integrationtest — ensure prerequisite data exists before running integration tests.");
+            if (records.Entities.Count == 0)
+                throw new InvalidOperationException(
+                    $"Test record '{TestKey}' not found in {TestEntity} — ensure prerequisite data exists before running integration tests.");
 
-        _testRecordId = records.Entities[0].Id;
+            _testRecordId = records.Entities[0].Id;
+        }
+
+        if (_otherTestRecordId == Guid.Empty)
+        {
+            var otherRecords = _fixture.Client.RetrieveRecordsByFetchXml($@"<fetch count='1'>
+  <entity name='{OtherTestEntity}'>
+    <attribute name='{OtherTestEntity}id' />
+    <filter>
+      <condition attribute='{KeyField}' operator='eq' value='{OtherTestKey}' />
+    </filter>
+  </entity>
+</fetch>");
+
+            if (otherRecords.Entities.Count == 0)
+                throw new InvalidOperationException(
+                    $"Test record '{OtherTestKey}' not found in {OtherTestEntity} — ensure prerequisite data exists before running integration tests.");
+
+            _otherTestRecordId = otherRecords.Entities[0].Id;
+        }
+
+        // Prerequisite: two records with xrt_name = AmbiguousKey must exist in TestEntity.
+        // If fewer than two exist, the AmbiguousMatch test would pass vacuously (exit 1 = NotFound,
+        // not AmbiguousMatch), masking a missing test-data setup problem.
+        var ambiguousRecords = _fixture.Client.RetrieveRecordsByFetchXml($@"<fetch count='3'>
+  <entity name='{TestEntity}'>
+    <attribute name='{TestEntity}id' />
+    <filter>
+      <condition attribute='{KeyField}' operator='eq' value='{AmbiguousKey}' />
+    </filter>
+  </entity>
+</fetch>");
+
+        if (ambiguousRecords.Entities.Count < 2)
+            throw new InvalidOperationException(
+                $"Expected at least 2 records with {KeyField}='{AmbiguousKey}' in {TestEntity} for the AmbiguousMatch test — found {ambiguousRecords.Entities.Count}.");
 
         var reset = new Entity(TestEntity, _testRecordId)
         {
@@ -186,7 +228,7 @@ public class DataPatchTests : IAsyncLifetime
                     keyField = KeyField,
                     key = TestKey,
                     valueField = "xrt_lookupfield",
-                    value = new { logicalName = "xrt_integrationothertest", id = OtherTestRecordId.ToString() },
+                    value = new { logicalName = OtherTestEntity, id = _otherTestRecordId.ToString() },
                     type = "lookup"
                 }
             }
@@ -199,7 +241,7 @@ public class DataPatchTests : IAsyncLifetime
 
             Assert.Equal(0, exitCode);
             var record = FetchTestRecord("xrt_lookupfield");
-            Assert.Equal(OtherTestRecordId, record.GetAttributeValue<EntityReference>("xrt_lookupfield")?.Id);
+            Assert.Equal(_otherTestRecordId, record.GetAttributeValue<EntityReference>("xrt_lookupfield")?.Id);
         }
         finally { TryDelete(outputPath); }
     }
