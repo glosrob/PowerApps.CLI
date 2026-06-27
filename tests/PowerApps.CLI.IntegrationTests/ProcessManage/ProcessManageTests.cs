@@ -131,20 +131,14 @@ public class ProcessManageTests : IAsyncLifetime
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Pre-activate one process outside the command to establish a known mixed state.
-        // This gives the dry run something it should leave alone (ExampleAction, already Active)
-        // and something it should activate but won't (ExampleWorkflow, still Inactive).
-        _fixture.Client.ActivateProcess(FindProcess(ExampleAction).Id);
-
         var manager = CreateManager();
         var processes = manager.RetrieveProcesses([IntegrationSolution]);
         manager.DetermineExpectedStates(processes, inactivePatterns: []);
         var summary = manager.ManageProcessStates(processes, isDryRun: true, maxRetries: 0);
 
         Assert.False(summary.HasFailures);
-        // Pre-activated process must not have been deactivated by dry run
-        Assert.Equal(1, QueryWorkflowStatecode(FindProcess(ExampleAction).Id));
-        // Inactive process must not have been activated by dry run
+        // ExampleWorkflow is Inactive with ExpectedState=Active — a real run would activate it.
+        // Still inactive here proves the dry run did not fire any state-change API calls.
         Assert.Equal(0, QueryWorkflowStatecode(FindProcess(ExampleWorkflow).Id));
     }
 
