@@ -18,7 +18,6 @@ public class ProcessManageTests : IAsyncLifetime
     private static List<ProcessInfo>? _initialStates;
 
     private const string IntegrationSolution = "XRTSoftIntegrationTests";
-    private const int ExpectedProcessCount = 6;
 
     private const string ExampleAction = "Example Action (xrt_ExampleAction)";
     private const string ExampleWorkflow = "Example Triggered Workflow";
@@ -38,9 +37,13 @@ public class ProcessManageTests : IAsyncLifetime
 
         if (_initialStates is null)
         {
-            if (processes.Count != ExpectedProcessCount)
+            var names = processes.Select(p => p.Name).ToHashSet();
+            var missing = new[] { ExampleAction, ExampleWorkflow, ExampleWorkflowAsync, ExampleWorkflowChild, PluginStepCreate, PluginStepUpdate }
+                .Where(n => !names.Contains(n)).ToList();
+
+            if (missing.Count > 0)
                 throw new InvalidOperationException(
-                    $"Expected {ExpectedProcessCount} processes in '{IntegrationSolution}', found {processes.Count}. " +
+                    $"Missing processes in '{IntegrationSolution}': {string.Join(", ", missing)}. " +
                     "Ensure all test processes are deployed before running integration tests.");
 
             _initialStates = processes.Select(p => new ProcessInfo
@@ -92,7 +95,10 @@ public class ProcessManageTests : IAsyncLifetime
 
         var processes = CreateManager().RetrieveProcesses([IntegrationSolution]);
 
-        Assert.Equal(ExpectedProcessCount, processes.Count);
+        Assert.Contains(processes, p => p.Name == ExampleAction);
+        Assert.Contains(processes, p => p.Name == ExampleWorkflow);
+        Assert.Contains(processes, p => p.Name == ExampleWorkflowAsync);
+        Assert.Contains(processes, p => p.Name == ExampleWorkflowChild);
         Assert.Contains(processes, p => p.Name == PluginStepCreate);
         Assert.Contains(processes, p => p.Name == PluginStepUpdate);
     }
