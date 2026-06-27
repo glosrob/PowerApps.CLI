@@ -19,7 +19,7 @@ public class ProcessManageTests : IAsyncLifetime
 
     private const string IntegrationSolution = "XRTSoftIntegrationTests";
 
-    private const string ExampleAction = "Example Action (xrt_ExampleAction)";
+    private const string ExampleAction = "Example Action";
     private const string ExampleWorkflow = "Example Triggered Workflow";
     private const string ExampleWorkflowAsync = "Example Triggered Workflow Async";
     private const string ExampleWorkflowChild = "Example Triggered Workflow Child";
@@ -30,7 +30,10 @@ public class ProcessManageTests : IAsyncLifetime
 
     public Task InitializeAsync()
     {
-        if (_fixture.ConfigurationError is not null) return Task.CompletedTask;
+        if (_fixture.ConfigurationError is not null)
+        {
+            return Task.CompletedTask;
+        }
 
         var manager = CreateManager();
         var processes = manager.RetrieveProcesses([IntegrationSolution]);
@@ -42,9 +45,11 @@ public class ProcessManageTests : IAsyncLifetime
                 .Where(n => !names.Contains(n)).ToList();
 
             if (missing.Count > 0)
+            {
                 throw new InvalidOperationException(
                     $"Missing processes in '{IntegrationSolution}': {string.Join(", ", missing)}. " +
                     "Ensure all test processes are deployed before running integration tests.");
+            }
 
             _initialStates = processes.Select(p => new ProcessInfo
             {
@@ -57,9 +62,17 @@ public class ProcessManageTests : IAsyncLifetime
 
         // Drive all processes to inactive baseline before every test
         foreach (var p in processes)
+        {
             p.ExpectedState = ProcessState.Inactive;
+        }
 
         manager.ManageProcessStates(processes, isDryRun: false, maxRetries: 0);
+
+        var baseline = manager.RetrieveProcesses([IntegrationSolution]);
+        var stillActive = baseline.Where(p => p.CurrentState != ProcessState.Inactive).Select(p => p.Name).ToList();
+        if (stillActive.Count > 0)
+            throw new InvalidOperationException(
+                $"Failed to establish inactive baseline — still active: {string.Join(", ", stillActive)}");
 
         return Task.CompletedTask;
     }
@@ -67,7 +80,9 @@ public class ProcessManageTests : IAsyncLifetime
     public Task DisposeAsync()
     {
         if (_fixture.ConfigurationError is not null || _initialStates is null)
+        {
             return Task.CompletedTask;
+        }
 
         var manager = CreateManager();
         var current = manager.RetrieveProcesses([IntegrationSolution]);
@@ -76,7 +91,9 @@ public class ProcessManageTests : IAsyncLifetime
         foreach (var process in current)
         {
             if (initialById.TryGetValue(process.Id, out var initial))
+            {
                 process.ExpectedState = initial.CurrentState;
+            }
         }
 
         manager.ManageProcessStates(current, isDryRun: false, maxRetries: 0);
