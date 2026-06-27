@@ -20,6 +20,7 @@ public class ProcessManageTests : IAsyncLifetime
     private const string IntegrationSolution = "XRTSoftIntegrationTests";
 
     private const string ExampleAction = "Example Action";
+    private const string ExampleBusinessRule = "Example Business Rule";
     private const string ExampleWorkflow = "Example Triggered Workflow";
     private const string ExampleWorkflowAsync = "Example Triggered Workflow Async";
     private const string ExampleWorkflowChild = "Example Triggered Workflow Child";
@@ -41,7 +42,7 @@ public class ProcessManageTests : IAsyncLifetime
         if (_initialStates is null)
         {
             var names = processes.Select(p => p.Name).ToHashSet();
-            var missing = new[] { ExampleAction, ExampleWorkflow, ExampleWorkflowAsync, ExampleWorkflowChild, PluginStepCreate, PluginStepUpdate }
+            var missing = new[] { ExampleAction, ExampleBusinessRule, ExampleWorkflow, ExampleWorkflowAsync, ExampleWorkflowChild, PluginStepCreate, PluginStepUpdate }
                 .Where(n => !names.Contains(n)).ToList();
 
             if (missing.Count > 0)
@@ -115,6 +116,7 @@ public class ProcessManageTests : IAsyncLifetime
         var processes = CreateManager().RetrieveProcesses([IntegrationSolution]);
 
         Assert.Contains(processes, p => p.Name == ExampleAction);
+        Assert.Contains(processes, p => p.Name == ExampleBusinessRule);
         Assert.Contains(processes, p => p.Name == ExampleWorkflow);
         Assert.Contains(processes, p => p.Name == ExampleWorkflowAsync);
         Assert.Contains(processes, p => p.Name == ExampleWorkflowChild);
@@ -140,6 +142,43 @@ public class ProcessManageTests : IAsyncLifetime
         // ExampleWorkflow is Inactive with ExpectedState=Active — a real run would activate it.
         // Still inactive here proves the dry run did not fire any state-change API calls.
         Assert.Equal(0, QueryWorkflowStatecode(FindProcess(ExampleWorkflow).Id));
+    }
+
+    // -------------------------------------------------------------------------
+    // Activate business rule
+    // -------------------------------------------------------------------------
+
+    [SkippableFact]
+    public void ManageProcessStates_ActivateBusinessRule_ActivatesInDataverse()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        var manager = CreateManager();
+        var processes = manager.RetrieveProcesses([IntegrationSolution]);
+        manager.DetermineExpectedStates(processes, inactivePatterns: []);
+        manager.ManageProcessStates(processes, isDryRun: false, maxRetries: 0);
+
+        Assert.Equal(1, QueryWorkflowStatecode(FindProcess(ExampleBusinessRule).Id));
+    }
+
+    // -------------------------------------------------------------------------
+    // Deactivate business rule
+    // -------------------------------------------------------------------------
+
+    [SkippableFact]
+    public void ManageProcessStates_DeactivateBusinessRule_DeactivatesInDataverse()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Pre-activate so the command has a real state change to make
+        _fixture.Client.ActivateProcess(FindProcess(ExampleBusinessRule).Id);
+
+        var manager = CreateManager();
+        var processes = manager.RetrieveProcesses([IntegrationSolution]);
+        manager.DetermineExpectedStates(processes, inactivePatterns: [ExampleBusinessRule]);
+        manager.ManageProcessStates(processes, isDryRun: false, maxRetries: 0);
+
+        Assert.Equal(0, QueryWorkflowStatecode(FindProcess(ExampleBusinessRule).Id));
     }
 
     // -------------------------------------------------------------------------
