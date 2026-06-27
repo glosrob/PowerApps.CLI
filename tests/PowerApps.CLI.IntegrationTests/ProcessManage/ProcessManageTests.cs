@@ -195,7 +195,7 @@ public class ProcessManageTests : IAsyncLifetime
         manager.DetermineExpectedStates(processes, inactivePatterns: []);
         manager.ManageProcessStates(processes, isDryRun: false, maxRetries: 0);
 
-        Assert.Equal(1, QueryWorkflowStatecode(FindProcess(ExampleAction).Id));
+        Assert.Equal(1, QueryWorkflowStatecode(FindProcess(ExampleWorkflow).Id));
     }
 
     // -------------------------------------------------------------------------
@@ -208,14 +208,14 @@ public class ProcessManageTests : IAsyncLifetime
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
         // Pre-activate so the command has a real state change to make
-        _fixture.Client.ActivateProcess(FindProcess(ExampleAction).Id);
+        _fixture.Client.ActivateProcess(FindProcess(ExampleWorkflow).Id);
 
         var manager = CreateManager();
         var processes = manager.RetrieveProcesses([IntegrationSolution]);
-        manager.DetermineExpectedStates(processes, inactivePatterns: [ExampleAction]);
+        manager.DetermineExpectedStates(processes, inactivePatterns: [ExampleWorkflow]);
         manager.ManageProcessStates(processes, isDryRun: false, maxRetries: 0);
 
-        Assert.Equal(0, QueryWorkflowStatecode(FindProcess(ExampleAction).Id));
+        Assert.Equal(0, QueryWorkflowStatecode(FindProcess(ExampleWorkflow).Id));
     }
 
     // -------------------------------------------------------------------------
