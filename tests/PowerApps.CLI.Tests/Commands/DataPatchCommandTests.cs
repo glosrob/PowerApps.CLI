@@ -450,4 +450,228 @@ public class DataPatchCommandTests
         Assert.NotNull(command);
         Assert.Equal("data-patch", command.Name);
     }
+
+    [Fact]
+    public async Task ApplyPatch_LogsFetchXml()
+    {
+        var config = SinglePatchConfig("new-value");
+        SetupConfigFile("config.json", config);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(SingleRecord("mspp_sitesetting", Guid.NewGuid(), "mspp_value", "old-value"));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        _mockLogger.Verify(l => l.LogVerbose(It.Is<string>(s => s.Contains("<fetch"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyPatch_LogsResultCount()
+    {
+        var config = SinglePatchConfig("new-value");
+        SetupConfigFile("config.json", config);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(SingleRecord("mspp_sitesetting", Guid.NewGuid(), "mspp_value", "old-value"));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        _mockLogger.Verify(l => l.LogVerbose(It.Is<string>(s => s.Contains("1 record(s)"))), Times.Once);
+    }
+
+    [Fact]
+    public async Task ApplyPatch_FetchXmlUsesCount2NotTop()
+    {
+        var config = SinglePatchConfig();
+        SetupConfigFile("config.json", config);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(EmptyCollection());
+
+        await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        _mockClient.Verify(c => c.RetrieveRecordsByFetchXml(
+            It.Is<string>(xml => xml.Contains("count='2'") && !xml.Contains("top="))), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_GeneratesReport_WithCorrectSummaryContents()
+    {
+        var config = SinglePatchConfig("new-value");
+        SetupConfigFile("config.json", config);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(SingleRecord("mspp_sitesetting", Guid.NewGuid(), "mspp_value", "old-value"));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        _mockReporter.Verify(r => r.GenerateReportAsync(
+            It.Is<DataPatchSummary>(s =>
+                s.EnvironmentUrl == "https://target.crm.dynamics.com" &&
+                s.UpdatedCount == 1 &&
+                s.FailedCount == 0),
+            "report.xlsx"), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithGuidType_ParsesStringAsGuid()
+    {
+        var targetGuid = Guid.NewGuid();
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "contact",
+                    KeyField = "fullname",
+                    Key = "Robert Tilling",
+                    ValueField = "someguidfield",
+                    Value = JsonDocument.Parse($"\"{targetGuid}\"").RootElement,
+                    Type = "guid"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var existingRecord = new Entity("contact", Guid.NewGuid());
+        existingRecord["someguidfield"] = Guid.NewGuid();
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["someguidfield"] is Guid &&
+            (Guid)r.Target["someguidfield"] == targetGuid)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithDatetimeType_ParsesStringAsDateTime()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "xrt_integrationtest",
+                    KeyField = "xrt_name",
+                    Key = "DataPatch-Test-1",
+                    ValueField = "xrt_datetimefield",
+                    Value = JsonDocument.Parse("\"2026-01-15T09:30:00Z\"").RootElement,
+                    Type = "datetime"
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var existingRecord = new Entity("xrt_integrationtest", Guid.NewGuid());
+        existingRecord["xrt_datetimefield"] = new DateTime(2020, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
+            r.Target["xrt_datetimefield"] is DateTime &&
+            ((DateTime)r.Target["xrt_datetimefield"]).Year == 2026 &&
+            ((DateTime)r.Target["xrt_datetimefield"]).Month == 1 &&
+            ((DateTime)r.Target["xrt_datetimefield"]).Day == 15)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenRetrieveThrows_Returns1()
+    {
+        var config = SinglePatchConfig();
+        SetupConfigFile("config.json", config);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Throws(new InvalidOperationException("Retrieve failed"));
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(1, result);
+        _mockClient.Verify(c => c.Execute(It.IsAny<UpdateRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithMoneyField_WhenUnchanged_SkipsUpdate()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "xrt_integrationtest",
+                    KeyField = "xrt_name",
+                    Key = "DataPatch-Test-1",
+                    ValueField = "xrt_currencyfield",
+                    Value = JsonDocument.Parse("100").RootElement
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        var existingRecord = new Entity("xrt_integrationtest", Guid.NewGuid());
+        existingRecord["xrt_currencyfield"] = new Money(100m);
+        _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(new EntityCollection(new List<Entity> { existingRecord }));
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(0, result);
+        _mockClient.Verify(c => c.Execute(It.IsAny<UpdateRequest>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WithMultiplePatches_PartialSuccess_Returns1()
+    {
+        var config = new DataPatchConfig
+        {
+            Patches = new List<PatchEntry>
+            {
+                new()
+                {
+                    Entity = "mspp_sitesetting",
+                    KeyField = "mspp_name",
+                    Key = "Found-Key",
+                    ValueField = "mspp_value",
+                    Value = JsonDocument.Parse("\"new-value\"").RootElement
+                },
+                new()
+                {
+                    Entity = "mspp_sitesetting",
+                    KeyField = "mspp_name",
+                    Key = "Missing-Key",
+                    ValueField = "mspp_value",
+                    Value = JsonDocument.Parse("\"new-value\"").RootElement
+                }
+            }
+        };
+        SetupConfigFile("config.json", config);
+
+        _mockClient.SetupSequence(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
+            .Returns(SingleRecord("mspp_sitesetting", Guid.NewGuid(), "mspp_value", "old-value"))
+            .Returns(EmptyCollection());
+        _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
+            .Returns(new UpdateResponse());
+
+        var result = await _command.ExecuteAsync("config.json", null, "report.xlsx");
+
+        Assert.Equal(1, result);
+        _mockClient.Verify(c => c.Execute(It.IsAny<UpdateRequest>()), Times.Once);
+        _mockReporter.Verify(r => r.GenerateReportAsync(
+            It.Is<DataPatchSummary>(s => s.UpdatedCount == 1 && s.FailedCount == 1),
+            It.IsAny<string>()), Times.Once);
+    }
 }
