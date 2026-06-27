@@ -449,6 +449,32 @@ public class ConstantsFilterTests
     }
 
     [Fact]
+    public void FilterAttributes_SkipVirtualFields_RemovesCurrencyBaseFieldWhenAttributeOfIsEmpty()
+    {
+        // The SDK does not reliably populate AttributeOf for base-currency companion fields
+        // (e.g. xrt_amount_base), so the filter uses a Money + _base pattern as a fallback.
+        var filter = new ConstantsFilter();
+        var config = new ConstantsConfig { SkipVirtualFields = true };
+        var entity = new EntitySchema
+        {
+            LogicalName = "xrt_order",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema { LogicalName = "xrt_amount",      AttributeType = "Money", AttributeOf = null },
+                new AttributeSchema { LogicalName = "xrt_amount_base", AttributeType = "Money", AttributeOf = null },
+                new AttributeSchema { LogicalName = "xrt_name" }
+            }
+        };
+
+        var result = filter.FilterAttributes(entity, config);
+
+        Assert.Equal(2, result.Attributes.Count);
+        Assert.Contains(result.Attributes, a => a.LogicalName == "xrt_amount");
+        Assert.Contains(result.Attributes, a => a.LogicalName == "xrt_name");
+        Assert.DoesNotContain(result.Attributes, a => a.LogicalName == "xrt_amount_base");
+    }
+
+    [Fact]
     public void ExtractGlobalOptionSets_NoGlobalOptionSets_ReturnsEmptyList()
     {
         // Arrange
