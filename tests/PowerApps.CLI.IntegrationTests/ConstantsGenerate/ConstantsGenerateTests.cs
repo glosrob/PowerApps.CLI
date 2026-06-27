@@ -132,8 +132,9 @@ public class ConstantsGenerateTests(DataverseFixture fixture)
         var outputDir = await _fixture.GetOrGenerateConstantsAsync("skip-virtual", IntegrationSolution, config);
         var tables = await File.ReadAllTextAsync(Path.Combine(outputDir, "Tables.cs"));
 
-        // xrt_currencyfield_base has AttributeOf = "xrt_currencyfield" in the real SDK response,
-        // so it must be excluded. Unit tests mock AttributeOf to empty string and cannot verify this.
+        // xrt_currencyfield_base is a read-only (IsValidForCreate=false, IsValidForUpdate=false) Money
+        // field — the base-currency companion. AttributeOf is unreliable for these in the SDK response,
+        // so the filter detects them by type + writability. Unit tests cannot verify real SDK values.
         Assert.DoesNotContain("xrt_currencyfield_base", tables);
         Assert.Contains("\"xrt_currencyfield\"", tables);
     }
