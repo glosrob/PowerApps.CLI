@@ -25,7 +25,7 @@ public class DataPatchTests : IAsyncLifetime
     private const string AmbiguousKey = "DataPatch-Ambiguous";
     private const string KeyField = "xrt_name";
     private const string OtherTestEntity = "xrt_integrationothertest";
-    private const string OtherTestKey = "DataPatch-OtherRecord-1";
+    private const string OtherTestKey = "Data Patch Test";
 
     public DataPatchTests(DataverseFixture fixture)
     {
