@@ -26,7 +26,8 @@ Coverage reports are generated to `tests/coverage/report/index.html`.
 tests/scripts/
 ├── connections.sample.json          # Template for credentials (committed)
 ├── connections.json                 # Your credentials (git-ignored)
-├── generate-integration-schema.ps1  # Re-export integration test solution schema
+├── generate-integration-schema.ps1  # Re-export integration test solution schema (XRTSoftIntegrationTests)
+├── generate-layer-tests-schema.ps1  # Re-export layer tests solution schema (XRTSoftLayerTests)
 ├── run-coverage.ps1                 # Run unit tests with code coverage
 ├── run-tests.ps1                    # Run all unit tests
 └── manual/                          # Per-command fixtures and ad-hoc test scripts
@@ -46,7 +47,7 @@ tests/scripts/
 ### Setup
 
 1. Copy `connections.sample.json` to `connections.json`
-2. Fill in your Dataverse environment details under `Default` and `IntegrationTests`
+2. Fill in your Dataverse environment details under `Default`, `IntegrationTests`, and `LayerTests`
 3. `connections.json` is git-ignored and will never be committed
 
 ### connections.json structure
@@ -63,6 +64,12 @@ tests/scripts/
     "Url": "https://your-environment.crm11.dynamics.com/",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret"
+  },
+  "LayerTests": {
+    "Url": "https://your-environment.crm11.dynamics.com/",
+    "ClientId": "your-client-id",
+    "ClientSecret": "your-client-secret",
+    "SolutionName": "XRTSoftLayerTests"
   }
 }
 ```
@@ -102,6 +109,19 @@ The solution must exist in the target environment before running any integration
 ```powershell
 .\tests\scripts\generate-integration-schema.ps1
 ```
+
+### Solution-Layers Test Solution
+
+**Unique name:** `XRTSoftLayerTests`
+**Publisher prefix:** `xrt_`
+
+A separate, minimal solution used exclusively by the `solution-layers` integration tests. It must exist in the target environment before running those tests. The committed file [`tests/fixtures/layer-tests-schema.json`](fixtures/layer-tests-schema.json) is the canonical reference for its components — regenerate it with:
+
+```powershell
+.\tests\scripts\generate-layer-tests-schema.ps1
+```
+
+---
 
 ### Plugin Assembly (for `process-manage` tests)
 

@@ -13,34 +13,62 @@ namespace PowerApps.CLI.Infrastructure;
 /// </summary>
 public class DataverseClient : IDataverseClient, IDisposable
 {
+    // Properties
+
     private const string DefaultAppId = "51f81489-12ee-4a9e-aaae-a2591f45987d"; // Microsoft-provided app ID for OAuth
     private const string DefaultRedirectUri = "http://localhost";
 
     // Maps solutioncomponent.componenttype (int) to the msdyn_solutioncomponentname string
     // required by the msdyn_componentlayer virtual entity. Both filters must be provided.
     // Values match the ComponentType enum names used by the Dataverse SDK (PascalCase).
-    private static readonly Dictionary<int, string> ComponentLayerTypeNames = new()
+    // Modern platform types (connection references, cloud flows, etc.) are supplemented at
+    // runtime from solutioncomponentdefinition — see GetModernComponentTypeNamesAsync.
+    private static readonly Dictionary<int, string> _componentLayerTypeNames = new()
     {
         [1]   = "Entity",
         [2]   = "Attribute",
         [3]   = "Relationship",
+        [4]   = "AttributePicklistValue",
+        [5]   = "AttributeLookupValue",
+        [6]   = "ViewAttribute",
+        [7]   = "LocalizedLabel",
+        [8]   = "RelationshipExtraCondition",
         [9]   = "OptionSet",
-        [10]  = "OptionSetValue",
-        [11]  = "PluginAssembly",
-        [12]  = "PluginType",
-        [13]  = "SdkMessage",
-        [14]  = "SdkMessageFilter",
-        [16]  = "ServiceEndpoint",
-        [17]  = "MessageProcessingStep",
-        [18]  = "MessageProcessingStepImage",
-        [24]  = "RibbonCustomization",
-        [25]  = "RibbonCommand",
-        [26]  = "RibbonContextGroup",
+        [10]  = "EntityRelationship",
+        [11]  = "EntityRelationshipRole",
+        [12]  = "EntityRelationshipRelationships",
+        [13]  = "ManagedProperty",
+        [14]  = "EntityKey",
+        [16]  = "Privilege",
+        [17]  = "PrivilegeObjectTypeCode",
+        [18]  = "Index",
+        [20]  = "Role",
+        [21]  = "RolePrivilege",
+        [22]  = "DisplayString",
+        [23]  = "DisplayStringMap",
+        [24]  = "Form",
+        [25]  = "Organization",
+        [26]  = "SavedQuery",
         [29]  = "Workflow",
-        [33]  = "SystemForm",
-        [36]  = "AttributeMap",
-        [47]  = "RibbonTabToCommandMap",
-        [48]  = "RibbonDiff",
+        [31]  = "Report",
+        [32]  = "ReportEntity",
+        [33]  = "ReportCategory",
+        [34]  = "ReportVisibility",
+        [35]  = "Attachment",
+        [36]  = "EmailTemplate",
+        [37]  = "ContractTemplate",
+        [38]  = "KBArticleTemplate",
+        [39]  = "MailMergeTemplate",
+        [44]  = "DuplicateRule",
+        [45]  = "DuplicateRuleCondition",
+        [46]  = "EntityMap",
+        [47]  = "AttributeMap",
+        [48]  = "RibbonCommand",
+        [49]  = "RibbonContextGroup",
+        [50]  = "RibbonCustomization",
+        [52]  = "RibbonRule",
+        [53]  = "RibbonTabToCommandMap",
+        [55]  = "RibbonDiff",
         [59]  = "SavedQueryVisualization",
         [60]  = "SystemForm",
         [61]  = "WebResource",
@@ -48,14 +76,29 @@ public class DataverseClient : IDataverseClient, IDisposable
         [63]  = "ConnectionRole",
         [65]  = "HierarchyRule",
         [66]  = "CustomControl",
+        [68]  = "CustomControlDefaultConfig",
         [70]  = "FieldSecurityProfile",
         [71]  = "FieldPermission",
-        [90]  = "PluginAssembly",
-        [91]  = "PluginType",
-        [92]  = "SDKMessageProcessingStep",
-        [93]  = "SDKMessageProcessingStepImage",
+        [80]  = "AppModule",
+        [90]  = "PluginType",
+        [91]  = "PluginAssembly",
+        [92]  = "SdkMessageProcessingStep",
+        [93]  = "SdkMessageProcessingStepImage",
         [95]  = "ServiceEndpoint",
-        [418] = "msdyn_dataflow",
+        [150] = "RoutingRule",
+        [151] = "RoutingRuleItem",
+        [152] = "SLA",
+        [153] = "SLAItem",
+        [154] = "ConvertRule",
+        [155] = "ConvertRuleItem",
+        [161] = "MobileOfflineProfile",
+        [162] = "MobileOfflineProfileItem",
+        [165] = "SimilarityRule",
+        [166] = "DataSourceMapping",
+        [300] = "CanvasApp",
+        [380] = "EnvironmentVariableDefinition",
+        [381] = "EnvironmentVariableValue",
+        [418] = "msdyn_dataflow",               // Special case: routing key differs from enum name
     };
 
     private string _url { get; set; } = string.Empty;
@@ -64,6 +107,9 @@ public class DataverseClient : IDataverseClient, IDisposable
     private string _connectionString {get;set;} = string.Empty;
     private readonly IOrganizationService _orgService;
     private readonly ServiceClient? _serviceClient; // Narrow reference for org-info members not on IOrganizationService
+    private bool _disposed;
+
+    // Constructors
 
     public DataverseClient(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
     {
@@ -82,26 +128,34 @@ public class DataverseClient : IDataverseClient, IDisposable
         _orgService = orgService;
     }
 
-    private bool _disposed;
+    // Methods
 
     public void Dispose()
     {
-        if (_disposed) return;
+        if (_disposed)
+        {
+            return;
+        }
         _serviceClient?.Dispose();
         _disposed = true;
+        GC.SuppressFinalize(this);
     }
 
     public string GetOrganizationName()
     {
         if (_serviceClient is null)
+        {
             throw new NotSupportedException("GetOrganizationName is not available in test context.");
+        }
         return _serviceClient.ConnectedOrgFriendlyName ?? string.Empty;
     }
 
     public string GetEnvironmentUrl()
     {
         if (_serviceClient is null)
+        {
             throw new NotSupportedException("GetEnvironmentUrl is not available in test context.");
+        }
         if (_serviceClient.ConnectedOrgPublishedEndpoints.ContainsKey(EndpointType.OrganizationService))
         {
             return _serviceClient.ConnectedOrgPublishedEndpoints[EndpointType.OrganizationService];
@@ -155,20 +209,14 @@ public class DataverseClient : IDataverseClient, IDisposable
 
     public EntityCollection RetrieveMultiple(QueryExpression query)
     {
-        if (query == null)
-        {
-            throw new ArgumentNullException(nameof(query));
-        }
+        ArgumentNullException.ThrowIfNull(query);
 
         return _orgService.RetrieveMultiple(query);
     }
 
     public OrganizationResponse Execute(OrganizationRequest request)
     {
-        if (request == null)
-        {
-            throw new ArgumentNullException(nameof(request));
-        }
+        ArgumentNullException.ThrowIfNull(request);
 
         return _orgService.Execute(request);
     }
@@ -246,17 +294,18 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 var response = await Task.Run(() =>
                     (RetrieveEntityResponse)_orgService.Execute(metadataRequest));
-                
+
                 var logicalName = response.EntityMetadata.LogicalName;
 
-                if (!entitySolutions.ContainsKey(logicalName))
+                if (!entitySolutions.TryGetValue(logicalName, out List<string>? value))
                 {
-                    entitySolutions[logicalName] = new List<string>();
+                    value = new List<string>();
+                    entitySolutions[logicalName] = value;
                 }
 
-                if (!entitySolutions[logicalName].Contains(solutionName))
+                if (!value.Contains(solutionName))
                 {
-                    entitySolutions[logicalName].Add(solutionName);
+                    value.Add(solutionName);
                 }
             }
             catch
@@ -301,7 +350,7 @@ public class DataverseClient : IDataverseClient, IDisposable
         query.Criteria.AddCondition("category", ConditionOperator.In, 0, 2, 3, 4, 5);
 
         // Filter by solutions if specified
-        if (solutions.Any())
+        if (solutions.Count != 0)
         {
             foreach (var solution in solutions)
             {
@@ -345,7 +394,7 @@ public class DataverseClient : IDataverseClient, IDisposable
         };
 
         // Filter by solutions if specified
-        if (solutions.Any())
+        if (solutions.Count != 0)
         {
             foreach (var solution in solutions)
             {
@@ -386,7 +435,7 @@ public class DataverseClient : IDataverseClient, IDisposable
             Criteria = new FilterExpression(LogicalOperator.And)
         };
 
-        if (solutions.Any())
+        if (solutions.Count != 0)
         {
             foreach (var solution in solutions)
             {
@@ -433,10 +482,7 @@ public class DataverseClient : IDataverseClient, IDisposable
 
     public ExecuteMultipleResponse ExecuteMultiple(OrganizationRequestCollection requests, bool continueOnError)
     {
-        if (requests == null)
-        {
-            throw new ArgumentNullException(nameof(requests));
-        }
+        ArgumentNullException.ThrowIfNull(requests);
 
         var batch = new ExecuteMultipleRequest
         {
@@ -486,7 +532,7 @@ public class DataverseClient : IDataverseClient, IDisposable
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
-        // Phase 1: get component object IDs and type names from solutioncomponent.
+        // Phase 1: get component object IDs and type codes from solutioncomponent.
         // msdyn_componentlayer requires BOTH msdyn_componentid AND msdyn_solutioncomponentname
         // to return results — the type name acts as a routing key for this virtual entity.
         var componentQuery = new QueryExpression("solutioncomponent")
@@ -525,17 +571,32 @@ public class DataverseClient : IDataverseClient, IDisposable
             .ToList();
 
         if (componentList.Count == 0)
+        {
             return new EntityCollection();
+        }
 
         phaseLog?.Invoke($"Phase 1 ({sw.ElapsedMilliseconds}ms): {componentList.Count} solution component(s) from solutioncomponent.");
         sw.Restart();
 
-        // Phase 1b: Expand attribute (column) components.
-        // Managed solutions don't store individual Attribute records in solutioncomponent —
-        // only the entity itself (componenttype=1) is listed. We enumerate each entity's
-        // attributes via metadata to get their MetadataIds and include them in the layer scan.
+        // Merge the static classic-type map with modern types from solutioncomponentdefinition.
+        // The static dictionary covers types defined in the SDK ComponentType enum; the
+        // definition table adds platform-specific types (connection references, cloud flows, etc.)
+        // whose integer codes only exist in the org's own option set metadata.
+        var typeNames = new Dictionary<int, string>(_componentLayerTypeNames);
+        foreach (var kvp in await GetModernComponentTypeNamesAsync(phaseLog))
+        {
+            if (!typeNames.ContainsKey(kvp.Key))
+            {
+                typeNames[kvp.Key] = kvp.Value;
+            }
+        }
+
+        // Phase 1b: Expand attribute (column) components and capture entity info for Phase 1c.
+        // Entity rows in solutioncomponent (type 1) implicitly include all their attributes —
+        // we enumerate attribute metadata to get individual MetadataIds for the layer scan.
         var entityIds = componentList.Where(c => c.TypeCode == 1).Select(c => c.Id).ToList();
         var seenIds = new HashSet<Guid>(componentList.Select(c => c.Id));
+        var entityInfoById = new Dictionary<Guid, (string LogicalName, string DisplayName)>();
 
         foreach (var entityId in entityIds)
         {
@@ -551,16 +612,14 @@ public class DataverseClient : IDataverseClient, IDisposable
 
                 var entityLogicalName = entityResponse.EntityMetadata.LogicalName;
                 var entityDisplayName = entityResponse.EntityMetadata.DisplayName?.UserLocalizedLabel?.Label ?? entityLogicalName;
+                entityInfoById[entityId] = (entityLogicalName, entityDisplayName);
+
                 foreach (var attr in entityResponse.EntityMetadata.Attributes)
                 {
-                    // Only expand custom attributes. Non-custom (standard/Microsoft) attributes
-                    // are not solution components and may have layers from unrelated managed
-                    // solutions, producing false positives. Any non-custom attribute that IS
-                    // explicitly in the solution will already be captured by Phase 1.
-                    if (attr.IsCustomAttribute != true) continue;
-
                     if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
+                    {
                         componentList.Add((attr.MetadataId.Value, 2, entityLogicalName, entityDisplayName)); // 2 = Attribute
+                    }
                 }
             }
             catch
@@ -572,11 +631,74 @@ public class DataverseClient : IDataverseClient, IDisposable
         phaseLog?.Invoke($"Phase 1b ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after attribute enumeration.");
         sw.Restart();
 
+        // Phase 1c: Expand forms (type 60), views (type 26), and charts (type 59) for each entity.
+        // These are implicit solution components when an entity belongs to a solution with
+        // rootcomponentbehavior = 0 — they have no explicit solutioncomponent rows of their own.
+        foreach (var (logicalName, displayName) in entityInfoById.Values)
+        {
+            var formResults = await Task.Run(() => _orgService.RetrieveMultiple(
+                new QueryExpression("systemform")
+                {
+                    ColumnSet = new ColumnSet("formid"),
+                    NoLock = true,
+                    Criteria = new FilterExpression
+                    {
+                        Conditions = { new ConditionExpression("objecttypecode", ConditionOperator.Equal, logicalName) }
+                    }
+                }));
+            foreach (var form in formResults.Entities)
+            {
+                if (seenIds.Add(form.Id))
+                {
+                    componentList.Add((form.Id, 60, logicalName, displayName)); // 60 = SystemForm
+                }
+            }
+
+            var viewResults = await Task.Run(() => _orgService.RetrieveMultiple(
+                new QueryExpression("savedquery")
+                {
+                    ColumnSet = new ColumnSet("savedqueryid"),
+                    NoLock = true,
+                    Criteria = new FilterExpression
+                    {
+                        Conditions = { new ConditionExpression("returnedtypecode", ConditionOperator.Equal, logicalName) }
+                    }
+                }));
+            foreach (var view in viewResults.Entities)
+            {
+                if (seenIds.Add(view.Id))
+                {
+                    componentList.Add((view.Id, 26, logicalName, displayName)); // 26 = SavedQuery
+                }
+            }
+
+            var chartResults = await Task.Run(() => _orgService.RetrieveMultiple(
+                new QueryExpression("savedqueryvisualization")
+                {
+                    ColumnSet = new ColumnSet("savedqueryvisualizationid"),
+                    NoLock = true,
+                    Criteria = new FilterExpression
+                    {
+                        Conditions = { new ConditionExpression("primaryentitytypecode", ConditionOperator.Equal, logicalName) }
+                    }
+                }));
+            foreach (var chart in chartResults.Entities)
+            {
+                if (seenIds.Add(chart.Id))
+                {
+                    componentList.Add((chart.Id, 59, logicalName, displayName)); // 59 = SavedQueryVisualization
+                }
+            }
+        }
+
+        phaseLog?.Invoke($"Phase 1c ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after form/view/chart enumeration.");
+        sw.Restart();
+
         // Phase 2: batch individual msdyn_componentlayer queries into ExecuteMultiple calls.
         // msdyn_componentlayer requires exactly one msdyn_componentid per query (IN clauses
         // are silently ignored by the virtual entity provider), so we pack batchSize individual
         // RetrieveMultipleRequests into each ExecuteMultipleRequest. This cuts HTTP round-trips
-        // from ~6,867 to ~35 while preserving the per-component query semantics.
+        // while preserving the per-component query semantics.
         const int batchSize = 200;
         const int maxConcurrency = 10;
         var layerBag = new System.Collections.Concurrent.ConcurrentBag<Entity>();
@@ -584,13 +706,22 @@ public class DataverseClient : IDataverseClient, IDisposable
         var completed = 0;
         var total = componentList.Count;
 
-        // Pre-count unmapped components (no type-name mapping) so progress reaches 100%.
-        var unmappedCount = componentList.Count(c => !ComponentLayerTypeNames.ContainsKey(c.TypeCode));
+        var unmappedTypes = componentList
+            .Where(c => !typeNames.ContainsKey(c.TypeCode))
+            .Select(c => c.TypeCode)
+            .Distinct()
+            .OrderBy(t => t)
+            .ToList();
+        if (unmappedTypes.Count > 0)
+        {
+            phaseLog?.Invoke($"Warning: component type code(s) [{string.Join(", ", unmappedTypes)}] have no routing key and will be skipped.");
+        }
+        var unmappedCount = componentList.Count(c => !typeNames.ContainsKey(c.TypeCode));
         Interlocked.Add(ref completed, unmappedCount);
 
         // Build one RetrieveMultipleRequest per known component, then chunk into batches.
         var componentRequests = componentList
-            .Where(c => ComponentLayerTypeNames.ContainsKey(c.TypeCode))
+            .Where(c => typeNames.ContainsKey(c.TypeCode))
             .Select(c => (
                 Component: c,
                 Request: (OrganizationRequest)new RetrieveMultipleRequest
@@ -603,7 +734,7 @@ public class DataverseClient : IDataverseClient, IDisposable
                         {
                             Conditions =
                             {
-                                new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, ComponentLayerTypeNames[c.TypeCode]),
+                                new ConditionExpression("msdyn_solutioncomponentname", ConditionOperator.Equal, typeNames[c.TypeCode]),
                                 new ConditionExpression("msdyn_componentid", ConditionOperator.Equal, c.Id),
                             }
                         }
@@ -621,7 +752,9 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 var requests = new OrganizationRequestCollection();
                 foreach (var item in batch)
+                {
                     requests.Add(item.Request);
+                }
 
                 var multipleResponse = (ExecuteMultipleResponse)await Task.Run(() =>
                     _orgService.Execute(new ExecuteMultipleRequest
@@ -632,18 +765,25 @@ public class DataverseClient : IDataverseClient, IDisposable
 
                 foreach (var responseItem in multipleResponse.Responses)
                 {
-                    if (responseItem.Fault != null) continue;
+                    if (responseItem.Fault != null)
+                    {
+                        continue;
+                    }
                     var component = batch[responseItem.RequestIndex].Component;
                     var entityCollection = ((RetrieveMultipleResponse)responseItem.Response).EntityCollection;
 
                     foreach (var entity in entityCollection.Entities)
                     {
-                        // Stamp the parent entity info for attribute components so the service
-                        // can surface it in the report without additional API calls.
+                        // Stamp the parent entity info for attribute/form/view/chart components
+                        // so the service can surface it in the report without additional API calls.
                         if (component.EntityLogicalName != null)
+                        {
                             entity["_entityname"] = component.EntityLogicalName;
+                        }
                         if (component.EntityDisplayName != null)
+                        {
                             entity["_entitydisplayname"] = component.EntityDisplayName;
+                        }
                         layerBag.Add(entity);
                     }
                 }
@@ -664,6 +804,39 @@ public class DataverseClient : IDataverseClient, IDisposable
         var allLayers = new EntityCollection();
         allLayers.Entities.AddRange(layerBag);
         return allLayers;
+    }
+
+    // Queries solutioncomponentdefinition to get the msdyn_solutioncomponentname routing key
+    // for modern platform types (connection references, cloud flows, etc.) whose integer codes
+    // are absent from the static ComponentLayerTypeNames dictionary.
+    private async Task<Dictionary<int, string>> GetModernComponentTypeNamesAsync(Action<string>? phaseLog = null)
+    {
+        try
+        {
+            var results = await Task.Run(() => _orgService.RetrieveMultiple(
+                new QueryExpression("solutioncomponentdefinition")
+                {
+                    ColumnSet = new ColumnSet("solutioncomponenttype", "name"),
+                    NoLock = true
+                }));
+
+            var dict = new Dictionary<int, string>();
+            foreach (var entity in results.Entities)
+            {
+                var typeCode = entity.GetAttributeValue<int>("solutioncomponenttype");
+                var name = entity.GetAttributeValue<string>("name");
+                if (typeCode > 0 && !string.IsNullOrEmpty(name))
+                {
+                    dict[typeCode] = name;
+                }
+            }
+            return dict;
+        }
+        catch (Exception ex)
+        {
+            phaseLog?.Invoke($"Warning: solutioncomponentdefinition query failed ({ex.Message}); modern component types will fall back to static map only.");
+            return new Dictionary<int, string>();
+        }
     }
 
     private static ServiceClient Connect(string url, string? clientId = null, string? clientSecret = null, string? connectionString = null)
@@ -713,5 +886,4 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         return serviceClient;
     }
-
 }

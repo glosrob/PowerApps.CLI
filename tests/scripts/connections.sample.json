@@ -9,5 +9,11 @@
     "Url": "https://your-environment.crm11.dynamics.com/",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret"
+  },
+  "LayerTests": {
+    "Url": "https://your-environment.crm11.dynamics.com/",
+    "ClientId": "your-client-id",
+    "ClientSecret": "your-client-secret",
+    "SolutionName": "XRTSoftLayerTests"
   }
 }
