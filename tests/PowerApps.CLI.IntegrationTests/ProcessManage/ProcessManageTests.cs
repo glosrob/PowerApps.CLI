@@ -109,7 +109,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task RetrieveProcesses_ReturnsAllExpectedProcessesAsync()
+    public void RetrieveProcesses_ReturnsAllExpectedProcesses()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -129,7 +129,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_DryRun_MakesNoStateChangesAsync()
+    public void ManageProcessStates_DryRun_MakesNoStateChanges()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -149,7 +149,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_ActivateBusinessRule_ActivatesInDataverseAsync()
+    public void ManageProcessStates_ActivateBusinessRule_ActivatesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -166,7 +166,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_DeactivateBusinessRule_DeactivatesInDataverseAsync()
+    public void ManageProcessStates_DeactivateBusinessRule_DeactivatesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -186,7 +186,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_ActivateWorkflow_ActivatesInDataverseAsync()
+    public void ManageProcessStates_ActivateWorkflow_ActivatesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -203,7 +203,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_DeactivateWorkflow_DeactivatesInDataverseAsync()
+    public void ManageProcessStates_DeactivateWorkflow_DeactivatesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -223,7 +223,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_BulkActivation_ActivatesAllWorkflowsInOneRunAsync()
+    public void ManageProcessStates_BulkActivation_ActivatesAllWorkflowsInOneRun()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -242,7 +242,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_ActivatePluginStep_EnablesInDataverseAsync()
+    public void ManageProcessStates_ActivatePluginStep_EnablesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -260,7 +260,7 @@ public class ProcessManageTests : IAsyncLifetime
     // -------------------------------------------------------------------------
 
     [SkippableFact]
-    public async Task ManageProcessStates_DeactivatePluginStep_DisablesInDataverseAsync()
+    public void ManageProcessStates_DeactivatePluginStep_DisablesInDataverse()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 

@@ -583,7 +583,7 @@ public class DataverseClient : IDataverseClient, IDisposable
         // definition table adds platform-specific types (connection references, cloud flows, etc.)
         // whose integer codes only exist in the org's own option set metadata.
         var typeNames = new Dictionary<int, string>(_componentLayerTypeNames);
-        foreach (var kvp in await GetModernComponentTypeNamesAsync())
+        foreach (var kvp in await GetModernComponentTypeNamesAsync(phaseLog))
         {
             if (!typeNames.ContainsKey(kvp.Key))
             {
@@ -640,6 +640,7 @@ public class DataverseClient : IDataverseClient, IDisposable
                 new QueryExpression("systemform")
                 {
                     ColumnSet = new ColumnSet("formid"),
+                    NoLock = true,
                     Criteria = new FilterExpression
                     {
                         Conditions = { new ConditionExpression("objecttypecode", ConditionOperator.Equal, logicalName) }
@@ -657,6 +658,7 @@ public class DataverseClient : IDataverseClient, IDisposable
                 new QueryExpression("savedquery")
                 {
                     ColumnSet = new ColumnSet("savedqueryid"),
+                    NoLock = true,
                     Criteria = new FilterExpression
                     {
                         Conditions = { new ConditionExpression("returnedtypecode", ConditionOperator.Equal, logicalName) }
@@ -674,6 +676,7 @@ public class DataverseClient : IDataverseClient, IDisposable
                 new QueryExpression("savedqueryvisualization")
                 {
                     ColumnSet = new ColumnSet("savedqueryvisualizationid"),
+                    NoLock = true,
                     Criteria = new FilterExpression
                     {
                         Conditions = { new ConditionExpression("primaryentitytypecode", ConditionOperator.Equal, logicalName) }
@@ -806,14 +809,15 @@ public class DataverseClient : IDataverseClient, IDisposable
     // Queries solutioncomponentdefinition to get the msdyn_solutioncomponentname routing key
     // for modern platform types (connection references, cloud flows, etc.) whose integer codes
     // are absent from the static ComponentLayerTypeNames dictionary.
-    private async Task<Dictionary<int, string>> GetModernComponentTypeNamesAsync()
+    private async Task<Dictionary<int, string>> GetModernComponentTypeNamesAsync(Action<string>? phaseLog = null)
     {
         try
         {
             var results = await Task.Run(() => _orgService.RetrieveMultiple(
                 new QueryExpression("solutioncomponentdefinition")
                 {
-                    ColumnSet = new ColumnSet("solutioncomponenttype", "name")
+                    ColumnSet = new ColumnSet("solutioncomponenttype", "name"),
+                    NoLock = true
                 }));
 
             var dict = new Dictionary<int, string>();
@@ -828,8 +832,9 @@ public class DataverseClient : IDataverseClient, IDisposable
             }
             return dict;
         }
-        catch
+        catch (Exception ex)
         {
+            phaseLog?.Invoke($"Warning: solutioncomponentdefinition query failed ({ex.Message}); modern component types will fall back to static map only.");
             return new Dictionary<int, string>();
         }
     }

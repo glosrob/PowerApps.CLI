@@ -14,7 +14,7 @@ namespace PowerApps.CLI.IntegrationTests.SolutionLayers;
 ///   [Workflow]   Example Action for Layers
 ///   [Workflow]   Example Business Rule
 ///   [Workflow]   Example Flow for Layers
-///   [SystemForm] (main form for Layer Test)
+///   [SystemForm] Information   — main form for Layer Test
 ///   [SavedQuery] Inactive Layer Test view
 ///   [Attribute]  statuscode         — Status Reason label change
 ///
@@ -121,7 +121,7 @@ public class SolutionLayersTests(DataverseFixture fixture)
         var result = await CreateService().GetUnmanagedLayersAsync(LayerTestSolution);
 
         Assert.Contains(result.LayeredComponents,
-            c => c.ComponentType == "SystemForm");
+            c => c.ComponentName == "Information" && c.ComponentType == "SystemForm");
     }
 
     [SkippableFact]
@@ -132,7 +132,7 @@ public class SolutionLayersTests(DataverseFixture fixture)
         var result = await CreateService().GetUnmanagedLayersAsync(LayerTestSolution);
 
         Assert.Contains(result.LayeredComponents,
-            c => c.ComponentType == "SavedQuery");
+            c => c.ComponentName == "Inactive Layer Tests" && c.ComponentType == "SavedQuery");
     }
 
     [SkippableFact]
