@@ -33,7 +33,7 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = (ProcessType)entity.GetAttributeValue<OptionSetValue>("category").Value,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.WorkflowStateActive
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
@@ -51,14 +51,14 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = ProcessType.DuplicateDetectionRule,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 1
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.WorkflowStateActive
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
             }
         }
 
-        // Retrieve plugin steps — statecode 0 = Enabled (Active), unlike workflows where 1 = Active
+        // Retrieve plugin steps
         var pluginStepResults = _client.RetrievePluginSteps(solutions);
         foreach (var entity in pluginStepResults.Entities)
         {
@@ -69,7 +69,7 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = ProcessType.PluginStep,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == 0
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.PluginStepStateEnabled
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
