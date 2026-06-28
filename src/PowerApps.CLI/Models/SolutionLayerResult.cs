@@ -18,4 +18,10 @@ public class LayeredComponent
     public string ParentEntity { get; set; } = string.Empty;
     public string UnmanagedLayerOwner { get; set; } = string.Empty;
     public List<string> AllLayers { get; set; } = new();
+
+    public override string ToString()
+    {
+        var parent = string.IsNullOrEmpty(ParentEntity) ? string.Empty : $" ({ParentEntity})";
+        return $"[{ComponentType}]{parent} {ComponentName} — {string.Join(" > ", AllLayers)}";
+    }
 }

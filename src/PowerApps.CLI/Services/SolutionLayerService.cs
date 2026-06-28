@@ -41,7 +41,9 @@ public class SolutionLayerService : ISolutionLayerService
 
             // "Active" is the unmanaged customisations bucket in Dataverse.
             if (!topSolutionName.Equals("Active", StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             // Ignore components that only have an Active layer — these are system attributes or
             // fields that were never part of any managed solution layer. We only care about
@@ -49,16 +51,22 @@ public class SolutionLayerService : ISolutionLayerService
             var hasNonActiveLayer = group.Any(e => !string.Equals(
                 e.GetAttributeValue<string>("msdyn_solutionname"), "Active", StringComparison.OrdinalIgnoreCase));
             if (!hasNonActiveLayer)
+            {
                 continue;
+            }
 
             var componentName = topLayer.GetAttributeValue<string>("msdyn_name") ?? group.Key;
             var componentType = topLayer.GetAttributeValue<string>("msdyn_solutioncomponentname") ?? "Unknown";
 
             var parentEntity = string.Empty;
             if (topLayer.Contains("_entitydisplayname") && topLayer["_entitydisplayname"] is string displayName)
+            {
                 parentEntity = displayName;
+            }
             else if (topLayer.Contains("_entityname") && topLayer["_entityname"] is string logicalName)
+            {
                 parentEntity = logicalName;
+            }
 
             var allLayerNames = group
                 .OrderBy(e => e.GetAttributeValue<int>("msdyn_order"))
