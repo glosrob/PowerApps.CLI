@@ -9,12 +9,6 @@ namespace PowerApps.CLI.Services;
 /// </summary>
 public class ProcessManager : IProcessManager
 {
-    // Workflow and duplicate rule statecode: 1 = Active, 0 = Inactive.
-    private const int WorkflowStateActive = 1;
-
-    // Plugin step statecode is inverted relative to most entities: 0 = Enabled (Active), 1 = Disabled.
-    private const int PluginStepStateActive = 0;
-
     private readonly IConsoleLogger _logger;
     private readonly IDataverseClient _client;
 
@@ -39,7 +33,7 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = (ProcessType)entity.GetAttributeValue<OptionSetValue>("category").Value,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == WorkflowStateActive
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.WorkflowStateActive
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
@@ -57,7 +51,7 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = ProcessType.DuplicateDetectionRule,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == WorkflowStateActive
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.WorkflowStateActive
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
@@ -75,7 +69,7 @@ public class ProcessManager : IProcessManager
                     Id = entity.Id,
                     Name = entity.GetAttributeValue<string>("name") ?? "Unknown",
                     Type = ProcessType.PluginStep,
-                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == PluginStepStateActive
+                    CurrentState = entity.GetAttributeValue<OptionSetValue>("statecode").Value == DataverseConstants.PluginStepStateEnabled
                         ? ProcessState.Active
                         : ProcessState.Inactive
                 };
