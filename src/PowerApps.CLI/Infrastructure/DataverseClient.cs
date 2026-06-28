@@ -101,6 +101,37 @@ public class DataverseClient : IDataverseClient, IDisposable
         [418] = "msdyn_dataflow",               // Special case: routing key differs from enum name
     };
 
+    // Component type codes for solutioncomponent.componenttype — a subset of the values in
+    // _componentLayerTypeNames that are also used directly in query conditions and component list building.
+    private const int ComponentTypeEntity = 1;
+    private const int ComponentTypeAttribute = 2;
+    private const int ComponentTypeSavedQuery = 26;
+    private const int ComponentTypeSavedQueryVisualization = 59;
+    private const int ComponentTypeSystemForm = 60;
+
+    // Workflow category codes (workflow.category option set).
+    private const int WorkflowCategoryWorkflow = 0;
+    private const int WorkflowCategoryBusinessRule = 2;
+    private const int WorkflowCategoryAction = 3;
+    private const int WorkflowCategoryBusinessProcessFlow = 4;
+    private const int WorkflowCategoryCloudFlow = 5;
+
+    // Workflow (process) state and status codes.
+    private const int WorkflowStateActive = 1;
+    private const int WorkflowStatusActivated = 2;
+    private const int WorkflowStateInactive = 0;
+    private const int WorkflowStatusDraft = 1;
+
+    // Duplicate rule state and status codes.
+    private const int DuplicateRuleStateInactive = 0;
+    private const int DuplicateRuleStatusUnpublished = 0;
+
+    // Plugin step state and status codes (inverted relative to most entities: 0 = Enabled, 1 = Disabled).
+    private const int PluginStepStateEnabled = 0;
+    private const int PluginStepStatusEnabled = 1;
+    private const int PluginStepStateDisabled = 1;
+    private const int PluginStepStatusDisabled = 2;
+
     private string _url { get; set; } = string.Empty;
     private string _clientId {get;set; } = string.Empty;
     private string _clientSecret {get;set;} = string.Empty;
@@ -255,7 +286,7 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 Conditions =
                 {
-                    new ConditionExpression("componenttype", ConditionOperator.Equal, 1) // 1 = Entity
+                    new ConditionExpression("componenttype", ConditionOperator.Equal, ComponentTypeEntity)
                 }
             },
             LinkEntities =
@@ -346,8 +377,9 @@ public class DataverseClient : IDataverseClient, IDisposable
             Criteria = new FilterExpression(LogicalOperator.And)
         };
 
-        // Filter by category: Workflow(0), BusinessRule(2), Action(3), BusinessProcessFlow(4), CloudFlow(5)
-        query.Criteria.AddCondition("category", ConditionOperator.In, 0, 2, 3, 4, 5);
+        query.Criteria.AddCondition("category", ConditionOperator.In,
+            WorkflowCategoryWorkflow, WorkflowCategoryBusinessRule, WorkflowCategoryAction,
+            WorkflowCategoryBusinessProcessFlow, WorkflowCategoryCloudFlow);
 
         // Filter by solutions if specified
         if (solutions.Count != 0)
@@ -368,8 +400,8 @@ public class DataverseClient : IDataverseClient, IDisposable
         var request = new SetStateRequest
         {
             EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(1), // Active
-            Status = new OptionSetValue(2)  // Activated
+            State = new OptionSetValue(WorkflowStateActive),
+            Status = new OptionSetValue(WorkflowStatusActivated)
         };
         _orgService.Execute(request);
     }
@@ -379,8 +411,8 @@ public class DataverseClient : IDataverseClient, IDisposable
         var request = new SetStateRequest
         {
             EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(0), // Inactive
-            Status = new OptionSetValue(1)  // Draft
+            State = new OptionSetValue(WorkflowStateInactive),
+            Status = new OptionSetValue(WorkflowStatusDraft)
         };
         _orgService.Execute(request);
     }
@@ -421,8 +453,8 @@ public class DataverseClient : IDataverseClient, IDisposable
         var request = new SetStateRequest
         {
             EntityMoniker = new EntityReference("duplicaterule", ruleId),
-            State = new OptionSetValue(0), // Inactive
-            Status = new OptionSetValue(0)  // Unpublished
+            State = new OptionSetValue(DuplicateRuleStateInactive),
+            Status = new OptionSetValue(DuplicateRuleStatusUnpublished)
         };
         _orgService.Execute(request);
     }
@@ -453,8 +485,8 @@ public class DataverseClient : IDataverseClient, IDisposable
         var request = new SetStateRequest
         {
             EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
-            State = new OptionSetValue(0), // Enabled
-            Status = new OptionSetValue(1)  // Enabled
+            State = new OptionSetValue(PluginStepStateEnabled),
+            Status = new OptionSetValue(PluginStepStatusEnabled)
         };
         _orgService.Execute(request);
     }
@@ -464,8 +496,8 @@ public class DataverseClient : IDataverseClient, IDisposable
         var request = new SetStateRequest
         {
             EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
-            State = new OptionSetValue(1), // Disabled
-            Status = new OptionSetValue(2)  // Disabled
+            State = new OptionSetValue(PluginStepStateDisabled),
+            Status = new OptionSetValue(PluginStepStatusDisabled)
         };
         _orgService.Execute(request);
     }
@@ -594,7 +626,7 @@ public class DataverseClient : IDataverseClient, IDisposable
         // Phase 1b: Expand attribute (column) components and capture entity info for Phase 1c.
         // Entity rows in solutioncomponent (type 1) implicitly include all their attributes —
         // we enumerate attribute metadata to get individual MetadataIds for the layer scan.
-        var entityIds = componentList.Where(c => c.TypeCode == 1).Select(c => c.Id).ToList();
+        var entityIds = componentList.Where(c => c.TypeCode == ComponentTypeEntity).Select(c => c.Id).ToList();
         var seenIds = new HashSet<Guid>(componentList.Select(c => c.Id));
         var entityInfoById = new Dictionary<Guid, (string LogicalName, string DisplayName)>();
 
@@ -618,7 +650,7 @@ public class DataverseClient : IDataverseClient, IDisposable
                 {
                     if (attr.MetadataId.HasValue && seenIds.Add(attr.MetadataId.Value))
                     {
-                        componentList.Add((attr.MetadataId.Value, 2, entityLogicalName, entityDisplayName)); // 2 = Attribute
+                        componentList.Add((attr.MetadataId.Value, ComponentTypeAttribute, entityLogicalName, entityDisplayName));
                     }
                 }
             }
@@ -650,7 +682,7 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 if (seenIds.Add(form.Id))
                 {
-                    componentList.Add((form.Id, 60, logicalName, displayName)); // 60 = SystemForm
+                    componentList.Add((form.Id, ComponentTypeSystemForm, logicalName, displayName));
                 }
             }
 
@@ -668,7 +700,7 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 if (seenIds.Add(view.Id))
                 {
-                    componentList.Add((view.Id, 26, logicalName, displayName)); // 26 = SavedQuery
+                    componentList.Add((view.Id, ComponentTypeSavedQuery, logicalName, displayName));
                 }
             }
 
@@ -686,7 +718,7 @@ public class DataverseClient : IDataverseClient, IDisposable
             {
                 if (seenIds.Add(chart.Id))
                 {
-                    componentList.Add((chart.Id, 59, logicalName, displayName)); // 59 = SavedQueryVisualization
+                    componentList.Add((chart.Id, ComponentTypeSavedQueryVisualization, logicalName, displayName));
                 }
             }
         }
