@@ -351,15 +351,13 @@ public class DataverseClient : IDataverseClient, IDisposable
             DataverseConstants.WorkflowCategoryWorkflow, DataverseConstants.WorkflowCategoryBusinessRule, DataverseConstants.WorkflowCategoryAction,
             DataverseConstants.WorkflowCategoryBusinessProcessFlow, DataverseConstants.WorkflowCategoryCloudFlow);
 
-        // Filter by solutions if specified
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            // Single join with IN produces one row per matching solution if a process belongs to
+            // multiple solutions. Deduplication is handled by the caller (ProcessManager dictionary keyed on Id).
+            var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);
@@ -395,15 +393,12 @@ public class DataverseClient : IDataverseClient, IDisposable
             Criteria = new FilterExpression(LogicalOperator.And)
         };
 
-        // Filter by solutions if specified
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            // See RetrieveProcesses: single IN join; deduplication is the caller's responsibility.
+            var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);
@@ -439,12 +434,10 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            // See RetrieveProcesses: single IN join; deduplication is the caller's responsibility.
+            var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);

@@ -43,7 +43,24 @@ public class DataverseClientProcessTests
     }
 
     [Fact]
-    public void RetrieveProcesses_WithSolutions_AddsOneLinkPerSolution()
+    public void RetrieveProcesses_WithOneSolution_AddsSingleLink()
+    {
+        // Arrange
+        QueryExpression? capturedQuery = null;
+        _mockOrgService.Setup(s => s.RetrieveMultiple(It.IsAny<QueryBase>()))
+            .Callback<QueryBase>(q => capturedQuery = q as QueryExpression)
+            .Returns(new EntityCollection());
+
+        // Act
+        _client.RetrieveProcesses(new List<string> { "SolutionA" });
+
+        // Assert
+        Assert.NotNull(capturedQuery);
+        Assert.Single(capturedQuery!.LinkEntities);
+    }
+
+    [Fact]
+    public void RetrieveProcesses_WithMultipleSolutions_UsesInConditionOnSingleLink()
     {
         // Arrange
         QueryExpression? capturedQuery = null;
@@ -54,9 +71,14 @@ public class DataverseClientProcessTests
         // Act
         _client.RetrieveProcesses(new List<string> { "SolutionA", "SolutionB" });
 
-        // Assert
+        // Assert — single join, IN condition with both names, not one join per solution
         Assert.NotNull(capturedQuery);
-        Assert.Equal(2, capturedQuery!.LinkEntities.Count);
+        Assert.Single(capturedQuery!.LinkEntities);
+        var solutionLink = capturedQuery.LinkEntities[0].LinkEntities[0];
+        var condition = Assert.Single(solutionLink.LinkCriteria.Conditions);
+        Assert.Equal(ConditionOperator.In, condition.Operator);
+        Assert.Contains("SolutionA", condition.Values.Cast<string>());
+        Assert.Contains("SolutionB", condition.Values.Cast<string>());
     }
 
     #endregion
@@ -131,6 +153,28 @@ public class DataverseClientProcessTests
     }
 
     #endregion
+
+    [Fact]
+    public void RetrieveDuplicateRules_WithMultipleSolutions_UsesInConditionOnSingleLink()
+    {
+        // Arrange
+        QueryExpression? capturedQuery = null;
+        _mockOrgService.Setup(s => s.RetrieveMultiple(It.IsAny<QueryBase>()))
+            .Callback<QueryBase>(q => capturedQuery = q as QueryExpression)
+            .Returns(new EntityCollection());
+
+        // Act
+        _client.RetrieveDuplicateRules(new List<string> { "SolutionA", "SolutionB" });
+
+        // Assert
+        Assert.NotNull(capturedQuery);
+        Assert.Single(capturedQuery!.LinkEntities);
+        var solutionLink = capturedQuery.LinkEntities[0].LinkEntities[0];
+        var condition = Assert.Single(solutionLink.LinkCriteria.Conditions);
+        Assert.Equal(ConditionOperator.In, condition.Operator);
+        Assert.Contains("SolutionA", condition.Values.Cast<string>());
+        Assert.Contains("SolutionB", condition.Values.Cast<string>());
+    }
 
     #region ActivateDuplicateRule / DeactivateDuplicateRule Tests
 
