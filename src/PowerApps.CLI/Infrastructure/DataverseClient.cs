@@ -351,15 +351,11 @@ public class DataverseClient : IDataverseClient, IDisposable
             DataverseConstants.WorkflowCategoryWorkflow, DataverseConstants.WorkflowCategoryBusinessRule, DataverseConstants.WorkflowCategoryAction,
             DataverseConstants.WorkflowCategoryBusinessProcessFlow, DataverseConstants.WorkflowCategoryCloudFlow);
 
-        // Filter by solutions if specified
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);
@@ -395,15 +391,11 @@ public class DataverseClient : IDataverseClient, IDisposable
             Criteria = new FilterExpression(LogicalOperator.And)
         };
 
-        // Filter by solutions if specified
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);
@@ -439,12 +431,9 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         if (solutions.Count != 0)
         {
-            foreach (var solution in solutions)
-            {
-                var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
-                var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
-                solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.Equal, solution);
-            }
+            var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
+            var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
+            solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
         }
 
         return _orgService.RetrieveMultiple(query);

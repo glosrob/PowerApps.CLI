@@ -42,7 +42,7 @@ public class DataverseClientPluginStepTests
     }
 
     [Fact]
-    public void RetrievePluginSteps_WithSolutions_AddsOneLinkPerSolution()
+    public void RetrievePluginSteps_WithMultipleSolutions_UsesInConditionOnSingleLink()
     {
         // Arrange
         QueryExpression? capturedQuery = null;
@@ -55,7 +55,12 @@ public class DataverseClientPluginStepTests
 
         // Assert
         Assert.NotNull(capturedQuery);
-        Assert.Equal(2, capturedQuery!.LinkEntities.Count);
+        Assert.Single(capturedQuery!.LinkEntities);
+        var solutionLink = capturedQuery.LinkEntities[0].LinkEntities[0];
+        var condition = Assert.Single(solutionLink.LinkCriteria.Conditions);
+        Assert.Equal(ConditionOperator.In, condition.Operator);
+        Assert.Contains("SolutionA", condition.Values.Cast<string>());
+        Assert.Contains("SolutionB", condition.Values.Cast<string>());
     }
 
     [Fact]

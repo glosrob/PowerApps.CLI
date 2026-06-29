@@ -18,6 +18,7 @@ public class ProcessManageTests : IAsyncLifetime
     private static List<ProcessInfo>? _initialStates;
 
     private const string IntegrationSolution = "XRTSoftIntegrationTests";
+    private const string LayerTestSolution = "XRTSoftLayerTests";
 
     private const string ExampleAction = "Example Action";
     private const string ExampleBusinessRule = "Example Business Rule";
@@ -122,6 +123,19 @@ public class ProcessManageTests : IAsyncLifetime
         Assert.Contains(processes, p => p.Name == ExampleWorkflowChild);
         Assert.Contains(processes, p => p.Name == PluginStepCreate);
         Assert.Contains(processes, p => p.Name == PluginStepUpdate);
+    }
+
+    [SkippableFact]
+    public void RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResults()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        var fromSingle = CreateManager().RetrieveProcesses([IntegrationSolution]);
+        var fromBoth = CreateManager().RetrieveProcesses([IntegrationSolution, LayerTestSolution]);
+
+        Assert.True(fromBoth.Count > fromSingle.Count,
+            $"Expected multi-solution query to return more processes than single-solution " +
+            $"({fromBoth.Count} vs {fromSingle.Count})");
     }
 
     // -------------------------------------------------------------------------
