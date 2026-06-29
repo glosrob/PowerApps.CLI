@@ -20,6 +20,9 @@ public class ProcessManageTests : IAsyncLifetime
     private const string IntegrationSolution = "XRTSoftIntegrationTests";
     private const string LayerTestSolution = "XRTSoftLayerTests";
 
+    private const string ExampleActionForLayers = "Example Action for Layers";
+    private const string ExampleFlowForLayers = "Example Flow for Layers";
+
     private const string ExampleAction = "Example Action";
     private const string ExampleBusinessRule = "Example Business Rule";
     private const string ExampleWorkflow = "Example Triggered Workflow";
@@ -126,18 +129,17 @@ public class ProcessManageTests : IAsyncLifetime
     }
 
     [SkippableFact]
-    public void RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResults()
+    public void RetrieveProcesses_WithMultipleSolutions_IncludesProcessesFromEachSolution()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
-        // Relies on XRTSoftLayerTests containing processes (Example Action for Layers,
-        // Example Business Rule, Example Flow for Layers) that are not in XRTSoftIntegrationTests.
-        var fromSingle = CreateManager().RetrieveProcesses([IntegrationSolution]);
-        var fromBoth = CreateManager().RetrieveProcesses([IntegrationSolution, LayerTestSolution]);
+        var processes = CreateManager().RetrieveProcesses([IntegrationSolution, LayerTestSolution]);
 
-        Assert.True(fromBoth.Count > fromSingle.Count,
-            $"Expected multi-solution query to return more processes than single-solution " +
-            $"({fromBoth.Count} vs {fromSingle.Count})");
+        // Processes from XRTSoftIntegrationTests
+        Assert.Contains(processes, p => p.Name == ExampleWorkflow);
+        // Processes unique to XRTSoftLayerTests — these were the ones returned as 0 before the fix
+        Assert.Contains(processes, p => p.Name == ExampleActionForLayers);
+        Assert.Contains(processes, p => p.Name == ExampleFlowForLayers);
     }
 
     // -------------------------------------------------------------------------
