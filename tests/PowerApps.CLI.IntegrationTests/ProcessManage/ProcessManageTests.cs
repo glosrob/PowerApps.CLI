@@ -126,7 +126,7 @@ public class ProcessManageTests : IAsyncLifetime
     }
 
     [SkippableFact]
-    public Task RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResultsAsync()
+    public void RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResults()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
@@ -138,8 +138,6 @@ public class ProcessManageTests : IAsyncLifetime
         Assert.True(fromBoth.Count > fromSingle.Count,
             $"Expected multi-solution query to return more processes than single-solution " +
             $"({fromBoth.Count} vs {fromSingle.Count})");
-
-        return Task.CompletedTask;
     }
 
     // -------------------------------------------------------------------------
