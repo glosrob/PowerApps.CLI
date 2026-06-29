@@ -126,16 +126,20 @@ public class ProcessManageTests : IAsyncLifetime
     }
 
     [SkippableFact]
-    public void RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResults()
+    public Task RetrieveProcesses_WithMultipleSolutions_ReturnsCombinedResultsAsync()
     {
         Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
 
+        // Relies on XRTSoftLayerTests containing processes (Example Action for Layers,
+        // Example Business Rule, Example Flow for Layers) that are not in XRTSoftIntegrationTests.
         var fromSingle = CreateManager().RetrieveProcesses([IntegrationSolution]);
         var fromBoth = CreateManager().RetrieveProcesses([IntegrationSolution, LayerTestSolution]);
 
         Assert.True(fromBoth.Count > fromSingle.Count,
             $"Expected multi-solution query to return more processes than single-solution " +
             $"({fromBoth.Count} vs {fromSingle.Count})");
+
+        return Task.CompletedTask;
     }
 
     // -------------------------------------------------------------------------

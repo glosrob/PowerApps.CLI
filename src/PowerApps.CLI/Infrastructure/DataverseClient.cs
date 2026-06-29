@@ -353,6 +353,8 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         if (solutions.Count != 0)
         {
+            // Single join with IN produces one row per matching solution if a process belongs to
+            // multiple solutions. Deduplication is handled by the caller (ProcessManager dictionary keyed on Id).
             var componentLink = query.AddLink("solutioncomponent", "workflowid", "objectid");
             var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
             solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
@@ -393,6 +395,7 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         if (solutions.Count != 0)
         {
+            // See RetrieveProcesses: single IN join; deduplication is the caller's responsibility.
             var componentLink = query.AddLink("solutioncomponent", "duplicateruleid", "objectid");
             var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
             solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
@@ -431,6 +434,7 @@ public class DataverseClient : IDataverseClient, IDisposable
 
         if (solutions.Count != 0)
         {
+            // See RetrieveProcesses: single IN join; deduplication is the caller's responsibility.
             var componentLink = query.AddLink("solutioncomponent", "sdkmessageprocessingstepid", "objectid");
             var solutionLink = componentLink.AddLink("solution", "solutionid", "solutionid");
             solutionLink.LinkCriteria.AddCondition("uniquename", ConditionOperator.In, solutions.Cast<object>().ToArray());
