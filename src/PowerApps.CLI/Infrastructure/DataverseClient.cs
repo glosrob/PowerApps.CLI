@@ -689,6 +689,16 @@ public class DataverseClient : IDataverseClient, IDisposable
         phaseLog?.Invoke($"Phase 1c ({sw.ElapsedMilliseconds}ms): expanded to {componentList.Count} component(s) after form/view/chart enumeration.");
         sw.Restart();
 
+        // Phase 1d: cross-reference against the Active solution before Phase 2. Only components
+        // with a real solutioncomponent row in the Active (unmanaged customisations) solution can
+        // possibly have an unmanaged layer, so filtering here avoids querying msdyn_componentlayer
+        // for components that were never customised.
+        var activeIds = await GetActiveSolutionComponentIdsAsync();
+        var beforeFilterCount = componentList.Count;
+        componentList = componentList.Where(c => activeIds.Contains(c.Id)).ToList();
+        phaseLog?.Invoke($"Phase 1d ({sw.ElapsedMilliseconds}ms): filtered {beforeFilterCount} component(s) to {componentList.Count} present in the Active solution.");
+        sw.Restart();
+
         // Phase 2: batch individual msdyn_componentlayer queries into ExecuteMultiple calls.
         // msdyn_componentlayer requires exactly one msdyn_componentid per query (IN clauses
         // are silently ignored by the virtual entity provider), so we pack batchSize individual
@@ -724,7 +734,12 @@ public class DataverseClient : IDataverseClient, IDisposable
                     Query = new QueryExpression("msdyn_componentlayer")
                     {
                         NoLock = true,
-                        ColumnSet = new ColumnSet(true),
+                        ColumnSet = new ColumnSet(
+                            "msdyn_componentid",
+                            "msdyn_order",
+                            "msdyn_solutionname",
+                            "msdyn_name",
+                            "msdyn_solutioncomponentname"),
                         Criteria = new FilterExpression
                         {
                             Conditions =
@@ -799,6 +814,56 @@ public class DataverseClient : IDataverseClient, IDisposable
         var allLayers = new EntityCollection();
         allLayers.Entities.AddRange(layerBag);
         return allLayers;
+    }
+
+    // Queries solutioncomponent joined to the "Active" solution to get the set of component
+    // object IDs that have a real unmanaged-customisation record. Used to pre-filter the Phase 2
+    // candidate list — see GetSolutionComponentLayersAsync.
+    private async Task<HashSet<Guid>> GetActiveSolutionComponentIdsAsync()
+    {
+        var query = new QueryExpression("solutioncomponent")
+        {
+            ColumnSet = new ColumnSet("objectid"),
+            NoLock = true,
+            LinkEntities =
+            {
+                new LinkEntity
+                {
+                    LinkFromEntityName = "solutioncomponent",
+                    LinkFromAttributeName = "solutionid",
+                    LinkToEntityName = "solution",
+                    LinkToAttributeName = "solutionid",
+                    LinkCriteria = new FilterExpression
+                    {
+                        Conditions = { new ConditionExpression("uniquename", ConditionOperator.Equal, DataverseConstants.ActiveSolutionUniqueName) }
+                    }
+                }
+            },
+            PageInfo = new PagingInfo { Count = 5000, PageNumber = 1 }
+        };
+
+        var ids = new HashSet<Guid>();
+        EntityCollection page;
+        do
+        {
+            page = await Task.Run(() => _orgService.RetrieveMultiple(query));
+            foreach (var e in page.Entities)
+            {
+                var id = e.GetAttributeValue<Guid>("objectid");
+                if (id != Guid.Empty)
+                {
+                    ids.Add(id);
+                }
+            }
+
+            if (page.MoreRecords)
+            {
+                query.PageInfo.PageNumber++;
+                query.PageInfo.PagingCookie = page.PagingCookie;
+            }
+        } while (page.MoreRecords);
+
+        return ids;
     }
 
     // Queries solutioncomponentdefinition to get the msdyn_solutioncomponentname routing key
