@@ -48,6 +48,12 @@ public class DataverseClientSolutionLayerTests
         return (string)condition.Values[0];
     }
 
+    private static List<Guid> GetQueriedObjectIds(QueryExpression query)
+    {
+        var condition = query.Criteria.Conditions.Single(c => c.AttributeName == "objectid");
+        return condition.Values.Cast<Guid>().ToList();
+    }
+
     /// <summary>
     /// Wires up RetrieveMultiple to dispatch based on query shape: Phase 1's solutioncomponent
     /// query (joined to the target solution), Phase 1d's solutioncomponent query (joined to
@@ -135,6 +141,37 @@ public class DataverseClientSolutionLayerTests
         Assert.Equal("uniquename", condition.AttributeName);
         Assert.Equal(ConditionOperator.Equal, condition.Operator);
         Assert.Equal("Active", condition.Values[0]);
+
+        // The Active-solution lookup must be scoped to this run's candidate IDs, not the
+        // whole Active bucket, so cost scales with the target solution rather than the org.
+        var objectIdCondition = Assert.Single(activeQuery.Criteria.Conditions);
+        Assert.Equal("objectid", objectIdCondition.AttributeName);
+        Assert.Equal(ConditionOperator.In, objectIdCondition.Operator);
+        Assert.Equal(new[] { componentId }, GetQueriedObjectIds(activeQuery));
+    }
+
+    [Fact]
+    public async Task GetSolutionComponentLayersAsync_ActiveSolutionQuery_ChunksLargeCandidateListsIntoMultipleQueries()
+    {
+        const int batchSize = 500;
+        var componentIds = Enumerable.Range(0, batchSize + 1).Select(_ => Guid.NewGuid()).ToList();
+
+        SetupPipeline(
+            "TestSolution",
+            componentIds.Select(id => MakeComponentEntity(id, SimpleComponentTypeCode)).ToList(),
+            qe => new EntityCollection(GetQueriedObjectIds(qe).Select(MakeActiveIdEntity).ToList()));
+
+        await _client.GetSolutionComponentLayersAsync("TestSolution");
+
+        // 501 candidates at a 500-per-query cap must split into two Active-solution lookups,
+        // each scoped to its own chunk — never one query covering everything at once.
+        Assert.Equal(2, _capturedActiveQueries.Count);
+        var chunkSizes = _capturedActiveQueries.Select(q => GetQueriedObjectIds(q).Count).OrderByDescending(c => c).ToList();
+        Assert.Equal(new[] { batchSize, 1 }, chunkSizes);
+
+        var queriedInPhase2 = _capturedPhase2Requests.Select(GetComponentId).ToHashSet();
+        Assert.Equal(componentIds.Count, queriedInPhase2.Count);
+        Assert.All(componentIds, id => Assert.Contains(id, queriedInPhase2));
     }
 
     [Fact]
