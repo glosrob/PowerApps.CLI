@@ -34,9 +34,7 @@ public class ConstantsOutputConfig
     public bool SingleFile { get; set; }
     public bool IncludeEntities { get; set; } = true;
     public bool IncludeGlobalOptionSets { get; set; } = true;
-    public bool IncludeRelationships { get; set; } = true;
     public bool IncludeReferenceData { get; set; }
-    public bool IncludeComments { get; set; } = true;
     public List<string> ExcludeAttributes { get; set; } = new();
 
     public override string ToString()

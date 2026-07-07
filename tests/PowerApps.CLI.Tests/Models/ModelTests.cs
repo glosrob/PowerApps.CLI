@@ -374,9 +374,7 @@ public class ModelTests
         Assert.False(config.SingleFile);
         Assert.True(config.IncludeEntities);
         Assert.True(config.IncludeGlobalOptionSets);
-        Assert.True(config.IncludeRelationships);
         Assert.False(config.IncludeReferenceData);
-        Assert.True(config.IncludeComments);
         Assert.Empty(config.ExcludeAttributes);
     }
 }
