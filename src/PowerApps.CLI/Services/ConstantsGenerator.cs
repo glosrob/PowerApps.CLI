@@ -66,10 +66,12 @@ public class ConstantsGenerator : IConstantsGenerator
         ConstantsOutputConfig outputConfig,
         IConsoleLogger logger)
     {
-        // Generate entities file
+        // Generate entities file — namespace matches multi-file mode's {Namespace}.Tables so
+        // generated code doesn't need to change if --single-file is toggled later.
         if (outputConfig.IncludeEntities && entities.Count > 0)
         {
             logger.LogInfo($"  Generating Tables.cs with {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}...");
+            var tablesNamespace = $"{outputConfig.Namespace}.Tables";
             var usedClassNames = new HashSet<string>();
             var classContents = entities.Select(e =>
             {
@@ -77,16 +79,17 @@ public class ConstantsGenerator : IConstantsGenerator
                     _formatter.ToIdentifier(e.DisplayName ?? e.SchemaName ?? e.LogicalName),
                     usedClassNames);
                 usedClassNames.Add(className);
-                return _templateGenerator.GenerateEntityClass(e, outputConfig.Namespace, className);
+                return _templateGenerator.GenerateEntityClass(e, tablesNamespace, className);
             });
-            var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
+            var content = _templateGenerator.GenerateSingleFile(tablesNamespace, classContents);
             await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Tables.cs"), content);
         }
 
-        // Generate global option sets file
+        // Generate global option sets file — namespace matches multi-file mode's {Namespace}.Choices.
         if (outputConfig.IncludeGlobalOptionSets && globalOptionSets != null && globalOptionSets.Count > 0)
         {
             logger.LogInfo($"  Generating Choices.cs with {globalOptionSets.Count} option set(s)...");
+            var choicesNamespace = $"{outputConfig.Namespace}.Choices";
             var usedClassNames = new HashSet<string>();
             var classContents = globalOptionSets.Select(o =>
             {
@@ -94,9 +97,9 @@ public class ConstantsGenerator : IConstantsGenerator
                     _formatter.ToIdentifier(o.DisplayName ?? o.Name ?? "UnknownOptionSet"),
                     usedClassNames);
                 usedClassNames.Add(className);
-                return _templateGenerator.GenerateGlobalOptionSetClass(o, outputConfig.Namespace, className);
+                return _templateGenerator.GenerateGlobalOptionSetClass(o, choicesNamespace, className);
             });
-            var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
+            var content = _templateGenerator.GenerateSingleFile(choicesNamespace, classContents);
             await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Choices.cs"), content);
         }
     }

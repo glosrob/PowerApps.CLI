@@ -335,6 +335,113 @@ public class ConstantsGeneratorTests
     }
 
     [Fact]
+    public async Task GenerateAsync_UsesCorrectNamespaceForSingleFileAsync()
+    {
+        // Arrange — single-file mode's namespace must match multi-file mode's ({Namespace}.Tables) so
+        // switching --single-file on/off doesn't change generated code's fully-qualified type names.
+        var mockTemplateGenerator = new Mock<ICodeTemplateGenerator>();
+        var mockFilter = new Mock<IConstantsFilter>();
+        var mockFileWriter = new Mock<IFileWriter>();
+        var mockLogger = new Mock<IConsoleLogger>();
+
+        mockTemplateGenerator
+            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns("content");
+        mockTemplateGenerator
+            .Setup(x => x.GenerateSingleFile(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
+            .Returns((string _, IEnumerable<string> contents) =>
+            {
+                // Force the lazy Select in GenerateSingleFileModeAsync to run — the real
+                // CodeTemplateGenerator.GenerateSingleFile enumerates via foreach, but this mock
+                // otherwise wouldn't, and GenerateEntityClass would never actually be invoked.
+                contents.ToList();
+                return "combined content";
+            });
+
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
+        var entities = new List<EntitySchema>
+        {
+            new EntitySchema { LogicalName = "contact", DisplayName = "Contact" }
+        };
+        var outputConfig = new ConstantsOutputConfig
+        {
+            OutputPath = "./output",
+            Namespace = "MyCompany.Constants",
+            SingleFile = true,
+            IncludeEntities = true,
+            IncludeGlobalOptionSets = false
+        };
+
+        // Act
+        await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+
+        // Assert
+        mockTemplateGenerator.Verify(x => x.GenerateEntityClass(
+            It.IsAny<EntitySchema>(),
+            "MyCompany.Constants.Tables",
+            "Contact"), Times.Once);
+        mockTemplateGenerator.Verify(x => x.GenerateSingleFile(
+            "MyCompany.Constants.Tables",
+            It.IsAny<IEnumerable<string>>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SingleFile_UsesCorrectNamespaceForOptionSetsAsync()
+    {
+        // Arrange
+        var mockTemplateGenerator = new Mock<ICodeTemplateGenerator>();
+        var mockFilter = new Mock<IConstantsFilter>();
+        var mockFileWriter = new Mock<IFileWriter>();
+        var mockLogger = new Mock<IConsoleLogger>();
+
+        var globalOptionSets = new List<OptionSetSchema>
+        {
+            new OptionSetSchema { Name = "statuscode", IsGlobal = true }
+        };
+
+        mockFilter
+            .Setup(x => x.ExtractGlobalOptionSets(It.IsAny<List<EntitySchema>>()))
+            .Returns(globalOptionSets);
+        mockTemplateGenerator
+            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns("content");
+        mockTemplateGenerator
+            .Setup(x => x.GenerateSingleFile(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
+            .Returns((string _, IEnumerable<string> contents) =>
+            {
+                // Force the lazy Select in GenerateSingleFileModeAsync to run — see comment in
+                // GenerateAsync_UsesCorrectNamespaceForSingleFileAsync.
+                contents.ToList();
+                return "combined content";
+            });
+
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
+        var entities = new List<EntitySchema> { new EntitySchema { LogicalName = "contact" } };
+        var outputConfig = new ConstantsOutputConfig
+        {
+            OutputPath = "./output",
+            Namespace = "MyCompany.Constants",
+            SingleFile = true,
+            IncludeEntities = false,
+            IncludeGlobalOptionSets = true
+        };
+
+        // Act
+        await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+
+        // Assert
+        mockTemplateGenerator.Verify(x => x.GenerateGlobalOptionSetClass(
+            It.IsAny<OptionSetSchema>(),
+            "MyCompany.Constants.Choices",
+            "Statuscode"), Times.Once);
+        mockTemplateGenerator.Verify(x => x.GenerateSingleFile(
+            "MyCompany.Constants.Choices",
+            It.IsAny<IEnumerable<string>>()), Times.Once);
+    }
+
+    [Fact]
     public async Task GenerateAsync_SingleFileMode_TwoTablesWithSameDisplayName_DeduplicatesClassNamesAsync()
     {
         // Arrange
