@@ -37,7 +37,6 @@ public class ConstantsOutputConfig
     public bool IncludeRelationships { get; set; } = true;
     public bool IncludeReferenceData { get; set; }
     public bool IncludeComments { get; set; } = true;
-    public bool PascalCaseConversion { get; set; } = true;
     public List<string> ExcludeAttributes { get; set; } = new();
 
     public override string ToString()

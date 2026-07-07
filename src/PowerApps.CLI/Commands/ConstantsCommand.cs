@@ -132,7 +132,6 @@ public class ConstantsCommand
                 IncludeEntities = filterConfig.IncludeEntities,
                 IncludeGlobalOptionSets = filterConfig.IncludeGlobalOptionSets,
                 IncludeReferenceData = filterConfig.IncludeReferenceData,
-                PascalCaseConversion = filterConfig.PascalCaseConversion,
                 ExcludeAttributes = filterConfig.ExcludeAttributes
             };
 
