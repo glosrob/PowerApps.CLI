@@ -222,4 +222,21 @@ public class ConstantsCommandTests
         Assert.NotNull(command);
         Assert.Equal("constants-generate", command.Name);
     }
+
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData(null, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    public void ResolvePascalCaseConversion_ConfigTakesPrecedenceOverCliFlag(
+        bool? configPascalCaseConversion, bool cliPascalCaseFlag, bool expected)
+    {
+        var config = configPascalCaseConversion.HasValue
+            ? new ConstantsConfig { PascalCaseConversion = configPascalCaseConversion.Value }
+            : null;
+
+        var result = ConstantsCommand.ResolvePascalCaseConversion(config, cliPascalCaseFlag);
+
+        Assert.Equal(expected, result);
+    }
 }

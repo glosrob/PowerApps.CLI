@@ -273,15 +273,8 @@ public class ConstantsCommand
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
 
-            // Create services
-            var fileWriter = new FileWriter();
-            var metadataMapper = new MetadataMapper();
-            var identifierFormatter = new IdentifierFormatter(pascalCase);
-            var templateGenerator = new CodeTemplateGenerator(true, true, identifierFormatter);
-            var constantsFilter = new ConstantsFilter();
-            var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter, identifierFormatter);
-
-            // Load configuration
+            // Load configuration first — casing (and other) settings below must reflect the config
+            // file, when supplied, not just the CLI flag defaults.
             ConstantsConfig? config = null;
             if (!string.IsNullOrWhiteSpace(configPath))
             {
@@ -293,6 +286,14 @@ public class ConstantsCommand
                     return;
                 }
             }
+
+            // Create services
+            var fileWriter = new FileWriter();
+            var metadataMapper = new MetadataMapper();
+            var identifierFormatter = new IdentifierFormatter(ResolvePascalCaseConversion(config, pascalCase));
+            var templateGenerator = new CodeTemplateGenerator(true, true, identifierFormatter);
+            var constantsFilter = new ConstantsFilter();
+            var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter, identifierFormatter);
 
             // Create Dataverse client and schema extractor
             var dataverseClient = new DataverseClient(
@@ -310,6 +311,15 @@ public class ConstantsCommand
         });
 
         return constantsGenerateCommand;
+    }
+
+    /// <summary>
+    /// Resolves the effective PascalCase setting: a loaded config file takes precedence over the
+    /// --pascal-case CLI flag, matching how ConstantsCommand.ExecuteAsync resolves other config values.
+    /// </summary>
+    internal static bool ResolvePascalCaseConversion(ConstantsConfig? config, bool cliPascalCaseFlag)
+    {
+        return config?.PascalCaseConversion ?? cliPascalCaseFlag;
     }
 
     private static async Task<ConstantsConfig?> LoadConfigAsync(string configPath, IConsoleLogger logger)
