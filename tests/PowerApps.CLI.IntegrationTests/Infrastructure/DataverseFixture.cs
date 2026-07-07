@@ -84,7 +84,6 @@ public class DataverseFixture : IDisposable
             SingleFile = config.SingleFile,
             IncludeEntities = config.IncludeEntities,
             IncludeGlobalOptionSets = config.IncludeGlobalOptionSets,
-            PascalCaseConversion = config.PascalCaseConversion,
             ExcludeAttributes = config.ExcludeAttributes
         };
 

@@ -77,8 +77,7 @@ public class ConstantsCommandTests
             entities,
             It.Is<ConstantsOutputConfig>(c =>
                 c.OutputPath == "./Generated" &&
-                c.Namespace == "My.Namespace" &&
-                c.PascalCaseConversion == true),
+                c.Namespace == "My.Namespace"),
             _mockLogger.Object), Times.Once);
     }
 

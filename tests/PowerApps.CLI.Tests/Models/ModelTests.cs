@@ -377,7 +377,6 @@ public class ModelTests
         Assert.True(config.IncludeRelationships);
         Assert.False(config.IncludeReferenceData);
         Assert.True(config.IncludeComments);
-        Assert.True(config.PascalCaseConversion);
         Assert.Empty(config.ExcludeAttributes);
     }
 }
