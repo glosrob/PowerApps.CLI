@@ -142,11 +142,12 @@ public class MigrationReporter : IMigrationReporter
             worksheet.Cell(row, 2).Value = "Entity 1";
             worksheet.Cell(row, 3).Value = "Entity 2";
             worksheet.Cell(row, 4).Value = "Source Count";
-            worksheet.Cell(row, 5).Value = "Associated";
-            worksheet.Cell(row, 6).Value = "Disassociated";
-            worksheet.Cell(row, 7).Value = "Errors";
+            worksheet.Cell(row, 5).Value = "Target Existing";
+            worksheet.Cell(row, 6).Value = "Associated";
+            worksheet.Cell(row, 7).Value = "Disassociated";
+            worksheet.Cell(row, 8).Value = "Errors";
 
-            var m2mHeaderRange = worksheet.Range(row, 1, row, 7);
+            var m2mHeaderRange = worksheet.Range(row, 1, row, 8);
             m2mHeaderRange.Style.Font.Bold = true;
             m2mHeaderRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
             var m2mStartRow = row;
@@ -158,18 +159,19 @@ public class MigrationReporter : IMigrationReporter
                 worksheet.Cell(row, 2).Value = m2mResult.Entity1Name;
                 worksheet.Cell(row, 3).Value = m2mResult.Entity2Name;
                 worksheet.Cell(row, 4).Value = m2mResult.SourceCount;
-                worksheet.Cell(row, 5).Value = m2mResult.AssociatedCount;
-                worksheet.Cell(row, 6).Value = m2mResult.DisassociatedCount;
-                worksheet.Cell(row, 7).Value = m2mResult.Errors.Count;
+                worksheet.Cell(row, 5).Value = m2mResult.TargetExistingCount;
+                worksheet.Cell(row, 6).Value = m2mResult.AssociatedCount;
+                worksheet.Cell(row, 7).Value = m2mResult.DisassociatedCount;
+                worksheet.Cell(row, 8).Value = m2mResult.Errors.Count;
 
                 if (m2mResult.Errors.Count > 0)
                 {
-                    worksheet.Cell(row, 7).Style.Font.FontColor = XLColor.Red;
+                    worksheet.Cell(row, 8).Style.Font.FontColor = XLColor.Red;
                 }
                 row++;
             }
 
-            var m2mTableRange = worksheet.Range(m2mStartRow, 1, row - 1, 7);
+            var m2mTableRange = worksheet.Range(m2mStartRow, 1, row - 1, 8);
             var m2mTable = m2mTableRange.CreateTable();
             m2mTable.Theme = XLTableTheme.TableStyleLight9;
         }
