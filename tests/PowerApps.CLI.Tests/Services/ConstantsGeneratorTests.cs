@@ -18,14 +18,14 @@ public class ConstantsGeneratorTests
         var mockLogger = new Mock<IConsoleLogger>();
 
         mockTemplateGenerator
-            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("class content");
         mockTemplateGenerator
             .Setup(x => x.GenerateSingleFile(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
             .Returns("combined content");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema>
         {
             new EntitySchema { LogicalName = "contact" }
@@ -66,14 +66,14 @@ public class ConstantsGeneratorTests
             .Setup(x => x.ExtractGlobalOptionSets(It.IsAny<List<EntitySchema>>()))
             .Returns(globalOptionSets);
         mockTemplateGenerator
-            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("optionset content");
         mockTemplateGenerator
             .Setup(x => x.GenerateSingleFile(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
             .Returns("combined optionsets");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema> { new EntitySchema { LogicalName = "contact" } };
         var outputConfig = new ConstantsOutputConfig
         {
@@ -103,11 +103,11 @@ public class ConstantsGeneratorTests
         var mockLogger = new Mock<IConsoleLogger>();
 
         mockTemplateGenerator
-            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("entity class content");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema>
         {
             new EntitySchema { LogicalName = "contact", DisplayName = "Contact" },
@@ -153,11 +153,11 @@ public class ConstantsGeneratorTests
             .Setup(x => x.ExtractGlobalOptionSets(It.IsAny<List<EntitySchema>>()))
             .Returns(globalOptionSets);
         mockTemplateGenerator
-            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("optionset class content");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema> { new EntitySchema { LogicalName = "contact" } };
         var outputConfig = new ConstantsOutputConfig
         {
@@ -189,8 +189,8 @@ public class ConstantsGeneratorTests
         var mockFileWriter = new Mock<IFileWriter>();
         var mockLogger = new Mock<IConsoleLogger>();
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema>
         {
             new EntitySchema { LogicalName = "contact" }
@@ -223,14 +223,14 @@ public class ConstantsGeneratorTests
         var mockLogger = new Mock<IConsoleLogger>();
 
         mockTemplateGenerator
-            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("content");
         mockTemplateGenerator
             .Setup(x => x.GenerateSingleFile(It.IsAny<string>(), It.IsAny<IEnumerable<string>>()))
             .Returns("combined");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema>
         {
             new EntitySchema { LogicalName = "contact" },
@@ -263,11 +263,11 @@ public class ConstantsGeneratorTests
         var mockLogger = new Mock<IConsoleLogger>();
 
         mockTemplateGenerator
-            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateEntityClass(It.IsAny<EntitySchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("content");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema>
         {
             new EntitySchema { LogicalName = "contact", DisplayName = "Contact" }
@@ -287,7 +287,8 @@ public class ConstantsGeneratorTests
         // Assert
         mockTemplateGenerator.Verify(x => x.GenerateEntityClass(
             It.IsAny<EntitySchema>(),
-            "MyCompany.Constants.Tables"), Times.Once);
+            "MyCompany.Constants.Tables",
+            "Contact"), Times.Once);
     }
 
     [Fact]
@@ -308,11 +309,11 @@ public class ConstantsGeneratorTests
             .Setup(x => x.ExtractGlobalOptionSets(It.IsAny<List<EntitySchema>>()))
             .Returns(globalOptionSets);
         mockTemplateGenerator
-            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>()))
+            .Setup(x => x.GenerateGlobalOptionSetClass(It.IsAny<OptionSetSchema>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns("content");
 
-        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object);
-        
+        var generator = new ConstantsGenerator(mockTemplateGenerator.Object, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
         var entities = new List<EntitySchema> { new EntitySchema { LogicalName = "contact" } };
         var outputConfig = new ConstantsOutputConfig
         {
@@ -329,6 +330,177 @@ public class ConstantsGeneratorTests
         // Assert
         mockTemplateGenerator.Verify(x => x.GenerateGlobalOptionSetClass(
             It.IsAny<OptionSetSchema>(),
-            "MyCompany.Constants.Choices"), Times.Once);
+            "MyCompany.Constants.Choices",
+            "Statuscode"), Times.Once);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SingleFileMode_TwoTablesWithSameDisplayName_DeduplicatesClassNamesAsync()
+    {
+        // Arrange
+        var mockFilter = new Mock<IConstantsFilter>();
+        var mockFileWriter = new Mock<IFileWriter>();
+        var mockLogger = new Mock<IConsoleLogger>();
+        var templateGenerator = new CodeTemplateGenerator(true, true, new IdentifierFormatter());
+
+        string? capturedContent = null;
+        mockFileWriter
+            .Setup(x => x.WriteTextAsync(It.Is<string>(p => p.EndsWith("Tables.cs")), It.IsAny<string>()))
+            .Callback<string, string>((_, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        var generator = new ConstantsGenerator(templateGenerator, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
+        var entities = new List<EntitySchema>
+        {
+            new EntitySchema { LogicalName = "rob_email", DisplayName = "Email" },
+            new EntitySchema { LogicalName = "email", DisplayName = "Email" }
+        };
+        var outputConfig = new ConstantsOutputConfig
+        {
+            OutputPath = "./output",
+            Namespace = "MyCompany.Constants",
+            SingleFile = true,
+            IncludeEntities = true,
+            IncludeGlobalOptionSets = false
+        };
+
+        // Act
+        await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("public static class Email", capturedContent);
+        Assert.Contains("public static class Email_", capturedContent);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SingleFileMode_TwoGlobalOptionSetsWithSameDisplayName_DeduplicatesClassNamesAsync()
+    {
+        // Arrange
+        var mockFilter = new Mock<IConstantsFilter>();
+        var mockFileWriter = new Mock<IFileWriter>();
+        var mockLogger = new Mock<IConsoleLogger>();
+        var templateGenerator = new CodeTemplateGenerator(true, true, new IdentifierFormatter());
+
+        var globalOptionSets = new List<OptionSetSchema>
+        {
+            new OptionSetSchema { Name = "rob_priority", DisplayName = "Priority", IsGlobal = true },
+            new OptionSetSchema { Name = "xrt_priority", DisplayName = "Priority", IsGlobal = true }
+        };
+        mockFilter
+            .Setup(x => x.ExtractGlobalOptionSets(It.IsAny<List<EntitySchema>>()))
+            .Returns(globalOptionSets);
+
+        string? capturedContent = null;
+        mockFileWriter
+            .Setup(x => x.WriteTextAsync(It.Is<string>(p => p.EndsWith("Choices.cs")), It.IsAny<string>()))
+            .Callback<string, string>((_, content) => capturedContent = content)
+            .Returns(Task.CompletedTask);
+
+        var generator = new ConstantsGenerator(templateGenerator, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
+        var entities = new List<EntitySchema> { new EntitySchema { LogicalName = "contact" } };
+        var outputConfig = new ConstantsOutputConfig
+        {
+            OutputPath = "./output",
+            Namespace = "MyCompany.Constants",
+            SingleFile = true,
+            IncludeEntities = false,
+            IncludeGlobalOptionSets = true
+        };
+
+        // Act
+        await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+
+        // Assert
+        Assert.NotNull(capturedContent);
+        Assert.Contains("public static class Priority", capturedContent);
+        Assert.Contains("public static class Priority_", capturedContent);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_MultipleFilesMode_TwoTablesWithSameDisplayName_DeduplicatesFileAndClassNamesAsync()
+    {
+        // Arrange
+        var mockFilter = new Mock<IConstantsFilter>();
+        var mockFileWriter = new Mock<IFileWriter>();
+        var mockLogger = new Mock<IConsoleLogger>();
+        var templateGenerator = new CodeTemplateGenerator(true, true, new IdentifierFormatter());
+
+        var writtenFiles = new List<(string Path, string Content)>();
+        mockFileWriter
+            .Setup(x => x.WriteTextAsync(It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string>((path, content) => writtenFiles.Add((path, content)))
+            .Returns(Task.CompletedTask);
+
+        var generator = new ConstantsGenerator(templateGenerator, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+
+        var entities = new List<EntitySchema>
+        {
+            new EntitySchema { LogicalName = "rob_email", DisplayName = "Email" },
+            new EntitySchema { LogicalName = "email", DisplayName = "Email" }
+        };
+        var outputConfig = new ConstantsOutputConfig
+        {
+            OutputPath = "./output",
+            Namespace = "MyCompany.Constants",
+            SingleFile = false,
+            IncludeEntities = true,
+            IncludeGlobalOptionSets = false
+        };
+
+        // Act
+        await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+
+        // Assert — two distinct files, not a silent overwrite, each with a distinct class name
+        Assert.Equal(2, writtenFiles.Count);
+        Assert.NotEqual(writtenFiles[0].Path, writtenFiles[1].Path);
+        Assert.Contains("public static class Email", writtenFiles[0].Content);
+        Assert.Contains("public static class Email_", writtenFiles[1].Content);
+    }
+
+    [Fact]
+    public async Task GenerateAsync_SingleFileMode_DuplicateNames_OutputIsDeterministicRegardlessOfInputOrderAsync()
+    {
+        // Arrange — Dataverse metadata query ordering isn't guaranteed stable between runs, so feed
+        // the same two same-named entities in reverse order and confirm the dedup naming (Email vs
+        // Email_) doesn't flip depending on that incidental ordering.
+        async Task<string> GenerateAsync(List<EntitySchema> entities)
+        {
+            var mockFilter = new Mock<IConstantsFilter>();
+            var mockFileWriter = new Mock<IFileWriter>();
+            var mockLogger = new Mock<IConsoleLogger>();
+            var templateGenerator = new CodeTemplateGenerator(true, true, new IdentifierFormatter());
+
+            string? capturedContent = null;
+            mockFileWriter
+                .Setup(x => x.WriteTextAsync(It.Is<string>(p => p.EndsWith("Tables.cs")), It.IsAny<string>()))
+                .Callback<string, string>((_, content) => capturedContent = content)
+                .Returns(Task.CompletedTask);
+
+            var generator = new ConstantsGenerator(templateGenerator, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+            var outputConfig = new ConstantsOutputConfig
+            {
+                OutputPath = "./output",
+                Namespace = "MyCompany.Constants",
+                SingleFile = true,
+                IncludeEntities = true,
+                IncludeGlobalOptionSets = false
+            };
+
+            await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+            return capturedContent!;
+        }
+
+        var entityA = new EntitySchema { LogicalName = "rob_email", DisplayName = "Email" };
+        var entityB = new EntitySchema { LogicalName = "email", DisplayName = "Email" };
+
+        // Act
+        var forwardOrder = await GenerateAsync(new List<EntitySchema> { entityA, entityB });
+        var reverseOrder = await GenerateAsync(new List<EntitySchema> { entityB, entityA });
+
+        // Assert
+        Assert.Equal(forwardOrder, reverseOrder);
     }
 }

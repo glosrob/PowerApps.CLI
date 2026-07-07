@@ -279,7 +279,7 @@ public class ConstantsCommand
             var identifierFormatter = new IdentifierFormatter(pascalCase);
             var templateGenerator = new CodeTemplateGenerator(true, true, identifierFormatter);
             var constantsFilter = new ConstantsFilter();
-            var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter);
+            var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter, identifierFormatter);
 
             // Load configuration
             ConstantsConfig? config = null;
