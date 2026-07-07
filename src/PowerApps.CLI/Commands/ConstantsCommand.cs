@@ -233,6 +233,16 @@ public class ConstantsCommand
             getDefaultValue: () => false,
             description: "Exclude virtual fields from generated constants — skips lookup companion fields (AttributeOf is set, e.g. createdbyname) and Virtual-type attributes (e.g. EntityImage_URL)");
 
+        var includeCommentsOption = new Option<bool>(
+            aliases: new[] { "--include-comments" },
+            getDefaultValue: () => true,
+            description: "Include XML doc comments on generated constants");
+
+        var includeRelationshipsOption = new Option<bool>(
+            aliases: new[] { "--include-relationships" },
+            getDefaultValue: () => true,
+            description: "Include relationship metadata in generated constants");
+
         constantsGenerateCommand.AddOption(urlOption);
         constantsGenerateCommand.AddOption(solutionOption);
         constantsGenerateCommand.AddOption(outputOption);
@@ -250,6 +260,8 @@ public class ConstantsCommand
         constantsGenerateCommand.AddOption(attributePrefixOption);
         constantsGenerateCommand.AddOption(pascalCaseOption);
         constantsGenerateCommand.AddOption(skipVirtualFieldsOption);
+        constantsGenerateCommand.AddOption(includeCommentsOption);
+        constantsGenerateCommand.AddOption(includeRelationshipsOption);
 
         constantsGenerateCommand.SetHandler(async (context) =>
         {
@@ -270,6 +282,8 @@ public class ConstantsCommand
             var attributePrefix = context.ParseResult.GetValueForOption(attributePrefixOption);
             var pascalCase = context.ParseResult.GetValueForOption(pascalCaseOption);
             var skipVirtualFields = context.ParseResult.GetValueForOption(skipVirtualFieldsOption);
+            var includeComments = context.ParseResult.GetValueForOption(includeCommentsOption);
+            var includeRelationships = context.ParseResult.GetValueForOption(includeRelationshipsOption);
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
 
@@ -291,7 +305,10 @@ public class ConstantsCommand
             var fileWriter = new FileWriter();
             var metadataMapper = new MetadataMapper();
             var identifierFormatter = new IdentifierFormatter(ResolvePascalCaseConversion(config, pascalCase));
-            var templateGenerator = new CodeTemplateGenerator(true, true, identifierFormatter);
+            var templateGenerator = new CodeTemplateGenerator(
+                ResolveIncludeComments(config, includeComments),
+                ResolveIncludeRelationships(config, includeRelationships),
+                identifierFormatter);
             var constantsFilter = new ConstantsFilter();
             var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter, identifierFormatter);
 
@@ -320,6 +337,24 @@ public class ConstantsCommand
     internal static bool ResolvePascalCaseConversion(ConstantsConfig? config, bool cliPascalCaseFlag)
     {
         return config?.PascalCaseConversion ?? cliPascalCaseFlag;
+    }
+
+    /// <summary>
+    /// Resolves the effective IncludeComments setting: a loaded config file takes precedence over the
+    /// --include-comments CLI flag.
+    /// </summary>
+    internal static bool ResolveIncludeComments(ConstantsConfig? config, bool cliIncludeCommentsFlag)
+    {
+        return config?.IncludeComments ?? cliIncludeCommentsFlag;
+    }
+
+    /// <summary>
+    /// Resolves the effective IncludeRelationships setting: a loaded config file takes precedence over
+    /// the --include-relationships CLI flag.
+    /// </summary>
+    internal static bool ResolveIncludeRelationships(ConstantsConfig? config, bool cliIncludeRelationshipsFlag)
+    {
+        return config?.IncludeRelationships ?? cliIncludeRelationshipsFlag;
     }
 
     private static async Task<ConstantsConfig?> LoadConfigAsync(string configPath, IConsoleLogger logger)

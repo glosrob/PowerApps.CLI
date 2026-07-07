@@ -625,6 +625,8 @@ Generates C# constants from Dataverse metadata.
 | `--attribute-prefix` | Only include attributes with this prefix | No | - |
 | `--pascal-case` | Convert identifiers to PascalCase | No | `true` |
 | `--skip-virtual-fields` | Exclude virtual fields from generated constants | No | `false` |
+| `--include-comments` | Include XML doc comments on generated constants | No | `true` |
+| `--include-relationships` | Include relationship metadata in generated constants | No | `true` |
 
 \* Either `--url` or `--connection-string` must be provided.
 

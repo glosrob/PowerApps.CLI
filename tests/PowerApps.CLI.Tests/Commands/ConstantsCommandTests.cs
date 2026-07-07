@@ -239,4 +239,38 @@ public class ConstantsCommandTests
 
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData(null, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    public void ResolveIncludeComments_ConfigTakesPrecedenceOverCliFlag(
+        bool? configIncludeComments, bool cliIncludeCommentsFlag, bool expected)
+    {
+        var config = configIncludeComments.HasValue
+            ? new ConstantsConfig { IncludeComments = configIncludeComments.Value }
+            : null;
+
+        var result = ConstantsCommand.ResolveIncludeComments(config, cliIncludeCommentsFlag);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData(null, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    public void ResolveIncludeRelationships_ConfigTakesPrecedenceOverCliFlag(
+        bool? configIncludeRelationships, bool cliIncludeRelationshipsFlag, bool expected)
+    {
+        var config = configIncludeRelationships.HasValue
+            ? new ConstantsConfig { IncludeRelationships = configIncludeRelationships.Value }
+            : null;
+
+        var result = ConstantsCommand.ResolveIncludeRelationships(config, cliIncludeRelationshipsFlag);
+
+        Assert.Equal(expected, result);
+    }
 }
