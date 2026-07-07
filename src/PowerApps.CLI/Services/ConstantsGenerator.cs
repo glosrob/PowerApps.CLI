@@ -35,11 +35,18 @@ public class ConstantsGenerator : IConstantsGenerator
     {
         logger.LogInfo($"Generating constants to: {outputConfig.OutputPath}");
 
+        // Sort into a deterministic order before any dedup naming below runs — Dataverse metadata
+        // query ordering is not guaranteed stable, so leaving this unsorted would let MakeUnique
+        // assign e.g. "Email" vs "Email_" differently between otherwise-identical runs.
+        entities = entities.OrderBy(e => e.LogicalName, StringComparer.OrdinalIgnoreCase).ToList();
+
         // Extract global option sets if needed
         List<OptionSetSchema>? globalOptionSets = null;
         if (outputConfig.IncludeGlobalOptionSets)
         {
-            globalOptionSets = _filter.ExtractGlobalOptionSets(entities);
+            globalOptionSets = _filter.ExtractGlobalOptionSets(entities)
+                .OrderBy(o => o.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             logger.LogInfo($"  Found {globalOptionSets.Count} global option set(s)");
         }
 

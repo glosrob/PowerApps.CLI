@@ -459,4 +459,48 @@ public class ConstantsGeneratorTests
         Assert.Contains("public static class Email", writtenFiles[0].Content);
         Assert.Contains("public static class Email_", writtenFiles[1].Content);
     }
+
+    [Fact]
+    public async Task GenerateAsync_SingleFileMode_DuplicateNames_OutputIsDeterministicRegardlessOfInputOrderAsync()
+    {
+        // Arrange — Dataverse metadata query ordering isn't guaranteed stable between runs, so feed
+        // the same two same-named entities in reverse order and confirm the dedup naming (Email vs
+        // Email_) doesn't flip depending on that incidental ordering.
+        async Task<string> GenerateAsync(List<EntitySchema> entities)
+        {
+            var mockFilter = new Mock<IConstantsFilter>();
+            var mockFileWriter = new Mock<IFileWriter>();
+            var mockLogger = new Mock<IConsoleLogger>();
+            var templateGenerator = new CodeTemplateGenerator(true, true, new IdentifierFormatter());
+
+            string? capturedContent = null;
+            mockFileWriter
+                .Setup(x => x.WriteTextAsync(It.Is<string>(p => p.EndsWith("Tables.cs")), It.IsAny<string>()))
+                .Callback<string, string>((_, content) => capturedContent = content)
+                .Returns(Task.CompletedTask);
+
+            var generator = new ConstantsGenerator(templateGenerator, mockFilter.Object, mockFileWriter.Object, new IdentifierFormatter());
+            var outputConfig = new ConstantsOutputConfig
+            {
+                OutputPath = "./output",
+                Namespace = "MyCompany.Constants",
+                SingleFile = true,
+                IncludeEntities = true,
+                IncludeGlobalOptionSets = false
+            };
+
+            await generator.GenerateAsync(entities, outputConfig, mockLogger.Object);
+            return capturedContent!;
+        }
+
+        var entityA = new EntitySchema { LogicalName = "rob_email", DisplayName = "Email" };
+        var entityB = new EntitySchema { LogicalName = "email", DisplayName = "Email" };
+
+        // Act
+        var forwardOrder = await GenerateAsync(new List<EntitySchema> { entityA, entityB });
+        var reverseOrder = await GenerateAsync(new List<EntitySchema> { entityB, entityA });
+
+        // Assert
+        Assert.Equal(forwardOrder, reverseOrder);
+    }
 }
