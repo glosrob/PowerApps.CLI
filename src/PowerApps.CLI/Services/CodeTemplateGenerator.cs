@@ -22,10 +22,10 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
     /// <summary>
     /// Generates a complete entity class.
     /// </summary>
-    public string GenerateEntityClass(EntitySchema entity, string namespaceName)
+    public string GenerateEntityClass(EntitySchema entity, string namespaceName, string? classNameOverride = null)
     {
         var sb = new StringBuilder();
-        var className = _formatter.ToIdentifier(entity.DisplayName ?? entity.SchemaName ?? entity.LogicalName);
+        var className = classNameOverride ?? _formatter.ToIdentifier(entity.DisplayName ?? entity.SchemaName ?? entity.LogicalName);
 
         // Namespace
         sb.AppendLine($"namespace {namespaceName}");
@@ -82,12 +82,12 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
     /// <summary>
     /// Generates a global option set class.
     /// </summary>
-    public string GenerateGlobalOptionSetClass(OptionSetSchema optionSet, string namespaceName)
+    public string GenerateGlobalOptionSetClass(OptionSetSchema optionSet, string namespaceName, string? classNameOverride = null)
     {
         var sb = new StringBuilder();
-        
+
         // Use DisplayName for the class name, fall back to Name if not available
-        var className = _formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet");
+        var className = classNameOverride ?? _formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet");
 
         sb.AppendLine($"namespace {namespaceName}");
         sb.AppendLine("{");

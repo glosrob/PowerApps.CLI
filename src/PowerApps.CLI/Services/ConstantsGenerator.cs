@@ -11,15 +11,18 @@ public class ConstantsGenerator : IConstantsGenerator
     private readonly ICodeTemplateGenerator _templateGenerator;
     private readonly IConstantsFilter _filter;
     private readonly IFileWriter _fileWriter;
+    private readonly IIdentifierFormatter _formatter;
 
     public ConstantsGenerator(
         ICodeTemplateGenerator templateGenerator,
         IConstantsFilter filter,
-        IFileWriter fileWriter)
+        IFileWriter fileWriter,
+        IIdentifierFormatter formatter)
     {
         _templateGenerator = templateGenerator;
         _filter = filter;
         _fileWriter = fileWriter;
+        _formatter = formatter;
     }
 
     /// <summary>
@@ -60,8 +63,15 @@ public class ConstantsGenerator : IConstantsGenerator
         if (outputConfig.IncludeEntities && entities.Count > 0)
         {
             logger.LogInfo($"  Generating Tables.cs with {entities.Count} entit{(entities.Count == 1 ? "y" : "ies")}...");
-            var classContents = entities.Select(e => 
-                _templateGenerator.GenerateEntityClass(e, outputConfig.Namespace));
+            var usedClassNames = new HashSet<string>();
+            var classContents = entities.Select(e =>
+            {
+                var className = _formatter.MakeUnique(
+                    _formatter.ToIdentifier(e.DisplayName ?? e.SchemaName ?? e.LogicalName),
+                    usedClassNames);
+                usedClassNames.Add(className);
+                return _templateGenerator.GenerateEntityClass(e, outputConfig.Namespace, className);
+            });
             var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
             await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Tables.cs"), content);
         }
@@ -70,8 +80,15 @@ public class ConstantsGenerator : IConstantsGenerator
         if (outputConfig.IncludeGlobalOptionSets && globalOptionSets != null && globalOptionSets.Count > 0)
         {
             logger.LogInfo($"  Generating Choices.cs with {globalOptionSets.Count} option set(s)...");
+            var usedClassNames = new HashSet<string>();
             var classContents = globalOptionSets.Select(o =>
-                _templateGenerator.GenerateGlobalOptionSetClass(o, outputConfig.Namespace));
+            {
+                var className = _formatter.MakeUnique(
+                    _formatter.ToIdentifier(o.DisplayName ?? o.Name ?? "UnknownOptionSet"),
+                    usedClassNames);
+                usedClassNames.Add(className);
+                return _templateGenerator.GenerateGlobalOptionSetClass(o, outputConfig.Namespace, className);
+            });
             var content = _templateGenerator.GenerateSingleFile(outputConfig.Namespace, classContents);
             await _fileWriter.WriteTextAsync(Path.Combine(outputConfig.OutputPath, "Choices.cs"), content);
         }
@@ -88,13 +105,16 @@ public class ConstantsGenerator : IConstantsGenerator
         {
             logger.LogInfo($"  Generating {entities.Count} entity file(s)...");
             var entitiesPath = Path.Combine(outputConfig.OutputPath, "Tables");
-            var formatter = new IdentifierFormatter(outputConfig.PascalCaseConversion);
+            var usedClassNames = new HashSet<string>();
 
             foreach (var entity in entities)
             {
-                var className = formatter.ToIdentifier(entity.DisplayName ?? entity.SchemaName ?? entity.LogicalName);
+                var className = _formatter.MakeUnique(
+                    _formatter.ToIdentifier(entity.DisplayName ?? entity.SchemaName ?? entity.LogicalName),
+                    usedClassNames);
+                usedClassNames.Add(className);
                 var fileName = $"{className}.cs";
-                var content = _templateGenerator.GenerateEntityClass(entity, $"{outputConfig.Namespace}.Tables");
+                var content = _templateGenerator.GenerateEntityClass(entity, $"{outputConfig.Namespace}.Tables", className);
                 await _fileWriter.WriteTextAsync(Path.Combine(entitiesPath, fileName), content);
             }
         }
@@ -104,13 +124,16 @@ public class ConstantsGenerator : IConstantsGenerator
         {
             logger.LogInfo($"  Generating {globalOptionSets.Count} option set file(s)...");
             var optionSetsPath = Path.Combine(outputConfig.OutputPath, "Choices");
-            var formatter = new IdentifierFormatter(outputConfig.PascalCaseConversion);
+            var usedClassNames = new HashSet<string>();
 
             foreach (var optionSet in globalOptionSets)
             {
-                var className = formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet");
+                var className = _formatter.MakeUnique(
+                    _formatter.ToIdentifier(optionSet.DisplayName ?? optionSet.Name ?? "UnknownOptionSet"),
+                    usedClassNames);
+                usedClassNames.Add(className);
                 var fileName = $"{className}.cs";
-                var content = _templateGenerator.GenerateGlobalOptionSetClass(optionSet, $"{outputConfig.Namespace}.Choices");
+                var content = _templateGenerator.GenerateGlobalOptionSetClass(optionSet, $"{outputConfig.Namespace}.Choices", className);
                 await _fileWriter.WriteTextAsync(Path.Combine(optionSetsPath, fileName), content);
             }
         }

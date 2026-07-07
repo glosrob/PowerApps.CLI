@@ -88,10 +88,12 @@ public class DataverseFixture : IDisposable
             ExcludeAttributes = config.ExcludeAttributes
         };
 
+        var identifierFormatter = new IdentifierFormatter(config.PascalCaseConversion);
         var generator = new ConstantsGenerator(
-            new CodeTemplateGenerator(true, true, new IdentifierFormatter(config.PascalCaseConversion)),
+            new CodeTemplateGenerator(true, true, identifierFormatter),
             filter,
-            new FileWriter());
+            new FileWriter(),
+            identifierFormatter);
 
         await generator.GenerateAsync(entities, outputConfig, new ConsoleLogger());
 
