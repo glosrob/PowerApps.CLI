@@ -813,6 +813,8 @@ Generates two files:
 - `Tables.cs` - All entity constants in one file
 - `Choices.cs` - All global option set constants in one file
 
+Namespaces match Multiple Files Mode (`{Namespace}.Tables` / `{Namespace}.Choices`), so switching `--single-file` on or off doesn't require updating any code that references the generated constants.
+
 ## Architecture
 
 ```
