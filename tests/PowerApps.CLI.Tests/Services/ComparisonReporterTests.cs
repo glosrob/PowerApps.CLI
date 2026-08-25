@@ -319,6 +319,117 @@ public class ComparisonReporterTests : IDisposable
 
     #endregion
 
+    #region Sheet Name Collision Tests
+
+    [Fact]
+    public async Task GenerateReportAsync_TablesSharing31CharacterPrefix_CreatesSeparateDetailSheetsAsync()
+    {
+        // Arrange - truncating both names to Excel's 31-character limit used to produce a
+        // duplicate worksheet name and throw.
+        var outputPath = Path.Combine(_tempDirectory, "table-name-collision.xlsx");
+        var comparisonResult = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            ComparisonDate = DateTime.UtcNow,
+            TableResults =
+            {
+                CreateTableResultWithDifference("anc_informationrequesttype_anc_first"),
+                CreateTableResultWithDifference("anc_informationrequesttype_anc_second")
+            }
+        };
+
+        // Act
+        await _reporter.GenerateReportAsync(comparisonResult, outputPath);
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_anc_"));
+        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_an~2"));
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_TableAndRelationshipWithSameName_CreatesSeparateDetailSheetsAsync()
+    {
+        // Arrange - tables and relationships share the workbook's sheet namespace.
+        var outputPath = Path.Combine(_tempDirectory, "cross-collision.xlsx");
+        var comparisonResult = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            ComparisonDate = DateTime.UtcNow,
+            TableResults = { CreateTableResultWithDifference("anc_sharedname") },
+            RelationshipResults = { CreateRelationshipResultWithDifference("anc_sharedname") }
+        };
+
+        // Act
+        await _reporter.GenerateReportAsync(comparisonResult, outputPath);
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("anc_sharedname"));
+        Assert.True(workbook.Worksheets.Contains("anc_sharedname~2"));
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_TableNamedSummary_DoesNotCollideWithSummarySheetAsync()
+    {
+        // Arrange
+        var outputPath = Path.Combine(_tempDirectory, "summary-collision.xlsx");
+        var comparisonResult = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            ComparisonDate = DateTime.UtcNow,
+            TableResults = { CreateTableResultWithDifference("Summary") }
+        };
+
+        // Act
+        await _reporter.GenerateReportAsync(comparisonResult, outputPath);
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("Summary~2"));
+    }
+
+    [Fact]
+    public async Task GenerateReportAsync_CollidingTableNames_LinksSummaryToBothDetailSheetsAsync()
+    {
+        // Arrange
+        var outputPath = Path.Combine(_tempDirectory, "collision-links.xlsx");
+        var comparisonResult = new ComparisonResult
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            ComparisonDate = DateTime.UtcNow,
+            TableResults =
+            {
+                CreateTableResultWithDifference("anc_informationrequesttype_anc_first"),
+                CreateTableResultWithDifference("anc_informationrequesttype_anc_second")
+            }
+        };
+
+        // Act
+        await _reporter.GenerateReportAsync(comparisonResult, outputPath);
+
+        // Assert - every summary hyperlink must point at a sheet that actually exists
+        using var workbook = new XLWorkbook(outputPath);
+        var summarySheet = workbook.Worksheet("Summary");
+
+        var targets = summarySheet.Hyperlinks
+            .Where(h => !h.IsExternal)
+            .Select(h => h.InternalAddress.Split('!')[0].Trim('\''))
+            .Distinct()
+            .ToList();
+
+        Assert.Equal(2, targets.Count);
+        Assert.All(targets, target => Assert.True(
+            workbook.Worksheets.Contains(target),
+            $"Summary links to '{target}', which is not a worksheet in the workbook"));
+    }
+
+    #endregion
+
     #region Helper Methods
 
     private static ComparisonResult CreateComparisonResultWithDifference(DifferenceType differenceType)
@@ -344,6 +455,47 @@ public class ComparisonReporterTests : IDisposable
                             DifferenceType = differenceType
                         }
                     }
+                }
+            }
+        };
+    }
+
+    private static TableComparisonResult CreateTableResultWithDifference(string tableName)
+    {
+        return new TableComparisonResult
+        {
+            TableName = tableName,
+            SourceRecordCount = 1,
+            TargetRecordCount = 0,
+            Differences =
+            {
+                new RecordDifference
+                {
+                    RecordId = Guid.NewGuid(),
+                    RecordName = "Test Record",
+                    DifferenceType = DifferenceType.New
+                }
+            }
+        };
+    }
+
+    private static RelationshipComparisonResult CreateRelationshipResultWithDifference(string relationshipName)
+    {
+        return new RelationshipComparisonResult
+        {
+            RelationshipName = relationshipName,
+            IntersectEntity = relationshipName,
+            SourceAssociationCount = 1,
+            TargetAssociationCount = 0,
+            Differences =
+            {
+                new AssociationDifference
+                {
+                    Entity1Id = Guid.NewGuid(),
+                    Entity1Name = "Record 1",
+                    Entity2Id = Guid.NewGuid(),
+                    Entity2Name = "Record 2",
+                    DifferenceType = DifferenceType.New
                 }
             }
         };

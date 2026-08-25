@@ -192,6 +192,84 @@ public class SchemaExporterTests : IDisposable
         Assert.True(lastRow.RowNumber() >= 3);
     }
 
+    [Fact]
+    public async Task ExportAsync_ToXlsx_TablesSharing31CharacterPrefix_ShouldCreateSeparateSheetsAsync()
+    {
+        // Arrange - N:N intersect tables commonly share a long prefix, and truncating both to
+        // Excel's 31-character limit used to produce a duplicate worksheet name.
+        var schema = new PowerAppsSchema
+        {
+            Entities = new List<EntitySchema>
+            {
+                new() { LogicalName = "anc_informationrequesttype_anc_first", SchemaName = "First" },
+                new() { LogicalName = "anc_informationrequesttype_anc_second", SchemaName = "Second" }
+            }
+        };
+        var outputPath = Path.Combine(_tempDirectory, "test-schema-collisions.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_anc_"));
+        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_an~2"));
+    }
+
+    [Fact]
+    public async Task ExportAsync_ToXlsx_TablesSharing31CharacterPrefix_ShouldLinkSummaryToBothSheetsAsync()
+    {
+        // Arrange
+        var schema = new PowerAppsSchema
+        {
+            Entities = new List<EntitySchema>
+            {
+                new() { LogicalName = "anc_informationrequesttype_anc_first", SchemaName = "First" },
+                new() { LogicalName = "anc_informationrequesttype_anc_second", SchemaName = "Second" }
+            }
+        };
+        var outputPath = Path.Combine(_tempDirectory, "test-schema-collision-links.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert - every Summary hyperlink must point at a sheet that actually exists
+        using var workbook = new XLWorkbook(outputPath);
+        var summarySheet = workbook.Worksheet("Summary");
+
+        var targets = summarySheet.Hyperlinks
+            .Where(h => !h.IsExternal)
+            .Select(h => h.InternalAddress.Split('!')[0].Trim('\''))
+            .Distinct()
+            .ToList();
+
+        Assert.Equal(2, targets.Count);
+        Assert.All(targets, target => Assert.True(
+            workbook.Worksheets.Contains(target),
+            $"Summary links to '{target}', which is not a worksheet in the workbook"));
+    }
+
+    [Fact]
+    public async Task ExportAsync_ToXlsx_TableNamedSummary_ShouldNotCollideWithSummarySheetAsync()
+    {
+        // Arrange
+        var schema = new PowerAppsSchema
+        {
+            Entities = new List<EntitySchema>
+            {
+                new() { LogicalName = "anc_summary", DisplayName = "Summary", SchemaName = "anc_Summary" }
+            }
+        };
+        var outputPath = Path.Combine(_tempDirectory, "test-schema-reserved.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        Assert.True(workbook.Worksheets.Contains("Summary~2"));
+    }
+
     #endregion
 
     #region Helper Methods

@@ -9,6 +9,8 @@ namespace PowerApps.CLI.Services;
 /// </summary>
 public class ComparisonReporter : IComparisonReporter
 {
+    private const string SummarySheetName = "Summary";
+
     private readonly IFileWriter _fileWriter;
 
     public ComparisonReporter(IFileWriter fileWriter)
@@ -20,29 +22,41 @@ public class ComparisonReporter : IComparisonReporter
     {
         using var workbook = new XLWorkbook();
 
-        // Add summary sheet
-        AddSummarySheet(workbook, result);
-
-        // Add detail sheets only for tables with differences, sorted alphabetically by TableName
+        // Detail sheets only exist for tables and relationships with differences, sorted
+        // alphabetically within each group.
         var sortedTableResults = result.TableResults
             .Where(t => t.HasDifferences)
             .OrderBy(t => t.TableName)
             .ToList();
 
-        foreach (var tableResult in sortedTableResults)
-        {
-            AddTableDetailSheet(workbook, tableResult);
-        }
-
-        // Add detail sheets for relationships with differences, sorted alphabetically
         var sortedRelResults = result.RelationshipResults
             .Where(r => r.HasDifferences)
             .OrderBy(r => r.RelationshipName)
             .ToList();
 
+        // Allocate the detail sheet names up front. Each name is needed twice - once to create the
+        // sheet and once for the summary hyperlink - and allocation is stateful, so both passes
+        // must read the same map rather than recompute it. Tables and relationships share one
+        // allocator because they share the workbook's sheet namespace.
+        var allocator = new WorksheetNameAllocator();
+        allocator.Reserve(SummarySheetName);
+
+        var tableSheetNames = sortedTableResults
+            .ToDictionary(t => t, t => allocator.Allocate(t.TableName));
+        var relationshipSheetNames = sortedRelResults
+            .ToDictionary(r => r, r => allocator.Allocate(r.RelationshipName));
+
+        // Add summary sheet
+        AddSummarySheet(workbook, result, tableSheetNames, relationshipSheetNames);
+
+        foreach (var tableResult in sortedTableResults)
+        {
+            AddTableDetailSheet(workbook, tableResult, tableSheetNames[tableResult]);
+        }
+
         foreach (var relResult in sortedRelResults)
         {
-            AddRelationshipDetailSheet(workbook, relResult);
+            AddRelationshipDetailSheet(workbook, relResult, relationshipSheetNames[relResult]);
         }
 
         // Save workbook
@@ -51,9 +65,13 @@ public class ComparisonReporter : IComparisonReporter
         await _fileWriter.WriteBytesAsync(outputPath, stream.ToArray());
     }
 
-    private void AddSummarySheet(XLWorkbook workbook, ComparisonResult result)
+    private void AddSummarySheet(
+        XLWorkbook workbook,
+        ComparisonResult result,
+        IReadOnlyDictionary<TableComparisonResult, string> tableSheetNames,
+        IReadOnlyDictionary<RelationshipComparisonResult, string> relationshipSheetNames)
     {
-        var worksheet = workbook.Worksheets.Add("Summary");
+        var worksheet = workbook.Worksheets.Add(SummarySheetName);
 
         // Header
         worksheet.Cell(1, 1).Value = "Reference Data Comparison Report";
@@ -117,7 +135,7 @@ public class ComparisonReporter : IComparisonReporter
                     {
                         worksheet.Cell(row, 7).Style.Font.FontColor = XLColor.Red;
 
-                        var detailSheetName = SanitizeSheetName(tableResult.TableName);
+                        var detailSheetName = tableSheetNames[tableResult];
                         worksheet.Cell(row, 1).SetHyperlink(new XLHyperlink($"'{detailSheetName}'!A1"));
                         worksheet.Cell(row, 1).Style.Font.FontColor = XLColor.Blue;
                         worksheet.Cell(row, 1).Style.Font.Underline = XLFontUnderlineValues.Single;
@@ -172,7 +190,7 @@ public class ComparisonReporter : IComparisonReporter
                     {
                         worksheet.Cell(row, 6).Style.Font.FontColor = XLColor.Red;
 
-                        var detailSheetName = SanitizeSheetName(relResult.RelationshipName);
+                        var detailSheetName = relationshipSheetNames[relResult];
                         worksheet.Cell(row, 1).SetHyperlink(new XLHyperlink($"'{detailSheetName}'!A1"));
                         worksheet.Cell(row, 1).Style.Font.FontColor = XLColor.Blue;
                         worksheet.Cell(row, 1).Style.Font.Underline = XLFontUnderlineValues.Single;
@@ -195,9 +213,8 @@ public class ComparisonReporter : IComparisonReporter
         worksheet.Columns().AdjustToContents();
     }
 
-    private void AddTableDetailSheet(XLWorkbook workbook, TableComparisonResult tableResult)
+    private void AddTableDetailSheet(XLWorkbook workbook, TableComparisonResult tableResult, string sheetName)
     {
-        var sheetName = SanitizeSheetName(tableResult.TableName);
         var worksheet = workbook.Worksheets.Add(sheetName);
 
         // Header
@@ -268,9 +285,8 @@ public class ComparisonReporter : IComparisonReporter
         worksheet.Columns().AdjustToContents();
     }
 
-    private void AddRelationshipDetailSheet(XLWorkbook workbook, RelationshipComparisonResult relResult)
+    private void AddRelationshipDetailSheet(XLWorkbook workbook, RelationshipComparisonResult relResult, string sheetName)
     {
-        var sheetName = SanitizeSheetName(relResult.RelationshipName);
         var worksheet = workbook.Worksheets.Add(sheetName);
 
         // Header
@@ -325,22 +341,5 @@ public class ComparisonReporter : IComparisonReporter
 
         // Auto-fit columns
         worksheet.Columns().AdjustToContents();
-    }
-
-    private string SanitizeSheetName(string name)
-    {
-        // Excel sheet names have max 31 chars and can't contain: \ / ? * [ ]
-        var sanitized = name;
-        foreach (var c in new[] { '\\', '/', '?', '*', '[', ']' })
-        {
-            sanitized = sanitized.Replace(c, '_');
-        }
-
-        if (sanitized.Length > 31)
-        {
-            sanitized = sanitized.Substring(0, 31);
-        }
-
-        return sanitized;
     }
 }
