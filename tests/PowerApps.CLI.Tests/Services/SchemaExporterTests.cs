@@ -201,8 +201,8 @@ public class SchemaExporterTests : IDisposable
         {
             Entities = new List<EntitySchema>
             {
-                new() { LogicalName = "anc_informationrequesttype_anc_first", SchemaName = "First" },
-                new() { LogicalName = "anc_informationrequesttype_anc_second", SchemaName = "Second" }
+                new() { LogicalName = "rob_informationrequesttype_rob_first", SchemaName = "First" },
+                new() { LogicalName = "rob_informationrequesttype_rob_second", SchemaName = "Second" }
             }
         };
         var outputPath = Path.Combine(_tempDirectory, "test-schema-collisions.xlsx");
@@ -212,8 +212,8 @@ public class SchemaExporterTests : IDisposable
 
         // Assert
         using var workbook = new XLWorkbook(outputPath);
-        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_anc_"));
-        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_an~2"));
+        Assert.True(workbook.Worksheets.Contains("rob_informationrequesttype_rob_"));
+        Assert.True(workbook.Worksheets.Contains("rob_informationrequesttype_ro~2"));
     }
 
     [Fact]
@@ -224,8 +224,8 @@ public class SchemaExporterTests : IDisposable
         {
             Entities = new List<EntitySchema>
             {
-                new() { LogicalName = "anc_informationrequesttype_anc_first", SchemaName = "First" },
-                new() { LogicalName = "anc_informationrequesttype_anc_second", SchemaName = "Second" }
+                new() { LogicalName = "rob_informationrequesttype_rob_first", SchemaName = "First" },
+                new() { LogicalName = "rob_informationrequesttype_rob_second", SchemaName = "Second" }
             }
         };
         var outputPath = Path.Combine(_tempDirectory, "test-schema-collision-links.xlsx");
@@ -257,7 +257,7 @@ public class SchemaExporterTests : IDisposable
         {
             Entities = new List<EntitySchema>
             {
-                new() { LogicalName = "anc_summary", DisplayName = "Summary", SchemaName = "anc_Summary" }
+                new() { LogicalName = "rob_summary", DisplayName = "Summary", SchemaName = "rob_Summary" }
             }
         };
         var outputPath = Path.Combine(_tempDirectory, "test-schema-reserved.xlsx");

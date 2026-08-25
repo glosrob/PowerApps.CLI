@@ -334,8 +334,8 @@ public class ComparisonReporterTests : IDisposable
             ComparisonDate = DateTime.UtcNow,
             TableResults =
             {
-                CreateTableResultWithDifference("anc_informationrequesttype_anc_first"),
-                CreateTableResultWithDifference("anc_informationrequesttype_anc_second")
+                CreateTableResultWithDifference("rob_informationrequesttype_rob_first"),
+                CreateTableResultWithDifference("rob_informationrequesttype_rob_second")
             }
         };
 
@@ -344,8 +344,8 @@ public class ComparisonReporterTests : IDisposable
 
         // Assert
         using var workbook = new XLWorkbook(outputPath);
-        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_anc_"));
-        Assert.True(workbook.Worksheets.Contains("anc_informationrequesttype_an~2"));
+        Assert.True(workbook.Worksheets.Contains("rob_informationrequesttype_rob_"));
+        Assert.True(workbook.Worksheets.Contains("rob_informationrequesttype_ro~2"));
     }
 
     [Fact]
@@ -358,8 +358,8 @@ public class ComparisonReporterTests : IDisposable
             SourceEnvironment = "https://dev.crm.dynamics.com",
             TargetEnvironment = "https://test.crm.dynamics.com",
             ComparisonDate = DateTime.UtcNow,
-            TableResults = { CreateTableResultWithDifference("anc_sharedname") },
-            RelationshipResults = { CreateRelationshipResultWithDifference("anc_sharedname") }
+            TableResults = { CreateTableResultWithDifference("rob_sharedname") },
+            RelationshipResults = { CreateRelationshipResultWithDifference("rob_sharedname") }
         };
 
         // Act
@@ -367,8 +367,8 @@ public class ComparisonReporterTests : IDisposable
 
         // Assert
         using var workbook = new XLWorkbook(outputPath);
-        Assert.True(workbook.Worksheets.Contains("anc_sharedname"));
-        Assert.True(workbook.Worksheets.Contains("anc_sharedname~2"));
+        Assert.True(workbook.Worksheets.Contains("rob_sharedname"));
+        Assert.True(workbook.Worksheets.Contains("rob_sharedname~2"));
     }
 
     [Fact]
@@ -404,8 +404,8 @@ public class ComparisonReporterTests : IDisposable
             ComparisonDate = DateTime.UtcNow,
             TableResults =
             {
-                CreateTableResultWithDifference("anc_informationrequesttype_anc_first"),
-                CreateTableResultWithDifference("anc_informationrequesttype_anc_second")
+                CreateTableResultWithDifference("rob_informationrequesttype_rob_first"),
+                CreateTableResultWithDifference("rob_informationrequesttype_rob_second")
             }
         };
 
