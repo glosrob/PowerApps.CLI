@@ -302,7 +302,7 @@ public class DataPatchCommandTests
                     Entity = "contact",
                     KeyField = "fullname",
                     Key = "Robert Tilling",
-                    ValueField = "anc_employmentstatus",
+                    ValueField = "rob_employmentstatus",
                     Value = JsonDocument.Parse("749500000").RootElement,
                     Type = "optionset"
                 }
@@ -312,7 +312,7 @@ public class DataPatchCommandTests
 
         var recordId = Guid.NewGuid();
         var existingRecord = new Entity("contact", recordId);
-        existingRecord["anc_employmentstatus"] = new OptionSetValue(100000000);
+        existingRecord["rob_employmentstatus"] = new OptionSetValue(100000000);
         _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
             .Returns(new EntityCollection(new List<Entity> { existingRecord }));
         _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
@@ -324,9 +324,9 @@ public class DataPatchCommandTests
         // Assert — update called with OptionSetValue, not plain int
         Assert.Equal(0, result);
         _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
-            r.Target["anc_employmentstatus"] != null &&
-            r.Target["anc_employmentstatus"].GetType() == typeof(OptionSetValue) &&
-            ((OptionSetValue)r.Target["anc_employmentstatus"]).Value == 749500000)),
+            r.Target["rob_employmentstatus"] != null &&
+            r.Target["rob_employmentstatus"].GetType() == typeof(OptionSetValue) &&
+            ((OptionSetValue)r.Target["rob_employmentstatus"]).Value == 749500000)),
             Times.Once);
     }
 
@@ -343,7 +343,7 @@ public class DataPatchCommandTests
                     Entity = "contact",
                     KeyField = "fullname",
                     Key = "Robert Tilling",
-                    ValueField = "anc_employmentstatus",
+                    ValueField = "rob_employmentstatus",
                     Value = JsonDocument.Parse("749500000").RootElement,
                     Type = "optionset"
                 }
@@ -352,7 +352,7 @@ public class DataPatchCommandTests
         SetupConfigFile("config.json", config);
 
         var existingRecord = new Entity("contact", Guid.NewGuid());
-        existingRecord["anc_employmentstatus"] = new OptionSetValue(749500000);
+        existingRecord["rob_employmentstatus"] = new OptionSetValue(749500000);
         _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
             .Returns(new EntityCollection(new List<Entity> { existingRecord }));
 
@@ -378,7 +378,7 @@ public class DataPatchCommandTests
                     Entity = "contact",
                     KeyField = "fullname",
                     Key = "Robert Tilling",
-                    ValueField = "anc_somelookup",
+                    ValueField = "rob_somelookup",
                     Value = JsonDocument.Parse($$"""{"logicalName":"account","id":"{{targetId}}"}""").RootElement,
                     Type = "lookup"
                 }
@@ -388,7 +388,7 @@ public class DataPatchCommandTests
 
         var recordId = Guid.NewGuid();
         var existingRecord = new Entity("contact", recordId);
-        existingRecord["anc_somelookup"] = new EntityReference("account", Guid.NewGuid()); // different GUID
+        existingRecord["rob_somelookup"] = new EntityReference("account", Guid.NewGuid()); // different GUID
         _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
             .Returns(new EntityCollection(new List<Entity> { existingRecord }));
         _mockClient.Setup(c => c.Execute(It.IsAny<UpdateRequest>()))
@@ -400,10 +400,10 @@ public class DataPatchCommandTests
         // Assert — update called with EntityReference, not a plain GUID string
         Assert.Equal(0, result);
         _mockClient.Verify(c => c.Execute(It.Is<UpdateRequest>(r =>
-            r.Target["anc_somelookup"] != null &&
-            r.Target["anc_somelookup"].GetType() == typeof(EntityReference) &&
-            ((EntityReference)r.Target["anc_somelookup"]).LogicalName == "account" &&
-            ((EntityReference)r.Target["anc_somelookup"]).Id == targetId)),
+            r.Target["rob_somelookup"] != null &&
+            r.Target["rob_somelookup"].GetType() == typeof(EntityReference) &&
+            ((EntityReference)r.Target["rob_somelookup"]).LogicalName == "account" &&
+            ((EntityReference)r.Target["rob_somelookup"]).Id == targetId)),
             Times.Once);
     }
 
@@ -421,7 +421,7 @@ public class DataPatchCommandTests
                     Entity = "contact",
                     KeyField = "fullname",
                     Key = "Robert Tilling",
-                    ValueField = "anc_somelookup",
+                    ValueField = "rob_somelookup",
                     Value = JsonDocument.Parse($$"""{"logicalName":"account","id":"{{targetId}}"}""").RootElement,
                     Type = "lookup"
                 }
@@ -430,7 +430,7 @@ public class DataPatchCommandTests
         SetupConfigFile("config.json", config);
 
         var existingRecord = new Entity("contact", Guid.NewGuid());
-        existingRecord["anc_somelookup"] = new EntityReference("account", targetId); // same GUID
+        existingRecord["rob_somelookup"] = new EntityReference("account", targetId); // same GUID
         _mockClient.Setup(c => c.RetrieveRecordsByFetchXml(It.IsAny<string>()))
             .Returns(new EntityCollection(new List<Entity> { existingRecord }));
 

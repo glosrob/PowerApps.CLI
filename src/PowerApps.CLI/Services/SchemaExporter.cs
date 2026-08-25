@@ -10,6 +10,10 @@ namespace PowerApps.CLI.Services;
 /// </summary>
 public class SchemaExporter : ISchemaExporter
 {
+    private const string SummarySheetName = "Summary";
+    private const string AttributesSheetName = "Attributes";
+    private const string RelationshipsSheetName = "Relationships";
+
     private readonly IFileWriter _fileWriter;
 
     public SchemaExporter(IFileWriter fileWriter)
@@ -54,31 +58,30 @@ public class SchemaExporter : ISchemaExporter
     {
         using var workbook = new XLWorkbook();
 
+        // Allocate every table's sheet name up front. Names are needed twice - once to create the
+        // sheet and once for the Summary hyperlinks - and allocation is stateful, so both passes
+        // must read the same list rather than recompute it.
+        var entitySheets = BuildEntitySheetNames(schema);
+
         // Summary sheet with all entities
-        var summarySheet = workbook.Worksheets.Add("Summary");
-        CreateSummarySheet(summarySheet, schema);
+        var summarySheet = workbook.Worksheets.Add(SummarySheetName);
+        CreateSummarySheet(summarySheet, schema, entitySheets);
 
         // Create individual entity worksheets
-        if (schema.Entities != null)
+        foreach (var (entity, sheetName) in entitySheets)
         {
-            foreach (var entity in schema.Entities
-                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
-                .ThenBy(e => e.DisplayName ?? e.LogicalName))
-            {
-                var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
-                var entitySheet = workbook.Worksheets.Add(safeSheetName);
-                CreateEntitySheet(entitySheet, entity);
-            }
+            var entitySheet = workbook.Worksheets.Add(sheetName);
+            CreateEntitySheet(entitySheet, entity);
         }
 
         // Attributes sheet with all attributes from all entities
-        var attributesSheet = workbook.Worksheets.Add("Attributes");
+        var attributesSheet = workbook.Worksheets.Add(AttributesSheetName);
         CreateAttributesSheet(attributesSheet, schema);
 
         // Relationships sheet
         if (schema.Relationships?.Any() == true)
         {
-            var relationshipsSheet = workbook.Worksheets.Add("Relationships");
+            var relationshipsSheet = workbook.Worksheets.Add(RelationshipsSheetName);
             CreateRelationshipsSheet(relationshipsSheet, schema);
         }
 
@@ -87,7 +90,10 @@ public class SchemaExporter : ISchemaExporter
         await _fileWriter.WriteBytesAsync(outputPath, stream.ToArray());
     }
 
-    private static void CreateSummarySheet(IXLWorksheet sheet, PowerAppsSchema schema)
+    private static void CreateSummarySheet(
+        IXLWorksheet sheet,
+        PowerAppsSchema schema,
+        IReadOnlyList<(EntitySchema Entity, string SheetName)> entitySheets)
     {
         int currentRow = 1;
         
@@ -157,42 +163,35 @@ public class SchemaExporter : ISchemaExporter
         headerRange.Style.Fill.BackgroundColor = XLColor.DarkBlue;
 
         // Data rows
-        int lastRow = headerRow;
-        if (schema.Entities != null)
+        int row = headerRow + 1;
+        foreach (var (entity, sheetName) in entitySheets)
         {
-            int row = headerRow + 1;
-            foreach (var entity in schema.Entities
-                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
-                .ThenBy(e => e.DisplayName ?? e.LogicalName))
-            {
-                var safeSheetName = GetSafeSheetName(entity.DisplayName ?? entity.LogicalName ?? "Entity");
-                
-                // Logical Name with hyperlink to entity sheet
-                sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
-                sheet.Cell(row, 1).SetHyperlink(new XLHyperlink($"'{safeSheetName}'!A1"));
-                sheet.Cell(row, 1).Style.Font.FontColor = XLColor.Blue;
-                sheet.Cell(row, 1).Style.Font.Underline = XLFontUnderlineValues.Single;
-                
-                // Display Name with hyperlink to entity sheet
-                sheet.Cell(row, 2).Value = entity.DisplayName ?? string.Empty;
-                sheet.Cell(row, 2).SetHyperlink(new XLHyperlink($"'{safeSheetName}'!A1"));
-                sheet.Cell(row, 2).Style.Font.FontColor = XLColor.Blue;
-                sheet.Cell(row, 2).Style.Font.Underline = XLFontUnderlineValues.Single;
-                
-                sheet.Cell(row, 3).Value = entity.SchemaName ?? string.Empty;
-                sheet.Cell(row, 4).Value = entity.PrimaryIdAttribute ?? string.Empty;
-                sheet.Cell(row, 5).Value = entity.IsCustomEntity.ToString();
-                sheet.Cell(row, 6).Value = entity.IsAuditEnabled.ToString();
-                sheet.Cell(row, 7).Value = entity.FoundInSolutions != null && entity.FoundInSolutions.Any()
-                    ? string.Join(", ", entity.FoundInSolutions)
-                    : string.Empty;
-                row++;
-            }
-            lastRow = row - 1;
+            // Logical Name with hyperlink to entity sheet
+            sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
+            sheet.Cell(row, 1).SetHyperlink(new XLHyperlink($"'{sheetName}'!A1"));
+            sheet.Cell(row, 1).Style.Font.FontColor = XLColor.Blue;
+            sheet.Cell(row, 1).Style.Font.Underline = XLFontUnderlineValues.Single;
+
+            // Display Name with hyperlink to entity sheet
+            sheet.Cell(row, 2).Value = entity.DisplayName ?? string.Empty;
+            sheet.Cell(row, 2).SetHyperlink(new XLHyperlink($"'{sheetName}'!A1"));
+            sheet.Cell(row, 2).Style.Font.FontColor = XLColor.Blue;
+            sheet.Cell(row, 2).Style.Font.Underline = XLFontUnderlineValues.Single;
+
+            sheet.Cell(row, 3).Value = entity.SchemaName ?? string.Empty;
+            sheet.Cell(row, 4).Value = entity.PrimaryIdAttribute ?? string.Empty;
+            sheet.Cell(row, 5).Value = entity.IsCustomEntity.ToString();
+            sheet.Cell(row, 6).Value = entity.IsAuditEnabled.ToString();
+            sheet.Cell(row, 7).Value = entity.FoundInSolutions != null && entity.FoundInSolutions.Any()
+                ? string.Join(", ", entity.FoundInSolutions)
+                : string.Empty;
+            row++;
         }
 
+        var lastRow = row - 1;
+
         // Convert to Excel table
-        if (schema.Entities != null && schema.Entities.Any())
+        if (entitySheets.Count > 0)
         {
             var tableRange = sheet.Range(headerRow, 1, lastRow, 7);
             var table = tableRange.CreateTable("EntitiesTable");
@@ -325,21 +324,32 @@ public class SchemaExporter : ISchemaExporter
         sheet.Columns().AdjustToContents();
     }
 
-    private static string GetSafeSheetName(string name)
+    /// <summary>
+    /// Pairs each table with the worksheet name it will be written to, in sheet order.
+    /// </summary>
+    /// <remarks>
+    /// Worksheet names are capped at 31 characters, so tables whose names share a long prefix -
+    /// N:N intersect tables in particular - can truncate to the same name. The allocator
+    /// disambiguates those, and reserving the fixed sheet names first stops a table called
+    /// "Summary" or "Attributes" from colliding with them.
+    /// </remarks>
+    private static List<(EntitySchema Entity, string SheetName)> BuildEntitySheetNames(PowerAppsSchema schema)
     {
-        // Excel sheet names must be <= 31 characters and cannot contain: \ / ? * [ ]
-        var safeName = name;
-        foreach (var c in new[] { '\\', '/', '?', '*', '[', ']' })
+        var allocator = new WorksheetNameAllocator();
+        allocator.Reserve(SummarySheetName);
+        allocator.Reserve(AttributesSheetName);
+        allocator.Reserve(RelationshipsSheetName);
+
+        if (schema.Entities == null)
         {
-            safeName = safeName.Replace(c, '_');
+            return new List<(EntitySchema, string)>();
         }
-        
-        if (safeName.Length > 31)
-        {
-            safeName = safeName.Substring(0, 31);
-        }
-        
-        return safeName;
+
+        return schema.Entities
+            .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+            .ThenBy(e => e.DisplayName ?? e.LogicalName)
+            .Select(e => (Entity: e, SheetName: allocator.Allocate(e.DisplayName ?? e.LogicalName ?? "Entity")))
+            .ToList();
     }
 
     private static string GetSafeTableName(string name)
