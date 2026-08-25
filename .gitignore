@@ -111,4 +111,6 @@ tests/scripts/manual/*/output/
 **/migration-report*.xlsx
 **/process-report*.xlsx
 **/data-patch-report*.xlsx
+**/solution-layers*.xlsx
+**/powerapp-schema*.xlsx
 temp-schema.json
