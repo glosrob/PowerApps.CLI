@@ -635,4 +635,96 @@ public class CodeTemplateGeneratorTests
         Assert.DoesNotContain("public const string PrimaryNameAttribute = \"sample_primarynameattribute\";", result);
         Assert.Contains("public const string PrimaryNameAttribute_ = \"sample_primarynameattribute\";", result);
     }
+
+    [Fact]
+    public void GenerateEntityClass_GenerateInternal_EmitsInternalTopLevelClassOnly()
+    {
+        // Arrange — nested option classes and constants stay public; the outer class limits their accessibility
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter, generateInternal: true);
+        var entity = new EntitySchema
+        {
+            LogicalName = "contact",
+            DisplayName = "Contact",
+            Attributes = new List<AttributeSchema>
+            {
+                new AttributeSchema
+                {
+                    LogicalName = "statecode",
+                    DisplayName = "State Code",
+                    AttributeType = "State",
+                    OptionSet = new OptionSetSchema
+                    {
+                        IsGlobal = false,
+                        Options = new List<OptionSchema> { new OptionSchema { Value = 0, Label = "Active" } }
+                    }
+                }
+            }
+        };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert
+        Assert.Contains("    internal static class Contact", result);
+        Assert.DoesNotContain("public static class Contact", result);
+        Assert.Contains("public static class StateCodeOptions", result);
+        Assert.Contains("public const string EntityLogicalName = \"contact\";", result);
+    }
+
+    [Fact]
+    public void GenerateGlobalOptionSetClass_GenerateInternal_EmitsInternalClass()
+    {
+        // Arrange
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter, generateInternal: true);
+        var optionSet = new OptionSetSchema
+        {
+            Name = "rob_priority",
+            IsGlobal = true,
+            Options = new List<OptionSchema> { new OptionSchema { Value = 1, Label = "High" } }
+        };
+
+        // Act
+        var result = generator.GenerateGlobalOptionSetClass(optionSet, "MyCompany.Constants");
+
+        // Assert
+        Assert.Contains("internal static class RobPriority", result);
+        Assert.DoesNotContain("public static class", result);
+        Assert.Contains("public const int High = 1;", result);
+    }
+
+    [Fact]
+    public void GenerateSingleFile_GenerateInternal_PreservesInternalClasses()
+    {
+        // Arrange
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter, generateInternal: true);
+        var class1 = generator.GenerateEntityClass(new EntitySchema { LogicalName = "account", DisplayName = "Account" }, "MyCompany.Constants");
+        var class2 = generator.GenerateEntityClass(new EntitySchema { LogicalName = "contact", DisplayName = "Contact" }, "MyCompany.Constants");
+
+        // Act
+        var result = generator.GenerateSingleFile("MyCompany.Constants", new[] { class1, class2 });
+
+        // Assert
+        Assert.Contains("internal static class Account", result);
+        Assert.Contains("internal static class Contact", result);
+        Assert.DoesNotContain("public static class", result);
+    }
+
+    [Fact]
+    public void GenerateEntityClass_DefaultAccessibility_EmitsPublicClass()
+    {
+        // Arrange — omitting generateInternal must leave existing output unchanged
+        var formatter = new IdentifierFormatter();
+        var generator = new CodeTemplateGenerator(includeComments: false, includeRelationships: false, formatter);
+        var entity = new EntitySchema { LogicalName = "contact", DisplayName = "Contact" };
+
+        // Act
+        var result = generator.GenerateEntityClass(entity, "MyCompany.Constants");
+
+        // Assert
+        Assert.Contains("public static class Contact", result);
+        Assert.DoesNotContain("internal", result);
+    }
 }

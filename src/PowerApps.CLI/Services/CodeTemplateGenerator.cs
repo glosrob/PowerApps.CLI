@@ -11,12 +11,16 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
     private readonly bool _includeComments;
     private readonly bool _includeRelationships;
     private readonly IIdentifierFormatter _formatter;
+    private readonly string _classAccessModifier;
 
-    public CodeTemplateGenerator(bool includeComments, bool includeRelationships, IIdentifierFormatter formatter)
+    public CodeTemplateGenerator(bool includeComments, bool includeRelationships, IIdentifierFormatter formatter, bool generateInternal = false)
     {
         _includeComments = includeComments;
         _includeRelationships = includeRelationships;
         _formatter = formatter;
+        // Only top-level classes take the modifier — nested classes and constants stay public and are
+        // already limited by the outer class's accessibility.
+        _classAccessModifier = generateInternal ? "internal" : "public";
     }
 
     /// <summary>
@@ -33,7 +37,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
 
         // Class declaration
         AppendComment(sb, 4, $"Constants for the {entity.DisplayName ?? entity.LogicalName} entity.");
-        sb.AppendLine($"    public static class {className}");
+        sb.AppendLine($"    {_classAccessModifier} static class {className}");
         sb.AppendLine("    {");
 
         // Entity metadata constants
@@ -93,7 +97,7 @@ public class CodeTemplateGenerator : ICodeTemplateGenerator
         sb.AppendLine("{");
 
         AppendComment(sb, 4, $"Global option set: {optionSet.Name ?? "Unknown"}");
-        sb.AppendLine($"    public static class {className}");
+        sb.AppendLine($"    {_classAccessModifier} static class {className}");
         sb.AppendLine("    {");
 
         var usedOptionNames = new HashSet<string> { className };

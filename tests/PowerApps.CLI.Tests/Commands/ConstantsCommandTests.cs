@@ -272,4 +272,21 @@ public class ConstantsCommandTests
 
         Assert.Equal(expected, result);
     }
+
+    [Theory]
+    [InlineData(null, true, true)]
+    [InlineData(null, false, false)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    public void ResolveInternal_ConfigTakesPrecedenceOverCliFlag(
+        bool? configInternal, bool cliInternalFlag, bool expected)
+    {
+        var config = configInternal.HasValue
+            ? new ConstantsConfig { Internal = configInternal.Value }
+            : null;
+
+        var result = ConstantsCommand.ResolveInternal(config, cliInternalFlag);
+
+        Assert.Equal(expected, result);
+    }
 }

@@ -13,6 +13,7 @@ public class ConstantsConfig
     public bool IncludeRelationships { get; set; } = true;
     public bool PascalCaseConversion { get; set; } = true;
     public bool SkipVirtualFields { get; set; } = false;
+    public bool Internal { get; set; }
     public string? AttributePrefix { get; set; }
     public List<string> ExcludeAttributes { get; set; } = new();
     public List<string> ExcludeEntities { get; set; } = new();
