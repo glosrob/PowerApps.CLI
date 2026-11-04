@@ -178,7 +178,7 @@ public class ConstantsCommand
         var singleFileOption = new Option<bool>(
             aliases: new[] { "--single-file" },
             getDefaultValue: () => false,
-            description: "Generate single files (Entities.cs, OptionSets.cs) instead of multiple files");
+            description: "Generate single files (Tables.cs, Choices.cs) instead of multiple files");
 
         var configOption = new Option<string?>(
             aliases: new[] { "--config", "-c" },
