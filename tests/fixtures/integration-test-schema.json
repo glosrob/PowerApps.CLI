@@ -1,5 +1,5 @@
 {
-  "ExtractedDate": "2026-06-20T10:33:10.3664524Z",
+  "ExtractedDate": "2026-11-04T20:03:23.395618Z",
   "EnvironmentUrl": "https://xrtsoft-dev.api.crm11.dynamics.com/XRMServices/2011/Organization.svc",
   "OrganisationName": "XRTSoft - Dev",
   "SolutionNames": [
@@ -660,6 +660,40 @@
           "RequiredLevel": "ApplicationRequired",
           "MaxLength": 850,
           "Format": "Text"
+        },
+        {
+          "LogicalName": "xrt_parent",
+          "SchemaName": "xrt_Parent",
+          "DisplayName": "Parent",
+          "Description": "",
+          "AttributeType": "Lookup",
+          "IsCustomAttribute": true,
+          "IsPrimaryId": false,
+          "IsPrimaryName": false,
+          "IsAuditEnabled": false,
+          "IsValidForCreate": true,
+          "IsValidForUpdate": true,
+          "IsValidForRead": true,
+          "RequiredLevel": "None",
+          "Targets": [
+            "xrt_integrationothertest"
+          ]
+        },
+        {
+          "LogicalName": "xrt_parentname",
+          "SchemaName": "xrt_ParentName",
+          "AttributeType": "String",
+          "IsCustomAttribute": true,
+          "IsPrimaryId": false,
+          "IsPrimaryName": false,
+          "IsAuditEnabled": true,
+          "IsValidForCreate": false,
+          "IsValidForUpdate": false,
+          "IsValidForRead": true,
+          "RequiredLevel": "None",
+          "MaxLength": 850,
+          "Format": "Text",
+          "AttributeOf": "xrt_parent"
         }
       ]
     },
@@ -1565,7 +1599,7 @@
           "SchemaName": "xrt_ImageField",
           "DisplayName": "Image Field",
           "Description": "",
-          "AttributeType": "Virtual",
+          "AttributeType": "Image",
           "IsCustomAttribute": true,
           "IsPrimaryId": false,
           "IsPrimaryName": false,
@@ -1845,6 +1879,15 @@
       "IsCustomRelationship": true
     },
     {
+      "SchemaName": "xrt_integrationothertest_Parent_xrt_integrationothertest",
+      "RelationshipType": "OneToMany",
+      "ReferencingEntity": "xrt_integrationothertest",
+      "ReferencingAttribute": "xrt_parent",
+      "ReferencedEntity": "xrt_integrationothertest",
+      "ReferencedAttribute": "xrt_integrationothertestid",
+      "IsCustomRelationship": true
+    },
+    {
       "SchemaName": "xrt_integrationothertest_SyncErrors",
       "RelationshipType": "OneToMany",
       "ReferencingEntity": "syncerror",
@@ -1906,6 +1949,15 @@
       "ReferencedEntity": "xrt_integrationothertest",
       "ReferencedAttribute": "xrt_integrationothertestid",
       "IsCustomRelationship": false
+    },
+    {
+      "SchemaName": "xrtlt_layertest_Lookup_xrt_integrationothertest",
+      "RelationshipType": "OneToMany",
+      "ReferencingEntity": "xrtlt_layertest",
+      "ReferencingAttribute": "xrtlt_lookup",
+      "ReferencedEntity": "xrt_integrationothertest",
+      "ReferencedAttribute": "xrt_integrationothertestid",
+      "IsCustomRelationship": true
     },
     {
       "SchemaName": "xrt_integrationtest_DeletedItemReferences",

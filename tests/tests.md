@@ -132,3 +132,17 @@ A separate, minimal solution used exclusively by the `solution-layers` integrati
 The assembly must be registered in the environment via the Plugin Registration Tool. Two plugin steps must be added to the test solution and left **disabled** by default.
 
 > No-op stub used only to exercise the plugin step activation path in `process-manage`. No production use.
+
+---
+
+### `refdata-migrate` Tests
+
+`refdata-migrate` needs a source and a target environment, but the integration setup has only one. The tests use the integration environment as the **target**. An in-memory `InMemorySourceClient` ([`Infrastructure/InMemorySourceClient.cs`](PowerApps.CLI.IntegrationTests/Infrastructure/InMemorySourceClient.cs)) stands in for the **source** and serves records built in each test. Like Dataverse, it drops null attributes, so cleared values are absent from source records rather than explicitly null.
+
+**Table:** `xrt_integrationothertest`. It's used because no workflows, business rules or plugin steps are registered on it, so the tests don't depend on the process states that the `process-manage` tests leave behind.
+
+**Prerequisites:**
+- `xrt_parent`: a self-referencing lookup column on `xrt_integrationothertest`.
+- An `xrt_integrationothertest` record named `Data Patch Test` (shared with the `data-patch` tests), which is used as the lookup value.
+
+Each test creates its own records with fixed IDs and an `RefDataMigrate-IT-` name prefix, and deletes them in teardown. Leftovers from an interrupted run are also deleted at the start of the next one.
