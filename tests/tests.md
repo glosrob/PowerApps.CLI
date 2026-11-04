@@ -41,8 +41,34 @@ tests/scripts/
     │   └── sample-config.json
     ├── refdata-migrate/
     │   └── sample-config.json
-    └── solution-layers/
+    └── schema-export/               # Git-ignored in full (see note below)
 ```
+
+Per-command fixtures and scripts live under `manual/` only. There is no second copy at
+the root of `tests/scripts/` - the root holds just the shared helpers listed above.
+
+### What is committed and what is not
+
+The `.gitignore` rules for this folder are scoped to `tests/scripts/manual/*`:
+
+| Pattern | Effect |
+|---|---|
+| `sample-config.json` | Committed - the template other people copy |
+| `*config.json` (any other name) | Ignored - assumed to hold real environment details |
+| `test.ps1` | Committed - the shared, reusable script for a command |
+| `test-*.ps1` | Ignored - your throwaway variants |
+| `output/` | Ignored - anything a command writes during a manual run |
+
+`manual/schema-export/` is ignored **in full**, so nothing in it can be committed - not
+even `test.ps1`. This predates the `manual/` layout and is deliberate rather than
+oversight, but it does make schema-export the one command whose manual script cannot be
+shared.
+
+> **Never commit a command's output report.** Reports carry the environment URL and real
+> solution and component names from whichever environment produced them, and this
+> repository is public. Default report filenames are git-ignored (`**/solution-layers*.xlsx`
+> and friends); write manual-run output to a `manual/<command>/output/` folder, which is
+> ignored wholesale.
 
 ### Setup
 
