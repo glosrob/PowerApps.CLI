@@ -597,8 +597,8 @@ Extracts metadata schema from PowerApps/Dataverse environments.
 | `--client-id` | Azure AD Application Client ID | No | - |
 | `--client-secret` | Azure AD Application Client Secret | No | - |
 | `-v, --verbose` | Enable verbose output | No | `false` |
-| `--attribute-prefix` | Only include attributes with this prefix | No | - |
-| `--exclude-attributes` | Comma-separated attribute names to exclude | No | - |
+| `--attribute-prefix, --attr-prefix` | Only include attributes with this prefix | No | - |
+| `--exclude-attributes, --exclude-attrs` | Comma-separated attribute names to exclude | No | - |
 
 \* Either `--url` or `--connection-string` must be provided.
 
@@ -615,15 +615,15 @@ Generates C# constants from Dataverse metadata.
 | `-u, --url` | PowerApps environment URL | Yes* | - |
 | `-s, --solution` | Solution unique name(s) to filter by | No | All entities |
 | `-o, --output` | Output directory path | No | `./Generated` |
-| `-n, --namespace` | Root namespace for generated code | Yes | - |
+| `-n, --namespace` | Root namespace for generated code | No | `MyCompany.Constants` |
 | `--single-file` | Generate single Tables.cs and Choices.cs files | No | `false` |
-| `--config` | Path to JSON configuration file | No | - |
-| `-c, --connection-string` | Dataverse connection string | No | - |
+| `-c, --config` | Path to JSON configuration file | No | - |
+| `--connection-string` | Dataverse connection string | No | - |
 | `--client-id` | Azure AD Application Client ID | No | - |
 | `--client-secret` | Azure AD Application Client Secret | No | - |
 | `-v, --verbose` | Enable verbose output | No | `false` |
 | `--include-entities` | Include entity constants (Tables) | No | `true` |
-| `--include-optionsets` | Include option set constants (Choices) | No | `true` |
+| `--include-option-sets` | Include option set constants (Choices) | No | `true` |
 | `--exclude-entities` | Comma-separated entity logical names to exclude | No | - |
 | `--exclude-attributes` | Comma-separated attribute logical names to exclude | No | - |
 | `--attribute-prefix` | Only include attributes with this prefix | No | - |
@@ -695,6 +695,27 @@ Manages Dataverse process states (workflows, cloud flows, business rules, action
 | `-v, --verbose` | Enable verbose output | No | `false` |
 
 \* Either `--url` or `--connection-string` must be provided.
+
+### data-patch
+
+Applies targeted field-level updates to Dataverse records.
+
+#### Options
+
+| Option | Description | Required | Default |
+|--------|-------------|----------|---------|
+| `--config` | Path to JSON configuration file | Yes† | - |
+| `--config-json` | Inline JSON configuration (e.g. retrieved from Key Vault in a pipeline) | Yes† | - |
+| `--url` | Environment URL | Yes* | - |
+| `--connection-string` | Environment connection string | No | - |
+| `--client-id` | Azure AD Application Client ID | No | - |
+| `--client-secret` | Azure AD Application Client Secret | No | - |
+| `-o, --output` | Output Excel report file path | No | `data-patch-report.xlsx` |
+| `-v, --verbose` | Enable verbose output | No | `false` |
+
+\* Either `--url` or `--connection-string` must be provided.
+
+† Either `--config` or `--config-json` must be provided.
 
 ### solution-layers
 

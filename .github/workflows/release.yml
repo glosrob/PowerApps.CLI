@@ -82,30 +82,42 @@ jobs:
         $version = "v${{ steps.version.outputs.VERSION }}"
         $notes = @"
         ## PowerApps.CLI $version
-        
+
         ### Installation
 
         #### Option 1: .NET Tool (recommended for CI/CD pipelines)
+        Requires the .NET 8 runtime.
         ``````powershell
+        # New install
         dotnet tool install --global XRT.PowerApps.CLI --version ${{ steps.version.outputs.VERSION }}
+
+        # Upgrade an existing install
+        dotnet tool update --global XRT.PowerApps.CLI --version ${{ steps.version.outputs.VERSION }}
         ``````
 
         #### Option 2: Self-Contained Executable
         Download ``powerapps-cli-win-x64-v${{ steps.version.outputs.VERSION }}.zip`` and extract.
 
-        This is a **self-contained single-file executable** (~40 MB):
-        - ✅ No .NET Runtime required
-        - ✅ No dependencies
+        This is a **self-contained single-file executable** (~37 MB):
+        - ✅ No .NET runtime or other dependencies required
         - ✅ Just extract and run ``powerapps-cli.exe``
         - ✅ Works on any Windows x64 machine
-        
+
+        ### Commands
+        | Command | Purpose |
+        |---|---|
+        | ``schema-export`` | Export table, column and relationship metadata to JSON or XLSX |
+        | ``constants-generate`` | Generate strongly-typed C# constants from Dataverse metadata |
+        | ``refdata-compare`` | Compare reference data between source and target environments |
+        | ``refdata-migrate`` | Migrate reference data from source to target environment |
+        | ``process-manage`` | Activate/deactivate workflows, cloud flows, business rules and plugin steps |
+        | ``data-patch`` | Apply targeted field-level updates to Dataverse records |
+        | ``solution-layers`` | Report unmanaged layers on a solution's components post-deployment |
+
         ### Usage
         ``````powershell
         powerapps-cli --help
-        powerapps-cli schema-export --help
-        powerapps-cli constants-generate --help
-        powerapps-cli refdata-compare --help
-        powerapps-cli process-manage --help
+        powerapps-cli <command> --help
         ``````
         "@
         
