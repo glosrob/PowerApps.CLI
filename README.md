@@ -189,6 +189,7 @@ Example configuration file:
   "IncludeComments": true,
   "IncludeRelationships": true,
   "PascalCaseConversion": true,
+  "Internal": false,
   "AttributePrefix": "rob_",
   "ExcludeAttributes": ["createdon", "modifiedon", "createdby", "modifiedby"],
   "ExcludeEntities": ["systemuser", "team"]
@@ -627,6 +628,7 @@ Generates C# constants from Dataverse metadata.
 | `--skip-virtual-fields` | Exclude virtual fields from generated constants | No | `false` |
 | `--include-comments` | Include XML doc comments on generated constants | No | `true` |
 | `--include-relationships` | Include relationship metadata in generated constants | No | `true` |
+| `--internal` | Generate classes as `internal` instead of `public` | No | `false` |
 
 \* Either `--url` or `--connection-string` must be provided.
 
@@ -814,6 +816,12 @@ Generates two files:
 - `Choices.cs` - All global option set constants in one file
 
 Namespaces match Multiple Files Mode (`{Namespace}.Tables` / `{Namespace}.Choices`), so switching `--single-file` on or off doesn't require updating any code that references the generated constants.
+
+#### Internal Classes
+
+By default, generated classes are `public`. Pass `--internal` (or set `"Internal": true` in the config file) to generate them as `internal` instead.
+
+This is useful when the constants live in a shared project that several assemblies compile in, for example a Workflow library and a Plugin library. With `public` classes, a test project that references both assemblies fails with CS0433 because each one exports the same types. With `internal` classes, each assembly keeps its copy to itself. Any project that needs the constants, such as the test project, can reference the shared project directly to get its own copy.
 
 ## Architecture
 

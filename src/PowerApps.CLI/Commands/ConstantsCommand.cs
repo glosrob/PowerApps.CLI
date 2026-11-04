@@ -242,6 +242,11 @@ public class ConstantsCommand
             getDefaultValue: () => true,
             description: "Include relationship metadata in generated constants");
 
+        var internalOption = new Option<bool>(
+            aliases: new[] { "--internal" },
+            getDefaultValue: () => false,
+            description: "Generate classes as internal instead of public — useful when constants live in a shared project consumed by multiple assemblies");
+
         constantsGenerateCommand.AddOption(urlOption);
         constantsGenerateCommand.AddOption(solutionOption);
         constantsGenerateCommand.AddOption(outputOption);
@@ -261,6 +266,7 @@ public class ConstantsCommand
         constantsGenerateCommand.AddOption(skipVirtualFieldsOption);
         constantsGenerateCommand.AddOption(includeCommentsOption);
         constantsGenerateCommand.AddOption(includeRelationshipsOption);
+        constantsGenerateCommand.AddOption(internalOption);
 
         constantsGenerateCommand.SetHandler(async (context) =>
         {
@@ -283,6 +289,7 @@ public class ConstantsCommand
             var skipVirtualFields = context.ParseResult.GetValueForOption(skipVirtualFieldsOption);
             var includeComments = context.ParseResult.GetValueForOption(includeCommentsOption);
             var includeRelationships = context.ParseResult.GetValueForOption(includeRelationshipsOption);
+            var generateInternal = context.ParseResult.GetValueForOption(internalOption);
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
 
@@ -307,7 +314,8 @@ public class ConstantsCommand
             var templateGenerator = new CodeTemplateGenerator(
                 ResolveIncludeComments(config, includeComments),
                 ResolveIncludeRelationships(config, includeRelationships),
-                identifierFormatter);
+                identifierFormatter,
+                ResolveInternal(config, generateInternal));
             var constantsFilter = new ConstantsFilter();
             var constantsGenerator = new ConstantsGenerator(templateGenerator, constantsFilter, fileWriter, identifierFormatter);
 
@@ -354,6 +362,15 @@ public class ConstantsCommand
     internal static bool ResolveIncludeRelationships(ConstantsConfig? config, bool cliIncludeRelationshipsFlag)
     {
         return config?.IncludeRelationships ?? cliIncludeRelationshipsFlag;
+    }
+
+    /// <summary>
+    /// Resolves the effective Internal setting: a loaded config file takes precedence over the
+    /// --internal CLI flag.
+    /// </summary>
+    internal static bool ResolveInternal(ConstantsConfig? config, bool cliInternalFlag)
+    {
+        return config?.Internal ?? cliInternalFlag;
     }
 
     private static async Task<ConstantsConfig?> LoadConfigAsync(string configPath, IConsoleLogger logger)
