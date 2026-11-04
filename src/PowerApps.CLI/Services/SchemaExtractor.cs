@@ -64,7 +64,33 @@ public class SchemaExtractor : ISchemaExtractor
         var relationships = await RetrieveRelationshipsAsync(entityLogicalNames.Keys.ToList());
         schema.Relationships = relationships;
 
+        SortForDeterministicOutput(schema);
         return schema;
+    }
+
+    /// <summary>
+    /// Dataverse doesn't guarantee metadata ordering, and solution component order differs between
+    /// environments, so sort everything into a stable order before it reaches any exporter. Choice
+    /// options are deliberately left in metadata order - that's the maker-defined display order.
+    /// </summary>
+    private static void SortForDeterministicOutput(PowerAppsSchema schema)
+    {
+        var comparer = StringComparer.OrdinalIgnoreCase;
+
+        schema.Entities = schema.Entities.OrderBy(e => e.LogicalName, comparer).ToList();
+        foreach (var entity in schema.Entities)
+        {
+            entity.Attributes = entity.Attributes.OrderBy(a => a.LogicalName, comparer).ToList();
+            foreach (var attribute in entity.Attributes)
+            {
+                if (attribute.Targets is { Length: > 1 })
+                {
+                    attribute.Targets = attribute.Targets.OrderBy(t => t, comparer).ToArray();
+                }
+            }
+        }
+
+        schema.Relationships = schema.Relationships.OrderBy(r => r.SchemaName, comparer).ToList();
     }
 
     private List<string> ParseSolutionNames(string? solutionNames)

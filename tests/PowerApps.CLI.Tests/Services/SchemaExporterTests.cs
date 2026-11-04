@@ -274,6 +274,38 @@ public class SchemaExporterTests : IDisposable
 
     #region Helper Methods
 
+    [Fact]
+    public async Task ExportAsync_ToXlsx_AttributesWithSameDisplayName_TieBreakOnLogicalNameAsync()
+    {
+        // Arrange - same display name, supplied in reverse logical-name order
+        var schema = new PowerAppsSchema
+        {
+            Entities = new List<EntitySchema>
+            {
+                new()
+                {
+                    LogicalName = "rob_table",
+                    DisplayName = "Table",
+                    Attributes = new List<AttributeSchema>
+                    {
+                        new() { LogicalName = "rob_zname", DisplayName = "Name", AttributeType = "String" },
+                        new() { LogicalName = "rob_aname", DisplayName = "Name", AttributeType = "String" }
+                    }
+                }
+            }
+        };
+        var outputPath = Path.Combine(_tempDirectory, "test-schema-tiebreak.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert - Attributes sheet column 2 is the column logical name
+        using var workbook = new XLWorkbook(outputPath);
+        var attributesSheet = workbook.Worksheet("Attributes");
+        Assert.Equal("rob_aname", attributesSheet.Cell(2, 2).GetString());
+        Assert.Equal("rob_zname", attributesSheet.Cell(3, 2).GetString());
+    }
+
     private static PowerAppsSchema CreateTestSchema()
     {
         return new PowerAppsSchema
