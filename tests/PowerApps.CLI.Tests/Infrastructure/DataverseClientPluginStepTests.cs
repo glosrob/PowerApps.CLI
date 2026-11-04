@@ -1,5 +1,6 @@
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Query;
 using Moq;
 using PowerApps.CLI.Infrastructure;
@@ -84,13 +85,13 @@ public class DataverseClientPluginStepTests
     #region EnablePluginStep Tests
 
     [Fact]
-    public void EnablePluginStep_SendsSetStateRequestWithCorrectValues()
+    public void EnablePluginStep_SendsUpdateRequestWithStateAndStatus()
     {
         // Arrange
         var stepId = Guid.NewGuid();
-        SetStateRequest? capturedRequest = null;
+        UpdateRequest? capturedRequest = null;
         _mockOrgService.Setup(s => s.Execute(It.IsAny<OrganizationRequest>()))
-            .Callback<OrganizationRequest>(req => capturedRequest = req as SetStateRequest)
+            .Callback<OrganizationRequest>(req => capturedRequest = req as UpdateRequest)
             .Returns(new OrganizationResponse());
 
         // Act
@@ -98,10 +99,10 @@ public class DataverseClientPluginStepTests
 
         // Assert
         Assert.NotNull(capturedRequest);
-        Assert.Equal("sdkmessageprocessingstep", capturedRequest!.EntityMoniker.LogicalName);
-        Assert.Equal(stepId, capturedRequest.EntityMoniker.Id);
-        Assert.Equal(0, capturedRequest.State.Value);
-        Assert.Equal(1, capturedRequest.Status.Value);
+        Assert.Equal("sdkmessageprocessingstep", capturedRequest!.Target.LogicalName);
+        Assert.Equal(stepId, capturedRequest.Target.Id);
+        Assert.Equal(0, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statecode").Value);
+        Assert.Equal(1, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statuscode").Value);
     }
 
     #endregion
@@ -109,13 +110,13 @@ public class DataverseClientPluginStepTests
     #region DisablePluginStep Tests
 
     [Fact]
-    public void DisablePluginStep_SendsSetStateRequestWithCorrectValues()
+    public void DisablePluginStep_SendsUpdateRequestWithStateAndStatus()
     {
         // Arrange
         var stepId = Guid.NewGuid();
-        SetStateRequest? capturedRequest = null;
+        UpdateRequest? capturedRequest = null;
         _mockOrgService.Setup(s => s.Execute(It.IsAny<OrganizationRequest>()))
-            .Callback<OrganizationRequest>(req => capturedRequest = req as SetStateRequest)
+            .Callback<OrganizationRequest>(req => capturedRequest = req as UpdateRequest)
             .Returns(new OrganizationResponse());
 
         // Act
@@ -123,10 +124,10 @@ public class DataverseClientPluginStepTests
 
         // Assert
         Assert.NotNull(capturedRequest);
-        Assert.Equal("sdkmessageprocessingstep", capturedRequest!.EntityMoniker.LogicalName);
-        Assert.Equal(stepId, capturedRequest.EntityMoniker.Id);
-        Assert.Equal(1, capturedRequest.State.Value);
-        Assert.Equal(2, capturedRequest.Status.Value);
+        Assert.Equal("sdkmessageprocessingstep", capturedRequest!.Target.LogicalName);
+        Assert.Equal(stepId, capturedRequest.Target.Id);
+        Assert.Equal(1, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statecode").Value);
+        Assert.Equal(2, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statuscode").Value);
     }
 
     #endregion

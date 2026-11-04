@@ -365,24 +365,12 @@ public class DataverseClient : IDataverseClient, IDisposable
 
     public void ActivateProcess(Guid processId)
     {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(DataverseConstants.WorkflowStateActive),
-            Status = new OptionSetValue(DataverseConstants.WorkflowStatusActivated)
-        };
-        _orgService.Execute(request);
+        SetStateViaUpdate("workflow", processId, DataverseConstants.WorkflowStateActive, DataverseConstants.WorkflowStatusActivated);
     }
 
     public void DeactivateProcess(Guid processId)
     {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("workflow", processId),
-            State = new OptionSetValue(DataverseConstants.WorkflowStateInactive),
-            Status = new OptionSetValue(DataverseConstants.WorkflowStatusDraft)
-        };
-        _orgService.Execute(request);
+        SetStateViaUpdate("workflow", processId, DataverseConstants.WorkflowStateInactive, DataverseConstants.WorkflowStatusDraft);
     }
 
     public EntityCollection RetrieveDuplicateRules(List<string> solutions)
@@ -415,13 +403,7 @@ public class DataverseClient : IDataverseClient, IDisposable
 
     public void DeactivateDuplicateRule(Guid ruleId)
     {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("duplicaterule", ruleId),
-            State = new OptionSetValue(DataverseConstants.DuplicateRuleStateInactive),
-            Status = new OptionSetValue(DataverseConstants.DuplicateRuleStatusUnpublished)
-        };
-        _orgService.Execute(request);
+        SetStateViaUpdate("duplicaterule", ruleId, DataverseConstants.DuplicateRuleStateInactive, DataverseConstants.DuplicateRuleStatusUnpublished);
     }
 
     public EntityCollection RetrievePluginSteps(List<string> solutions)
@@ -445,24 +427,29 @@ public class DataverseClient : IDataverseClient, IDisposable
 
     public void EnablePluginStep(Guid stepId)
     {
-        var request = new SetStateRequest
-        {
-            EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
-            State = new OptionSetValue(DataverseConstants.PluginStepStateEnabled),
-            Status = new OptionSetValue(DataverseConstants.PluginStepStatusEnabled)
-        };
-        _orgService.Execute(request);
+        SetStateViaUpdate("sdkmessageprocessingstep", stepId, DataverseConstants.PluginStepStateEnabled, DataverseConstants.PluginStepStatusEnabled);
     }
 
     public void DisablePluginStep(Guid stepId)
     {
-        var request = new SetStateRequest
+        SetStateViaUpdate("sdkmessageprocessingstep", stepId, DataverseConstants.PluginStepStateDisabled, DataverseConstants.PluginStepStatusDisabled);
+    }
+
+    /// <summary>
+    /// Changes a record's state with an Update carrying statecode + statuscode, replacing the deprecated
+    /// SetStateRequest. Both are sent together because a statuscode belonging to a different state is
+    /// rejected on its own.
+    /// </summary>
+    private void SetStateViaUpdate(string entityName, Guid id, int stateCode, int statusCode)
+    {
+        _orgService.Execute(new UpdateRequest
         {
-            EntityMoniker = new EntityReference("sdkmessageprocessingstep", stepId),
-            State = new OptionSetValue(DataverseConstants.PluginStepStateDisabled),
-            Status = new OptionSetValue(DataverseConstants.PluginStepStatusDisabled)
-        };
-        _orgService.Execute(request);
+            Target = new Entity(entityName, id)
+            {
+                ["statecode"] = new OptionSetValue(stateCode),
+                ["statuscode"] = new OptionSetValue(statusCode)
+            }
+        });
     }
 
     public EntityCollection RetrieveRecordsByFetchXml(string fetchXml)

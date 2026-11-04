@@ -1,5 +1,6 @@
 using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Query;
 using Moq;
 using PowerApps.CLI.Infrastructure;
@@ -86,13 +87,13 @@ public class DataverseClientProcessTests
     #region ActivateProcess / DeactivateProcess Tests
 
     [Fact]
-    public void ActivateProcess_SendsSetStateRequestWithCorrectValues()
+    public void ActivateProcess_SendsUpdateRequestWithStateAndStatus()
     {
         // Arrange
         var processId = Guid.NewGuid();
-        SetStateRequest? capturedRequest = null;
+        UpdateRequest? capturedRequest = null;
         _mockOrgService.Setup(s => s.Execute(It.IsAny<OrganizationRequest>()))
-            .Callback<OrganizationRequest>(req => capturedRequest = req as SetStateRequest)
+            .Callback<OrganizationRequest>(req => capturedRequest = req as UpdateRequest)
             .Returns(new OrganizationResponse());
 
         // Act
@@ -100,20 +101,20 @@ public class DataverseClientProcessTests
 
         // Assert
         Assert.NotNull(capturedRequest);
-        Assert.Equal("workflow", capturedRequest!.EntityMoniker.LogicalName);
-        Assert.Equal(processId, capturedRequest.EntityMoniker.Id);
-        Assert.Equal(1, capturedRequest.State.Value);  // Active
-        Assert.Equal(2, capturedRequest.Status.Value); // Activated
+        Assert.Equal("workflow", capturedRequest!.Target.LogicalName);
+        Assert.Equal(processId, capturedRequest.Target.Id);
+        Assert.Equal(1, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statecode").Value);  // Active
+        Assert.Equal(2, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statuscode").Value); // Activated
     }
 
     [Fact]
-    public void DeactivateProcess_SendsSetStateRequestWithCorrectValues()
+    public void DeactivateProcess_SendsUpdateRequestWithStateAndStatus()
     {
         // Arrange
         var processId = Guid.NewGuid();
-        SetStateRequest? capturedRequest = null;
+        UpdateRequest? capturedRequest = null;
         _mockOrgService.Setup(s => s.Execute(It.IsAny<OrganizationRequest>()))
-            .Callback<OrganizationRequest>(req => capturedRequest = req as SetStateRequest)
+            .Callback<OrganizationRequest>(req => capturedRequest = req as UpdateRequest)
             .Returns(new OrganizationResponse());
 
         // Act
@@ -121,10 +122,10 @@ public class DataverseClientProcessTests
 
         // Assert
         Assert.NotNull(capturedRequest);
-        Assert.Equal("workflow", capturedRequest!.EntityMoniker.LogicalName);
-        Assert.Equal(processId, capturedRequest.EntityMoniker.Id);
-        Assert.Equal(0, capturedRequest.State.Value);  // Inactive
-        Assert.Equal(1, capturedRequest.Status.Value); // Draft
+        Assert.Equal("workflow", capturedRequest!.Target.LogicalName);
+        Assert.Equal(processId, capturedRequest.Target.Id);
+        Assert.Equal(0, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statecode").Value);  // Inactive
+        Assert.Equal(1, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statuscode").Value); // Draft
     }
 
     #endregion
@@ -197,13 +198,13 @@ public class DataverseClientProcessTests
     }
 
     [Fact]
-    public void DeactivateDuplicateRule_SendsSetStateRequestWithCorrectValues()
+    public void DeactivateDuplicateRule_SendsUpdateRequestWithStateAndStatus()
     {
         // Arrange
         var ruleId = Guid.NewGuid();
-        SetStateRequest? capturedRequest = null;
+        UpdateRequest? capturedRequest = null;
         _mockOrgService.Setup(s => s.Execute(It.IsAny<OrganizationRequest>()))
-            .Callback<OrganizationRequest>(req => capturedRequest = req as SetStateRequest)
+            .Callback<OrganizationRequest>(req => capturedRequest = req as UpdateRequest)
             .Returns(new OrganizationResponse());
 
         // Act
@@ -211,10 +212,10 @@ public class DataverseClientProcessTests
 
         // Assert
         Assert.NotNull(capturedRequest);
-        Assert.Equal("duplicaterule", capturedRequest!.EntityMoniker.LogicalName);
-        Assert.Equal(ruleId, capturedRequest.EntityMoniker.Id);
-        Assert.Equal(0, capturedRequest.State.Value);  // Inactive
-        Assert.Equal(0, capturedRequest.Status.Value); // Unpublished
+        Assert.Equal("duplicaterule", capturedRequest!.Target.LogicalName);
+        Assert.Equal(ruleId, capturedRequest.Target.Id);
+        Assert.Equal(0, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statecode").Value);  // Inactive
+        Assert.Equal(0, capturedRequest.Target.GetAttributeValue<OptionSetValue>("statuscode").Value); // Unpublished
     }
 
     #endregion
