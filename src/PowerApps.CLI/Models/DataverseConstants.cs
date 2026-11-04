@@ -15,6 +15,9 @@ internal static class DataverseConstants
     internal const int ComponentTypeSavedQueryVisualization = 59;
     internal const int ComponentTypeSystemForm = 60;
 
+    // The "Active" solution is Dataverse's built-in bucket for unmanaged customisations.
+    internal const string ActiveSolutionUniqueName = "Active";
+
     // workflow.category option set codes.
     internal const int WorkflowCategoryWorkflow = 0;
     internal const int WorkflowCategoryBusinessRule = 2;

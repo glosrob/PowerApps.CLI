@@ -40,7 +40,7 @@ public class SolutionLayerService : ISolutionLayerService
             var topSolutionName = topLayer.GetAttributeValue<string>("msdyn_solutionname") ?? string.Empty;
 
             // "Active" is the unmanaged customisations bucket in Dataverse.
-            if (!topSolutionName.Equals("Active", StringComparison.OrdinalIgnoreCase))
+            if (!topSolutionName.Equals(DataverseConstants.ActiveSolutionUniqueName, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
@@ -49,7 +49,7 @@ public class SolutionLayerService : ISolutionLayerService
             // fields that were never part of any managed solution layer. We only care about
             // Active layers sitting on top of a managed layer.
             var hasNonActiveLayer = group.Any(e => !string.Equals(
-                e.GetAttributeValue<string>("msdyn_solutionname"), "Active", StringComparison.OrdinalIgnoreCase));
+                e.GetAttributeValue<string>("msdyn_solutionname"), DataverseConstants.ActiveSolutionUniqueName, StringComparison.OrdinalIgnoreCase));
             if (!hasNonActiveLayer)
             {
                 continue;
