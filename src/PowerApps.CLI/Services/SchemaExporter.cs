@@ -231,15 +231,11 @@ public class SchemaExporter : ISchemaExporter
         if (schema.Entities != null)
         {
             int row = 2;
-            foreach (var entity in schema.Entities
-                .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
-                .ThenBy(e => e.DisplayName ?? e.LogicalName))
+            foreach (var entity in OrderForDisplay(schema.Entities))
             {
                 if (entity.Attributes != null)
                 {
-                    foreach (var attr in entity.Attributes
-                        .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
-                        .ThenBy(a => a.DisplayName ?? a.LogicalName))
+                    foreach (var attr in OrderForDisplay(entity.Attributes))
                     {
                         sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
                         sheet.Cell(row, 2).Value = attr.LogicalName ?? string.Empty;
@@ -291,7 +287,7 @@ public class SchemaExporter : ISchemaExporter
         // All relationships
         if (schema.Relationships != null)
         {
-            foreach (var rel in schema.Relationships.OrderBy(r => r.SchemaName))
+            foreach (var rel in schema.Relationships.OrderBy(r => r.SchemaName, StringComparer.OrdinalIgnoreCase))
             {
                 sheet.Cell(row, 1).Value = rel.SchemaName ?? string.Empty;
                 sheet.Cell(row, 2).Value = rel.RelationshipType ?? "Unknown";
@@ -333,6 +329,24 @@ public class SchemaExporter : ISchemaExporter
     /// disambiguates those, and reserving the fixed sheet names first stops a table called
     /// "Summary" or "Attributes" from colliding with them.
     /// </remarks>
+    // Human-facing order: by display name, unnamed items last, with an ordinal comparer and a logical-name
+    // tie-break so the order doesn't depend on the machine's culture or on Dataverse's metadata order.
+    private static IEnumerable<EntitySchema> OrderForDisplay(IEnumerable<EntitySchema> entities)
+    {
+        return entities
+            .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
+            .ThenBy(e => e.DisplayName ?? e.LogicalName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(e => e.LogicalName, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<AttributeSchema> OrderForDisplay(IEnumerable<AttributeSchema> attributes)
+    {
+        return attributes
+            .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
+            .ThenBy(a => a.DisplayName ?? a.LogicalName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(a => a.LogicalName, StringComparer.OrdinalIgnoreCase);
+    }
+
     private static List<(EntitySchema Entity, string SheetName)> BuildEntitySheetNames(PowerAppsSchema schema)
     {
         var allocator = new WorksheetNameAllocator();
@@ -345,9 +359,7 @@ public class SchemaExporter : ISchemaExporter
             return new List<(EntitySchema, string)>();
         }
 
-        return schema.Entities
-            .OrderBy(e => string.IsNullOrWhiteSpace(e.DisplayName))
-            .ThenBy(e => e.DisplayName ?? e.LogicalName)
+        return OrderForDisplay(schema.Entities)
             .Select(e => (Entity: e, SheetName: allocator.Allocate(e.DisplayName ?? e.LogicalName ?? "Entity")))
             .ToList();
     }
@@ -433,9 +445,7 @@ public class SchemaExporter : ISchemaExporter
 
             // Attribute data
             var attributeStartRow = row;
-            foreach (var attr in entity.Attributes
-                .OrderBy(a => string.IsNullOrWhiteSpace(a.DisplayName))
-                .ThenBy(a => a.DisplayName ?? a.LogicalName))
+            foreach (var attr in OrderForDisplay(entity.Attributes))
             {
                 sheet.Cell(row, 1).Value = attr.LogicalName ?? string.Empty;
                 sheet.Cell(row, 2).Value = attr.DisplayName ?? string.Empty;

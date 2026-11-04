@@ -602,6 +602,8 @@ Extracts metadata schema from PowerApps/Dataverse environments.
 
 \* Either `--url` or `--connection-string` must be provided.
 
+Output order is deterministic, so exports from different environments can be diffed directly. JSON lists tables and columns by logical name and relationships by schema name, and lookup targets are sorted alphabetically. XLSX sheets are ordered by display name, with logical name as a tie-break. Choice options keep the order defined in Dataverse.
+
 ### constants-generate
 
 Generates C# constants from Dataverse metadata.
