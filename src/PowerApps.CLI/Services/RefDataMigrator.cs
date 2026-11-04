@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using Microsoft.Crm.Sdk.Messages;
 using Microsoft.Xrm.Sdk;
 using Microsoft.Xrm.Sdk.Messages;
 using Microsoft.Xrm.Sdk.Metadata;
@@ -292,35 +291,39 @@ public class RefDataMigrator : IRefDataMigrator
             _logger.LogInfo($"  Diff: {flatEntities.Count} to upsert, {lookupEntities.Count} lookups to patch, {skippedCount} unchanged");
         }
 
-        // Identify state records (if configured)
+        // Identify state records (if configured). Active source records are included too, so records
+        // inactive in target can be reactivated, and statuscode is compared so status-reason-only
+        // changes within the same state are picked up.
         var stateRecords = new List<Entity>();
         if (tableConfig.ManageState)
         {
-            var sourceInactiveRecords = sourceRecords.Entities
-                .Where(r => r.Contains("statecode") && ((OptionSetValue)r["statecode"]).Value != 0);
+            var sourceStateRecords = sourceRecords.Entities.Where(r => GetOptionValue(r, "statecode").HasValue);
 
             if (force || targetRecordMap == null)
             {
-                stateRecords = sourceInactiveRecords.ToList();
+                stateRecords = sourceStateRecords.ToList();
             }
             else
             {
-                // Only include records whose state actually differs from target
-                foreach (var record in sourceInactiveRecords)
+                foreach (var record in sourceStateRecords)
                 {
+                    var sourceState = GetOptionValue(record, "statecode");
+                    var sourceStatus = GetOptionValue(record, "statuscode");
+
                     if (!targetRecordMap.TryGetValue(record.Id, out var targetRecord))
                     {
-                        // New record — will need state set after upsert
-                        stateRecords.Add(record);
+                        // New records are created active, so they only need a state change if inactive in source
+                        if (sourceState != 0)
+                        {
+                            stateRecords.Add(record);
+                        }
                         continue;
                     }
 
-                    var sourceState = ((OptionSetValue)record["statecode"]).Value;
-                    var targetState = targetRecord.Contains("statecode")
-                        ? ((OptionSetValue)targetRecord["statecode"]).Value
-                        : 0;
+                    var targetState = GetOptionValue(targetRecord, "statecode") ?? 0;
+                    var targetStatus = GetOptionValue(targetRecord, "statuscode");
 
-                    if (sourceState != targetState)
+                    if (sourceState != targetState || (sourceStatus.HasValue && sourceStatus != targetStatus))
                     {
                         stateRecords.Add(record);
                     }
@@ -498,6 +501,13 @@ public class RefDataMigrator : IRefDataMigrator
         public List<Entity> StateRecords { get; set; } = new();
     }
 
+    private static int? GetOptionValue(Entity record, string attributeName)
+    {
+        return record.Contains(attributeName) && record[attributeName] is OptionSetValue option
+            ? option.Value
+            : null;
+    }
+
     public static bool AttributeValuesEqual(object? source, object? target)
     {
         if (source is null && target is null) return true;
@@ -596,17 +606,18 @@ public class RefDataMigrator : IRefDataMigrator
 
             foreach (var record in batch)
             {
-                var stateCode = ((OptionSetValue)record["statecode"]).Value;
-                var statusCode = record.Contains("statuscode")
-                    ? ((OptionSetValue)record["statuscode"]).Value
-                    : -1;
-
-                requests.Add(new SetStateRequest
+                // Update with statecode + statuscode replaces the deprecated SetStateRequest. Both are sent
+                // together because a statuscode belonging to a different state is rejected on its own.
+                var stateEntity = new Entity(tableName, record.Id)
                 {
-                    EntityMoniker = new EntityReference(tableName, record.Id),
-                    State = new OptionSetValue(stateCode),
-                    Status = new OptionSetValue(statusCode)
-                });
+                    ["statecode"] = record["statecode"]
+                };
+                if (record.Contains("statuscode"))
+                {
+                    stateEntity["statuscode"] = record["statuscode"];
+                }
+
+                requests.Add(new UpdateRequest { Target = stateEntity });
             }
 
             _logger.LogInfoIfVerbose($"    Executing state batch {(i / batchSize) + 1} ({batch.Count} requests)...");

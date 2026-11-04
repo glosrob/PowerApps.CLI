@@ -358,7 +358,7 @@ powerapps-cli refdata-migrate \
 - By default, only records that differ from the target are migrated (diff mode)
 - Use `--force` to push all records regardless of whether they have changed
 - Lookups are applied in a second pass to handle self-referential relationships
-- `manageState: true` will sync the active/inactive state of records
+- `manageState: true` syncs state and status reason (`statecode`/`statuscode`) in a final pass. That includes reactivating records that are inactive in target, and changing the status reason within the same state. State is set with a standard `Update`, not the deprecated `SetState` message
 - `includeFields` restricts migration to only the specified fields (system fields always excluded)
 - `excludeFields` removes specific fields from migration
 - Relationship details are resolved automatically via metadata lookup — only `relationshipName` is required
