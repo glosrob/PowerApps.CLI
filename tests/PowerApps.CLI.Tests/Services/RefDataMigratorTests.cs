@@ -220,7 +220,7 @@ public class RefDataMigratorTests
     }
 
     [Fact]
-    public async Task MigrateAsync_Pass3_SkipsRecordsWithActiveState()
+    public async Task MigrateAsync_Pass3_UsesUpdateRequestWithStateAndStatusOnly()
     {
         // Arrange
         var config = CreateConfig("account", manageState: true);
@@ -228,8 +228,38 @@ public class RefDataMigratorTests
         SetupMetadata("account", metadata);
 
         var record = new Entity("account", Guid.NewGuid());
+        record["name"] = "Inactive Account";
+        record["statecode"] = new OptionSetValue(1);
+        record["statuscode"] = new OptionSetValue(2);
+        SetupSourceRecords("account", record);
+
+        var captured = new List<OrganizationRequestCollection>();
+        _mockTargetClient.Setup(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()))
+            .Callback<OrganizationRequestCollection, bool>((reqs, _) => captured.Add(reqs))
+            .Returns(CreateSuccessResponse(1));
+
+        // Act
+        await _migrator.MigrateAsync(config, dryRun: false, force: true);
+
+        // Assert - last batch is the state pass: an Update carrying only statecode + statuscode
+        var update = Assert.IsType<UpdateRequest>(Assert.Single(captured.Last()));
+        Assert.Equal(record.Id, update.Target.Id);
+        Assert.Equal(2, update.Target.Attributes.Count);
+        Assert.Equal(1, ((OptionSetValue)update.Target["statecode"]).Value);
+        Assert.Equal(2, ((OptionSetValue)update.Target["statuscode"]).Value);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_Pass3_ForceMode_IncludesActiveRecords()
+    {
+        // Arrange - force pushes state for every record, so target-inactive records get reactivated
+        var config = CreateConfig("account", manageState: true);
+        var metadata = CreateMetadata("account", "accountid", "name");
+        SetupMetadata("account", metadata);
+
+        var record = new Entity("account", Guid.NewGuid());
         record["name"] = "Active Account";
-        record["statecode"] = new OptionSetValue(0); // Active - no state change needed
+        record["statecode"] = new OptionSetValue(0);
         record["statuscode"] = new OptionSetValue(1);
         SetupSourceRecords("account", record);
 
@@ -238,9 +268,9 @@ public class RefDataMigratorTests
         // Act
         var result = await _migrator.MigrateAsync(config, dryRun: false, force: true);
 
-        // Assert - Only pass 1 (no state change since statecode is 0)
-        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), true), Times.Once);
-        Assert.Equal(0, result.TableResults[0].StateChangesCount);
+        // Assert - Pass 1 (upsert) + Pass 3 (state) = 2 calls
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), true), Times.Exactly(2));
+        Assert.Equal(1, result.TableResults[0].StateChangesCount);
     }
 
     #endregion
@@ -967,6 +997,69 @@ public class RefDataMigratorTests
 
         // Assert - state matches, so no SetState needed
         Assert.Equal(0, result.TableResults[0].StateChangesCount);
+    }
+
+    [Theory]
+    [InlineData(0, 1, 1, 2, 1)] // reactivate: active in source, inactive in target
+    [InlineData(1, 2, 1, 100000000, 1)] // status reason change within inactive state
+    [InlineData(0, 1, 0, 100000001, 1)] // status reason change within active state
+    [InlineData(1, 2, 1, 2, 0)] // matching state and status
+    [InlineData(0, 1, 0, 1, 0)] // matching active
+    public async Task MigrateAsync_DiffMode_StateChangeDetection(
+        int sourceState, int sourceStatus, int targetState, int targetStatus, int expectedStateChanges)
+    {
+        // Arrange
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("account", "accountid", "name");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", recordId);
+        sourceRecord["name"] = "Test";
+        sourceRecord["statecode"] = new OptionSetValue(sourceState);
+        sourceRecord["statuscode"] = new OptionSetValue(sourceStatus);
+        SetupSourceRecords("account", sourceRecord);
+
+        var targetRecord = new Entity("account", recordId);
+        targetRecord["name"] = "Test";
+        targetRecord["statecode"] = new OptionSetValue(targetState);
+        targetRecord["statuscode"] = new OptionSetValue(targetStatus);
+        SetupTargetRecords("account", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(1));
+        var config = CreateConfig("account", manageState: true);
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(expectedStateChanges, result.TableResults[0].StateChangesCount);
+    }
+
+    [Theory]
+    [InlineData(0, 1, 0)] // new active record - created active, no state change needed
+    [InlineData(1, 2, 1)] // new inactive record - needs deactivating after create
+    public async Task MigrateAsync_DiffMode_NewRecord_StateChangeOnlyWhenInactive(
+        int sourceState, int sourceStatus, int expectedStateChanges)
+    {
+        // Arrange
+        var metadata = CreateMetadata("account", "accountid", "name");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", Guid.NewGuid());
+        sourceRecord["name"] = "New";
+        sourceRecord["statecode"] = new OptionSetValue(sourceState);
+        sourceRecord["statuscode"] = new OptionSetValue(sourceStatus);
+        SetupSourceRecords("account", sourceRecord);
+        SetupTargetRecords("account");
+
+        SetupExecuteMultiple(CreateSuccessResponse(1));
+        var config = CreateConfig("account", manageState: true);
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(expectedStateChanges, result.TableResults[0].StateChangesCount);
     }
 
     [Fact]
