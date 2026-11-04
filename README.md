@@ -357,6 +357,7 @@ powerapps-cli refdata-migrate \
 **Behaviour**:
 - By default, only records that differ from the target are migrated (diff mode)
 - Use `--force` to push all records regardless of whether they have changed
+- In diff mode, columns that are empty in source but populated in target (including lookups) are cleared in target. `--force` doesn't read target records, so it doesn't clear them: it only writes the values present in source
 - Lookups are applied in a second pass to handle self-referential relationships
 - `manageState: true` will sync the active/inactive state of records
 - `includeFields` restricts migration to only the specified fields (system fields always excluded)

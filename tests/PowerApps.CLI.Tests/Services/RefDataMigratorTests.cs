@@ -970,6 +970,139 @@ public class RefDataMigratorTests
     }
 
     [Fact]
+    public async Task MigrateAsync_DiffMode_ClearsLookupNullInSource()
+    {
+        // Arrange — Dataverse omits null columns, so the cleared lookup is absent from the source record
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("account", "accountid", "name", "parentaccountid");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", recordId);
+        sourceRecord["name"] = "Test";
+        SetupSourceRecords("account", sourceRecord);
+
+        var targetRecord = new Entity("account", recordId);
+        targetRecord["name"] = "Test";
+        targetRecord["parentaccountid"] = new EntityReference("account", Guid.NewGuid());
+        SetupTargetRecords("account", targetRecord);
+
+        var captured = new List<OrganizationRequestCollection>();
+        _mockTargetClient.Setup(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()))
+            .Callback<OrganizationRequestCollection, bool>((reqs, _) => captured.Add(reqs))
+            .Returns(CreateSuccessResponse(1));
+        var config = CreateConfig("account");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert — only the lookup patch runs (flat data unchanged), and it explicitly nulls the column
+        Assert.Equal(0, result.TableResults[0].SkippedCount);
+        Assert.Equal(1, result.TableResults[0].LookupsPatchedCount);
+        var batch = Assert.Single(captured);
+        var upsert = Assert.IsType<UpsertRequest>(Assert.Single(batch));
+        Assert.True(upsert.Target.Contains("parentaccountid"));
+        Assert.Null(upsert.Target["parentaccountid"]);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_DiffMode_ClearsFlatValueNullInSource()
+    {
+        // Arrange
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("account", "accountid", "name", "description");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", recordId);
+        sourceRecord["name"] = "Test";
+        SetupSourceRecords("account", sourceRecord);
+
+        var targetRecord = new Entity("account", recordId);
+        targetRecord["name"] = "Test";
+        targetRecord["description"] = "Stale value";
+        SetupTargetRecords("account", targetRecord);
+
+        var captured = new List<OrganizationRequestCollection>();
+        _mockTargetClient.Setup(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()))
+            .Callback<OrganizationRequestCollection, bool>((reqs, _) => captured.Add(reqs))
+            .Returns(CreateSuccessResponse(1));
+        var config = CreateConfig("account");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(0, result.TableResults[0].SkippedCount);
+        Assert.Equal(1, result.TableResults[0].UpsertedCount);
+        var batch = Assert.Single(captured);
+        var upsert = Assert.IsType<UpsertRequest>(Assert.Single(batch));
+        Assert.True(upsert.Target.Contains("description"));
+        Assert.Null(upsert.Target["description"]);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_DiffMode_IgnoresTargetOnlyValueOnExcludedOrNonWritableColumn()
+    {
+        // Arrange — description is excluded and createdon is a system field; neither should be cleared
+        var recordId = Guid.NewGuid();
+        var config = new RefDataMigrateConfig
+        {
+            Tables = new List<MigrateTableConfig>
+            {
+                new() { LogicalName = "account", ExcludeFields = new List<string> { "description" } }
+            }
+        };
+        var metadata = CreateMetadata("account", "accountid", "name", "description", "createdon");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", recordId);
+        sourceRecord["name"] = "Test";
+        SetupSourceRecords("account", sourceRecord);
+
+        var targetRecord = new Entity("account", recordId);
+        targetRecord["name"] = "Test";
+        targetRecord["description"] = "Target only";
+        targetRecord["createdon"] = DateTime.UtcNow;
+        SetupTargetRecords("account", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(1, result.TableResults[0].SkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_DiffMode_NullOnBothSides_SkipsRecord()
+    {
+        // Arrange — column absent from source and explicitly null in target is not a change
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("account", "accountid", "name", "parentaccountid");
+        SetupMetadata("account", metadata);
+
+        var sourceRecord = new Entity("account", recordId);
+        sourceRecord["name"] = "Test";
+        SetupSourceRecords("account", sourceRecord);
+
+        var targetRecord = new Entity("account", recordId);
+        targetRecord["name"] = "Test";
+        targetRecord["parentaccountid"] = null;
+        SetupTargetRecords("account", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+        var config = CreateConfig("account");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(1, result.TableResults[0].SkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
     public async Task MigrateAsync_ForceMode_IncludesAllRecordsEvenIfUnchanged()
     {
         // Arrange

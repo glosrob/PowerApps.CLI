@@ -219,6 +219,13 @@ public class RefDataMigrator : IRefDataMigrator
         var lookupEntities = new List<Entity>();
         var skippedCount = 0;
 
+        bool IsMigratableColumn(string columnName)
+        {
+            return !string.Equals(columnName, primaryKeyField, StringComparison.OrdinalIgnoreCase)
+                && !StateFields.Contains(columnName)
+                && writableColumns.Contains(columnName);
+        }
+
         foreach (var record in sourceRecords.Entities)
         {
             var flatEntity = new Entity(tableName, record.Id);
@@ -234,12 +241,10 @@ public class RefDataMigrator : IRefDataMigrator
 
             foreach (var attr in record.Attributes)
             {
-                if (string.Equals(attr.Key, primaryKeyField, StringComparison.OrdinalIgnoreCase))
+                if (!IsMigratableColumn(attr.Key))
+                {
                     continue;
-                if (StateFields.Contains(attr.Key))
-                    continue;
-                if (!writableColumns.Contains(attr.Key))
-                    continue;
+                }
 
                 if (attr.Value is EntityReference)
                 {
@@ -268,6 +273,31 @@ public class RefDataMigrator : IRefDataMigrator
                         {
                             hasFlatChanges = true;
                         }
+                    }
+                }
+            }
+
+            // Dataverse omits null columns from retrieved records, so a value cleared in source never
+            // appears in record.Attributes above. Walk the target record to explicitly null those columns.
+            if (!isNewRecord)
+            {
+                foreach (var targetAttr in targetRecord!.Attributes)
+                {
+                    if (targetAttr.Value is null || record.Contains(targetAttr.Key) || !IsMigratableColumn(targetAttr.Key))
+                    {
+                        continue;
+                    }
+
+                    if (targetAttr.Value is EntityReference)
+                    {
+                        lookupEntity[targetAttr.Key] = null;
+                        hasLookups = true;
+                        hasLookupChanges = true;
+                    }
+                    else
+                    {
+                        flatEntity[targetAttr.Key] = null;
+                        hasFlatChanges = true;
                     }
                 }
             }
