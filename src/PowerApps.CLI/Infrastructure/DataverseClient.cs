@@ -100,6 +100,11 @@ public class DataverseClient : IDataverseClient, IDisposable
         [380] = "EnvironmentVariableDefinition",
         [381] = "EnvironmentVariableValue",
         [418] = "msdyn_dataflow",               // Special case: routing key differs from enum name
+        // Image/analytics configuration types — absent from solutioncomponentdefinition.
+        // Routing keys verified against a live msdyn_componentlayer (case-sensitive).
+        [430] = "EntityAnalyticsConfig",
+        [431] = "AttributeImageConfig",
+        [432] = "EntityImageConfig",
     };
 
     private string _url { get; set; } = string.Empty;
@@ -696,7 +701,10 @@ public class DataverseClient : IDataverseClient, IDisposable
             .ToList();
         if (unmappedTypes.Count > 0)
         {
-            phaseLog?.Invoke($"Warning: component type code(s) [{string.Join(", ", unmappedTypes)}] have no routing key and will be skipped.");
+            // Resolve display labels so the warning identifies what is being skipped.
+            var labels = await GetComponentTypeLabelsAsync();
+            var described = unmappedTypes.Select(t => labels.TryGetValue(t, out var label) ? $"{t} ({label})" : t.ToString());
+            phaseLog?.Invoke($"Warning: component type code(s) [{string.Join(", ", described)}] have no routing key and will be skipped.");
         }
         var unmappedCount = componentList.Count(c => !typeNames.ContainsKey(c.TypeCode));
         Interlocked.Add(ref completed, unmappedCount);
@@ -817,6 +825,36 @@ public class DataverseClient : IDataverseClient, IDisposable
         catch (Exception ex)
         {
             phaseLog?.Invoke($"Warning: solutioncomponentdefinition query failed ({ex.Message}); modern component types will fall back to static map only.");
+            return new Dictionary<int, string>();
+        }
+    }
+
+    // Reads display labels for the global componenttype Choice. Used only to make the
+    // "no routing key" warning self-describing; a failure here returns an empty map so the
+    // warning falls back to bare type codes.
+    private async Task<Dictionary<int, string>> GetComponentTypeLabelsAsync()
+    {
+        try
+        {
+            var response = (RetrieveOptionSetResponse)await Task.Run(() => _orgService.Execute(
+                new RetrieveOptionSetRequest { Name = "componenttype" }));
+
+            var labels = new Dictionary<int, string>();
+            if (response.OptionSetMetadata is OptionSetMetadata optionSet)
+            {
+                foreach (var option in optionSet.Options)
+                {
+                    var label = option.Label?.UserLocalizedLabel?.Label;
+                    if (option.Value.HasValue && !string.IsNullOrEmpty(label))
+                    {
+                        labels[option.Value.Value] = label;
+                    }
+                }
+            }
+            return labels;
+        }
+        catch
+        {
             return new Dictionary<int, string>();
         }
     }
