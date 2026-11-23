@@ -84,4 +84,51 @@ public class MigrationReporterTests : IDisposable
         Assert.Equal(6, dataRow.Cell(6).GetValue<int>());
         Assert.Equal(1, dataRow.Cell(7).GetValue<int>());
     }
+
+    [Fact]
+    public async Task GenerateReportAsync_WithCreateOnlyTable_IncludesExistingSkippedCountAsync()
+    {
+        // Arrange
+        var outputPath = Path.Combine(_tempDirectory, "create-only-report.xlsx");
+        var summary = new MigrationSummary
+        {
+            SourceEnvironment = "https://dev.crm.dynamics.com",
+            TargetEnvironment = "https://test.crm.dynamics.com",
+            TableResults =
+            {
+                new TableMigrationResult
+                {
+                    TableName = "rob_setting",
+                    RecordCount = 5,
+                    UpsertedCount = 2,
+                    SkippedCount = 0,
+                    ExistingSkippedCount = 3,
+                    Errors = { new RecordError { TableName = "rob_setting", Phase = "Create (flat)", ErrorMessage = "Duplicate" } }
+                }
+            }
+        };
+
+        // Act
+        await _reporter.GenerateReportAsync(summary, outputPath);
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        var summarySheet = workbook.Worksheet("Migration Summary");
+
+        var totalRow = summarySheet.Rows()
+            .First(r => r.Cell(1).GetString() == "Skipped (already exists):");
+        Assert.Equal(3, totalRow.Cell(2).GetValue<int>());
+
+        var headerRow = summarySheet.Rows()
+            .First(r => r.Cell(1).GetString() == "Table");
+        Assert.Equal("Skipped", headerRow.Cell(6).GetString());
+        Assert.Equal("Existing Skipped", headerRow.Cell(7).GetString());
+        Assert.Equal("Errors", headerRow.Cell(8).GetString());
+
+        var dataRow = summarySheet.Row(headerRow.RowNumber() + 1);
+        Assert.Equal("rob_setting", dataRow.Cell(1).GetString());
+        Assert.Equal(0, dataRow.Cell(6).GetValue<int>());
+        Assert.Equal(3, dataRow.Cell(7).GetValue<int>());
+        Assert.Equal(1, dataRow.Cell(8).GetValue<int>());
+    }
 }

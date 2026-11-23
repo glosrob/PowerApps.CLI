@@ -344,6 +344,10 @@ powerapps-cli refdata-migrate \
     {
       "logicalName": "rob_item",
       "includeFields": ["rob_name", "rob_categoryid", "rob_priorityid"]
+    },
+    {
+      "logicalName": "rob_setting",
+      "createOnly": true
     }
   ],
   "relationships": [
@@ -362,6 +366,7 @@ powerapps-cli refdata-migrate \
 - `manageState: true` syncs state and status reason (`statecode`/`statuscode`) in a final pass. That includes reactivating records that are inactive in target, and changing the status reason within the same state. State is set with a standard `Update`, not the deprecated `SetState` message
 - `includeFields` restricts migration to only the specified fields (system fields always excluded)
 - `excludeFields` removes specific fields from migration
+- `createOnly: true` seeds a table: records missing from target are created, and records that already exist in target are never touched (no field, lookup, or state changes). Use it for settings/configuration records whose values differ per environment. Create-only tables always read the target, even with `--force`. Records are matched by GUID, so a record created by hand in the target (with a different GUID) is not recognised and will be duplicated
 - Relationship details are resolved automatically via metadata lookup — only `relationshipName` is required
 
 **Output**: Excel report with:

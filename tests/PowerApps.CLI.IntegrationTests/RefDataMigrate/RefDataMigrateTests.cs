@@ -42,8 +42,15 @@ public class RefDataMigrateTests : IAsyncLifetime
     private static readonly Guid ReactivateId = new("7e57da7a-0119-4000-8000-000000000003");
     private static readonly Guid NewInactiveId = new("7e57da7a-0119-4000-8000-000000000004");
     private static readonly Guid RerunId = new("7e57da7a-0119-4000-8000-000000000005");
+    private static readonly Guid CreateOnlyExistingId = new("7e57da7a-0119-4000-8000-000000000006");
+    private static readonly Guid CreateOnlyNewId = new("7e57da7a-0119-4000-8000-000000000007");
+    private static readonly Guid CreateOnlyForceId = new("7e57da7a-0119-4000-8000-000000000008");
 
-    private static readonly Guid[] AllTestIds = { ClearLookupId, DeactivateId, ReactivateId, NewInactiveId, RerunId };
+    private static readonly Guid[] AllTestIds =
+    {
+        ClearLookupId, DeactivateId, ReactivateId, NewInactiveId, RerunId,
+        CreateOnlyExistingId, CreateOnlyNewId, CreateOnlyForceId
+    };
 
     public RefDataMigrateTests(DataverseFixture fixture)
     {
@@ -191,10 +198,72 @@ public class RefDataMigrateTests : IAsyncLifetime
     }
 
     // -------------------------------------------------------------------------
+    // #129 — createOnly seeds missing records and leaves existing ones untouched
+    // -------------------------------------------------------------------------
+
+    [SkippableFact]
+    public async Task Migrate_CreateOnly_CreatesMissingAndLeavesExistingUntouchedAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        // Target already holds its own version: active, with a lookup. Source differs on every migrated
+        // column (name, cleared lookup, inactive state) so any write to it would show up.
+        CreateTargetRecord(CreateOnlyExistingId, "CreateOnly-Existing-Target", lookup: LookupTargetRef());
+        var source = new InMemorySourceClient()
+            .AddRecord(SourceRecord(CreateOnlyExistingId, "CreateOnly-Existing-Source", StateInactive, StatusInactive))
+            .AddRecord(SourceRecord(CreateOnlyNewId, "CreateOnly-New", StateInactive, StatusInactive, LookupTargetRef()));
+
+        var result = await MigrateAsync(source, manageState: true, createOnly: true);
+
+        AssertNoErrors(result);
+        Assert.Equal(1, result.UpsertedCount);
+        Assert.Equal(1, result.ExistingSkippedCount);
+        Assert.Equal(1, result.LookupsPatchedCount);
+        Assert.Equal(1, result.StateChangesCount);
+
+        var existing = RetrieveTarget(CreateOnlyExistingId);
+        Assert.Equal(NamePrefix + "CreateOnly-Existing-Target", existing.GetAttributeValue<string>("xrt_name"));
+        Assert.Equal(_lookupTargetId, existing.GetAttributeValue<EntityReference>(LookupField)?.Id);
+        AssertTargetState(CreateOnlyExistingId, StateActive, StatusActive);
+
+        var created = RetrieveTarget(CreateOnlyNewId);
+        Assert.Equal(NamePrefix + "CreateOnly-New", created.GetAttributeValue<string>("xrt_name"));
+        Assert.Equal(_lookupTargetId, created.GetAttributeValue<EntityReference>(LookupField)?.Id);
+        AssertTargetState(CreateOnlyNewId, StateInactive, StatusInactive);
+
+        // A second run finds both records already present and writes nothing
+        var second = await MigrateAsync(source, manageState: true, createOnly: true);
+
+        AssertNoErrors(second);
+        Assert.Equal(2, second.ExistingSkippedCount);
+        Assert.Equal(0, second.UpsertedCount);
+        Assert.Equal(0, second.LookupsPatchedCount);
+        Assert.Equal(0, second.StateChangesCount);
+    }
+
+    [SkippableFact]
+    public async Task Migrate_CreateOnlyWithForce_StillLeavesExistingUntouchedAsync()
+    {
+        Skip.If(_fixture.ConfigurationError is not null, _fixture.ConfigurationError);
+
+        CreateTargetRecord(CreateOnlyForceId, "CreateOnly-Force-Target");
+        var source = new InMemorySourceClient()
+            .AddRecord(SourceRecord(CreateOnlyForceId, "CreateOnly-Force-Source"));
+
+        var result = await MigrateAsync(source, manageState: false, createOnly: true, force: true);
+
+        AssertNoErrors(result);
+        Assert.Equal(0, result.UpsertedCount);
+        Assert.Equal(1, result.ExistingSkippedCount);
+        Assert.Equal(NamePrefix + "CreateOnly-Force-Target", RetrieveTarget(CreateOnlyForceId).GetAttributeValue<string>("xrt_name"));
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
-    private async Task<TableMigrationResult> MigrateAsync(InMemorySourceClient source, bool manageState)
+    private async Task<TableMigrationResult> MigrateAsync(
+        InMemorySourceClient source, bool manageState, bool createOnly = false, bool force = false)
     {
         // IncludeFields scopes the run to the columns these tests control. The hand-built source records
         // don't carry every column Dataverse defaults on create, and since #114 diff mode would clear any
@@ -207,13 +276,14 @@ public class RefDataMigrateTests : IAsyncLifetime
                 {
                     LogicalName = TestEntity,
                     ManageState = manageState,
+                    CreateOnly = createOnly,
                     IncludeFields = new List<string> { "xrt_name", LookupField }
                 }
             }
         };
 
         var migrator = new RefDataMigrator(new ConsoleLogger(), source, _fixture.Client);
-        var summary = await migrator.MigrateAsync(config, dryRun: false, force: false);
+        var summary = await migrator.MigrateAsync(config, dryRun: false, force: force);
         return Assert.Single(summary.TableResults);
     }
 
