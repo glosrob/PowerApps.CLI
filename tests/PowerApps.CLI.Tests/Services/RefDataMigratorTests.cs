@@ -1222,6 +1222,314 @@ public class RefDataMigratorTests
 
     #endregion
 
+    #region Create-Only Tests
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_CreatesNewRecordsAndSkipsExisting()
+    {
+        // Arrange
+        var existingId = Guid.NewGuid();
+        var newId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_value");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceExisting = new Entity("rob_setting", existingId);
+        sourceExisting["rob_name"] = "ApiUrl";
+        sourceExisting["rob_value"] = "https://dev.example.com";
+        var sourceNew = new Entity("rob_setting", newId);
+        sourceNew["rob_name"] = "Timeout";
+        sourceNew["rob_value"] = "30";
+        SetupSourceRecords("rob_setting", sourceExisting, sourceNew);
+
+        // Target already has ApiUrl with an environment-specific value
+        var targetExisting = new Entity("rob_setting", existingId);
+        targetExisting["rob_name"] = "ApiUrl";
+        targetExisting["rob_value"] = "https://prod.example.com";
+        SetupTargetRecords("rob_setting", targetExisting);
+
+        var captured = CaptureExecuteMultiple();
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert — only the new record is sent, as a Create rather than an Upsert
+        var batch = Assert.Single(captured);
+        var create = Assert.IsType<CreateRequest>(Assert.Single(batch));
+        Assert.Equal(newId, create.Target.Id);
+        Assert.Equal(1, result.TableResults[0].UpsertedCount);
+        Assert.Equal(1, result.TableResults[0].ExistingSkippedCount);
+        Assert.Equal(0, result.TableResults[0].SkippedCount);
+        Assert.Equal(1, result.TotalExistingSkipped);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_DoesNotPatchLookupsOnExistingRecords()
+    {
+        // Arrange
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_parentid");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["rob_parentid"] = new EntityReference("rob_setting", Guid.NewGuid());
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_parentid"] = new EntityReference("rob_setting", Guid.NewGuid());
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(0, result.TableResults[0].LookupsPatchedCount);
+        Assert.Equal(1, result.TableResults[0].ExistingSkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_PatchesLookupsOnNewRecords()
+    {
+        // Arrange
+        var newId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_parentid");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", newId);
+        sourceRecord["rob_name"] = "Child";
+        sourceRecord["rob_parentid"] = new EntityReference("rob_setting", Guid.NewGuid());
+        SetupSourceRecords("rob_setting", sourceRecord);
+        SetupTargetRecords("rob_setting");
+
+        var captured = CaptureExecuteMultiple();
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert — pass 1 creates without the lookup, pass 2 patches it onto the new record
+        Assert.Equal(2, captured.Count);
+        var create = Assert.IsType<CreateRequest>(Assert.Single(captured[0]));
+        Assert.False(create.Target.Contains("rob_parentid"));
+        var patch = Assert.IsType<UpsertRequest>(Assert.Single(captured[1]));
+        Assert.Equal(newId, patch.Target.Id);
+        Assert.True(patch.Target.Contains("rob_parentid"));
+        Assert.Equal(1, result.TableResults[0].LookupsPatchedCount);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_DoesNotClearValuesOnExistingRecords()
+    {
+        // Arrange — source has rob_value cleared (absent), target holds a value
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_value");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_value"] = "keep-me";
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(0, result.TableResults[0].UpsertedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_DoesNotChangeStateOfExistingRecords()
+    {
+        // Arrange — source inactive, target active
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["statecode"] = new OptionSetValue(1);
+        sourceRecord["statuscode"] = new OptionSetValue(2);
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["statecode"] = new OptionSetValue(0);
+        targetRecord["statuscode"] = new OptionSetValue(1);
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+        var config = CreateCreateOnlyConfig("rob_setting", manageState: true);
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(0, result.TableResults[0].StateChangesCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_SetsStateOnNewInactiveRecords()
+    {
+        // Arrange
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", Guid.NewGuid());
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["statecode"] = new OptionSetValue(1);
+        sourceRecord["statuscode"] = new OptionSetValue(2);
+        SetupSourceRecords("rob_setting", sourceRecord);
+        SetupTargetRecords("rob_setting");
+
+        SetupExecuteMultiple(CreateSuccessResponse(1));
+        var config = CreateCreateOnlyConfig("rob_setting", manageState: true);
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        Assert.Equal(1, result.TableResults[0].UpsertedCount);
+        Assert.Equal(1, result.TableResults[0].StateChangesCount);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_ForceMode_StillChecksTargetAndSkipsExisting()
+    {
+        // Arrange
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Source value";
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Target value";
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: true);
+
+        // Assert
+        _mockTargetClient.Verify(c => c.RetrieveRecords("rob_setting", It.IsAny<string?>()), Times.Once);
+        Assert.Equal(1, result.TableResults[0].ExistingSkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_ForceMode_DoesNotAffectOtherTables()
+    {
+        // Arrange — one create-only table and one normal table in the same run
+        SetupMetadata("rob_setting", CreateMetadata("rob_setting", "rob_settingid", "rob_name"));
+        SetupMetadata("rob_country", CreateMetadata("rob_country", "rob_countryid", "rob_name"));
+
+        var setting = new Entity("rob_setting", Guid.NewGuid());
+        setting["rob_name"] = "Setting";
+        SetupSourceRecords("rob_setting", setting);
+        SetupTargetRecords("rob_setting");
+
+        var country = new Entity("rob_country", Guid.NewGuid());
+        country["rob_name"] = "UK";
+        SetupSourceRecords("rob_country", country);
+
+        var captured = CaptureExecuteMultiple();
+        var config = new RefDataMigrateConfig
+        {
+            Tables = new List<MigrateTableConfig>
+            {
+                new() { LogicalName = "rob_setting", CreateOnly = true },
+                new() { LogicalName = "rob_country" }
+            }
+        };
+
+        // Act
+        await _migrator.MigrateAsync(config, dryRun: false, force: true);
+
+        // Assert — force still skips the target read for the normal table, which keeps upserting
+        _mockTargetClient.Verify(c => c.RetrieveRecords("rob_country", It.IsAny<string?>()), Times.Never);
+        Assert.Equal(2, captured.Count);
+        Assert.IsType<CreateRequest>(Assert.Single(captured[0]));
+        Assert.IsType<UpsertRequest>(Assert.Single(captured[1]));
+    }
+
+    [Fact]
+    public async Task MigrateAsync_CreateOnly_DryRun_ReportsCountsWithoutExecuting()
+    {
+        // Arrange
+        var existingId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceExisting = new Entity("rob_setting", existingId);
+        sourceExisting["rob_name"] = "Existing";
+        var sourceNew = new Entity("rob_setting", Guid.NewGuid());
+        sourceNew["rob_name"] = "New";
+        SetupSourceRecords("rob_setting", sourceExisting, sourceNew);
+
+        var targetExisting = new Entity("rob_setting", existingId);
+        targetExisting["rob_name"] = "Existing";
+        SetupTargetRecords("rob_setting", targetExisting);
+
+        var config = CreateCreateOnlyConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: true, force: false);
+
+        // Assert
+        Assert.Equal(1, result.TableResults[0].UpsertedCount);
+        Assert.Equal(1, result.TableResults[0].ExistingSkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_WithoutCreateOnly_UpdatesExistingRecords()
+    {
+        // Arrange — regression: default tables still overwrite existing target records
+        var recordId = Guid.NewGuid();
+        var metadata = CreateMetadata("rob_setting", "rob_settingid", "rob_name");
+        SetupMetadata("rob_setting", metadata);
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Source value";
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Target value";
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        var captured = CaptureExecuteMultiple();
+        var config = CreateConfig("rob_setting");
+
+        // Act
+        var result = await _migrator.MigrateAsync(config, dryRun: false, force: false);
+
+        // Assert
+        var upsert = Assert.IsType<UpsertRequest>(Assert.Single(Assert.Single(captured)));
+        Assert.Equal(recordId, upsert.Target.Id);
+        Assert.Equal(0, result.TableResults[0].ExistingSkippedCount);
+    }
+
+    #endregion
+
     #region AttributeValuesEqual Tests
 
     [Fact]
@@ -1290,6 +1598,26 @@ public class RefDataMigratorTests
                 new() { LogicalName = tableName, ManageState = manageState }
             }
         };
+    }
+
+    private RefDataMigrateConfig CreateCreateOnlyConfig(string tableName, bool manageState = false)
+    {
+        return new RefDataMigrateConfig
+        {
+            Tables = new List<MigrateTableConfig>
+            {
+                new() { LogicalName = tableName, ManageState = manageState, CreateOnly = true }
+            }
+        };
+    }
+
+    private List<OrganizationRequestCollection> CaptureExecuteMultiple()
+    {
+        var captured = new List<OrganizationRequestCollection>();
+        _mockTargetClient.Setup(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()))
+            .Callback<OrganizationRequestCollection, bool>((reqs, _) => captured.Add(reqs))
+            .Returns(CreateSuccessResponse(0));
+        return captured;
     }
 
     private void SetupMetadata(string tableName, EntityMetadata metadata)

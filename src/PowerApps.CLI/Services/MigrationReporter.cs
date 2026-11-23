@@ -74,6 +74,8 @@ public class MigrationReporter : IMigrationReporter
         worksheet.Cell(row++, 2).Value = summary.TotalStateChanges;
         worksheet.Cell(row, 1).Value = "Skipped (unchanged):";
         worksheet.Cell(row++, 2).Value = summary.TotalSkipped;
+        worksheet.Cell(row, 1).Value = "Skipped (already exists):";
+        worksheet.Cell(row++, 2).Value = summary.TotalExistingSkipped;
         worksheet.Cell(row, 1).Value = "N:N Associated:";
         worksheet.Cell(row++, 2).Value = summary.TotalAssociated;
         worksheet.Cell(row, 1).Value = "N:N Disassociated:";
@@ -95,9 +97,10 @@ public class MigrationReporter : IMigrationReporter
         worksheet.Cell(row, 4).Value = "Lookups Patched";
         worksheet.Cell(row, 5).Value = "State Changes";
         worksheet.Cell(row, 6).Value = "Skipped";
-        worksheet.Cell(row, 7).Value = "Errors";
+        worksheet.Cell(row, 7).Value = "Existing Skipped";
+        worksheet.Cell(row, 8).Value = "Errors";
 
-        var headerRange = worksheet.Range(row, 1, row, 7);
+        var headerRange = worksheet.Range(row, 1, row, 8);
         headerRange.Style.Font.Bold = true;
         headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
         row++;
@@ -112,11 +115,12 @@ public class MigrationReporter : IMigrationReporter
             worksheet.Cell(row, 4).Value = tableResult.LookupsPatchedCount;
             worksheet.Cell(row, 5).Value = tableResult.StateChangesCount;
             worksheet.Cell(row, 6).Value = tableResult.SkippedCount;
-            worksheet.Cell(row, 7).Value = tableResult.Errors.Count;
+            worksheet.Cell(row, 7).Value = tableResult.ExistingSkippedCount;
+            worksheet.Cell(row, 8).Value = tableResult.Errors.Count;
 
             if (tableResult.Errors.Count > 0)
             {
-                worksheet.Cell(row, 7).Style.Font.FontColor = XLColor.Red;
+                worksheet.Cell(row, 8).Style.Font.FontColor = XLColor.Red;
             }
 
             row++;
@@ -125,7 +129,7 @@ public class MigrationReporter : IMigrationReporter
         // Create table
         if (summary.TableResults.Any())
         {
-            var tableRange = worksheet.Range(dataStartRow - 1, 1, row - 1, 7);
+            var tableRange = worksheet.Range(dataStartRow - 1, 1, row - 1, 8);
             var table = tableRange.CreateTable();
             table.Theme = XLTableTheme.TableStyleLight9;
         }

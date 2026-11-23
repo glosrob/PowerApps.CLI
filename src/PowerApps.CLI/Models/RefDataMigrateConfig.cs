@@ -12,6 +12,13 @@ public class MigrateTableConfig
     public string LogicalName { get; set; } = string.Empty;
     public string? Filter { get; set; }
     public bool ManageState { get; set; } = false;
+
+    /// <summary>
+    /// When true, records are only created in the target if they don't already exist (matched by GUID).
+    /// Existing target records are never updated. Intended for settings/configuration records.
+    /// </summary>
+    public bool CreateOnly { get; set; } = false;
+
     public List<string> ExcludeFields { get; set; } = new();
     public List<string> IncludeFields { get; set; } = new();
 }

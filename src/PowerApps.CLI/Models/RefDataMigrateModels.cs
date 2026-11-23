@@ -15,6 +15,7 @@ public class MigrationSummary
     public int TotalLookupsPatched => TableResults.Sum(t => t.LookupsPatchedCount);
     public int TotalStateChanges => TableResults.Sum(t => t.StateChangesCount);
     public int TotalSkipped => TableResults.Sum(t => t.SkippedCount);
+    public int TotalExistingSkipped => TableResults.Sum(t => t.ExistingSkippedCount);
     public int TotalAssociated => ManyToManyResults.Sum(r => r.AssociatedCount);
     public int TotalDisassociated => ManyToManyResults.Sum(r => r.DisassociatedCount);
     public int TotalErrors => TableResults.Sum(t => t.Errors.Count) + ManyToManyResults.Sum(r => r.Errors.Count);
@@ -29,6 +30,7 @@ public class TableMigrationResult
     public int LookupsPatchedCount { get; set; }
     public int StateChangesCount { get; set; }
     public int SkippedCount { get; set; }
+    public int ExistingSkippedCount { get; set; }
     public List<RecordError> Errors { get; set; } = new();
 }
 

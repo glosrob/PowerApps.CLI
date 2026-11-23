@@ -61,7 +61,7 @@ public class RefDataMigrator : IRefDataMigrator
         prepTimer.Stop();
         _logger.LogInfo($"\nPreparation completed in {prepTimer.Elapsed:mm\\:ss\\.fff}");
 
-        // Pass 1: Upsert flat data for ALL tables
+        // Pass 1: Upsert flat data for ALL tables (create-only tables use Create, so an existing record faults rather than being overwritten)
         _logger.LogInfo("");
         _logger.LogInfo("=== Pass 1: Upserting flat data ===");
         foreach (var table in preparedTables)
@@ -72,14 +72,16 @@ public class RefDataMigrator : IRefDataMigrator
             var tableTimer = Stopwatch.StartNew();
             if (!dryRun)
             {
-                var errors = ExecuteBatchUpserts(table.FlatEntities, config.BatchSize, table.TableName, "Upsert (flat)");
+                var errors = table.CreateOnly
+                    ? ExecuteBatchUpserts(table.FlatEntities, config.BatchSize, table.TableName, "Create (flat)", createOnly: true)
+                    : ExecuteBatchUpserts(table.FlatEntities, config.BatchSize, table.TableName, "Upsert (flat)");
                 table.Result.UpsertedCount = table.FlatEntities.Count - errors.Count;
                 table.Result.Errors.AddRange(errors);
             }
             else
             {
                 table.Result.UpsertedCount = table.FlatEntities.Count;
-                _logger.LogInfoIfVerbose($"    [DRY RUN] Would upsert {table.FlatEntities.Count} records");
+                _logger.LogInfoIfVerbose($"    [DRY RUN] Would {(table.CreateOnly ? "create" : "upsert")} {table.FlatEntities.Count} records");
             }
             tableTimer.Stop();
             _logger.LogInfo($"    Completed in {tableTimer.Elapsed:mm\\:ss\\.fff}");
@@ -181,6 +183,13 @@ public class RefDataMigrator : IRefDataMigrator
 
         _logger.LogInfo($"Preparing table: {tableName}");
 
+        // Create-only tables must know what already exists in target, so --force cannot skip the target read
+        if (tableConfig.CreateOnly && force)
+        {
+            _logger.LogInfo("  Create-only table: ignoring --force, target records will still be checked");
+            force = false;
+        }
+
         // Retrieve metadata from target to discover writable columns and primary key
         _logger.LogInfoIfVerbose($"  Retrieving metadata for {tableName}...");
         var metadata = _targetClient.GetEntityMetadata(tableName);
@@ -217,6 +226,7 @@ public class RefDataMigrator : IRefDataMigrator
         var flatEntities = new List<Entity>();
         var lookupEntities = new List<Entity>();
         var skippedCount = 0;
+        var existingSkippedCount = 0;
 
         bool IsMigratableColumn(string columnName)
         {
@@ -234,6 +244,13 @@ public class RefDataMigrator : IRefDataMigrator
             // Check if target has this record (for diff mode)
             Entity? targetRecord = null;
             var isNewRecord = force || targetRecordMap == null || !targetRecordMap.TryGetValue(record.Id, out targetRecord);
+
+            // Create-only tables never touch a record that already exists in target
+            if (tableConfig.CreateOnly && !isNewRecord)
+            {
+                existingSkippedCount++;
+                continue;
+            }
 
             var hasFlatChanges = isNewRecord;
             var hasLookupChanges = false;
@@ -316,7 +333,12 @@ public class RefDataMigrator : IRefDataMigrator
         }
 
         result.SkippedCount = skippedCount;
-        if (!force && skippedCount > 0)
+        result.ExistingSkippedCount = existingSkippedCount;
+        if (tableConfig.CreateOnly)
+        {
+            _logger.LogInfo($"  Diff: {flatEntities.Count} to create, {existingSkippedCount} already exist (create-only)");
+        }
+        else if (!force && skippedCount > 0)
         {
             _logger.LogInfo($"  Diff: {flatEntities.Count} to upsert, {lookupEntities.Count} lookups to patch, {skippedCount} unchanged");
         }
@@ -350,6 +372,12 @@ public class RefDataMigrator : IRefDataMigrator
                         continue;
                     }
 
+                    // Create-only tables leave the state of existing records alone
+                    if (tableConfig.CreateOnly)
+                    {
+                        continue;
+                    }
+
                     var targetState = GetOptionValue(targetRecord, "statecode") ?? 0;
                     var targetStatus = GetOptionValue(targetRecord, "statuscode");
 
@@ -365,6 +393,7 @@ public class RefDataMigrator : IRefDataMigrator
         {
             TableName = tableName,
             Result = result,
+            CreateOnly = tableConfig.CreateOnly,
             FlatEntities = flatEntities,
             LookupEntities = lookupEntities,
             StateRecords = stateRecords
@@ -526,6 +555,7 @@ public class RefDataMigrator : IRefDataMigrator
     {
         public string TableName { get; set; } = string.Empty;
         public TableMigrationResult Result { get; set; } = new();
+        public bool CreateOnly { get; set; }
         public List<Entity> FlatEntities { get; set; } = new();
         public List<Entity> LookupEntities { get; set; } = new();
         public List<Entity> StateRecords { get; set; } = new();
@@ -585,7 +615,7 @@ public class RefDataMigrator : IRefDataMigrator
         return writable;
     }
 
-    private List<RecordError> ExecuteBatchUpserts(List<Entity> entities, int batchSize, string tableName, string phase)
+    private List<RecordError> ExecuteBatchUpserts(List<Entity> entities, int batchSize, string tableName, string phase, bool createOnly = false)
     {
         var errors = new List<RecordError>();
 
@@ -596,7 +626,14 @@ public class RefDataMigrator : IRefDataMigrator
 
             foreach (var entity in batch)
             {
-                requests.Add(new UpsertRequest { Target = entity });
+                if (createOnly)
+                {
+                    requests.Add(new CreateRequest { Target = entity });
+                }
+                else
+                {
+                    requests.Add(new UpsertRequest { Target = entity });
+                }
             }
 
             _logger.LogInfoIfVerbose($"    Executing batch {(i / batchSize) + 1} ({batch.Count} requests)...");
