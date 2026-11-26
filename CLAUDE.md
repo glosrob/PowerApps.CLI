@@ -46,7 +46,7 @@ The split exists because Rob wants a genuine separation between "build it" and "
 
 ### Claude Code Subagents — Developer, Tester, Code Reviewer
 
-Inside Claude Code, the Developer role is split further across three subagents defined in `.claude/agents/`. The main Claude Code session runs them in sequence (subagents can't call each other):
+Inside Claude Code, the Developer role is split further across three subagents defined in `.claude/agents/`. The main Claude Code session runs them in sequence (subagents can't call each other). The flow is for `feature/` and `fix/` work with an issue and an agreed plan; `docs/` and `chore/` changes are made by the main session directly.
 
 | Agent | File | May edit | Job |
 |---|---|---|---|
@@ -54,9 +54,9 @@ Inside Claude Code, the Developer role is split further across three subagents d
 | `tester` | `tester.md` | `tests/PowerApps.CLI.Tests/` only | Tries to break the change; adds missing tests; leaves failing tests for bugs it finds rather than fixing `src/` |
 | `code-reviewer` | `code-reviewer.md` | No source files (builds and runs unit tests only) | First-pass review against the plan and this file; gives a verdict |
 
-The "May edit" limits are instructions in each agent file, not enforced by tooling — the agents have the tools to edit elsewhere, so the main session should check `git status` after each run. Changes to this file, `.claude/agents/` and `.github/` (including release notes in `release.yml`) are made by the main session, not a subagent.
+The "May edit" limits are instructions in each agent file, not enforced by tooling — the agents have the tools to edit elsewhere, so the main session should check `git status` after each run, and the `code-reviewer` checks that the tester's `test:` commits only touched `tests/`. The `developer` and `tester` each commit their work to the feature branch before reporting back — the next agent only sees committed changes. Changes to this file, `.claude/agents/` and `.github/` (including release notes in `release.yml`) are made by the main session, not a subagent.
 
-**Subagents start with no conversation history.** They only know what the main session passes them and what they can read from the repo or GitHub. The agreed plan must therefore be posted as a comment on the issue (step 3), and each agent is pointed at it: *"Use the developer agent to implement the plan in the latest plan comment on #NNN, then the tester, then the code-reviewer."*
+**Subagents start with no conversation history.** They only know what the main session passes them and what they can read from the repo or GitHub. The agreed plan must therefore be posted as a comment on the issue (step 3), and each agent is pointed at it: *"Use the developer agent to implement the plan in the most recent **Agreed plan** comment on #NNN, then the tester, then the code-reviewer."*
 
 The `code-reviewer` agent is a **first pass, not a replacement** for the Cowork Reviewer. It is good at catching convention drift, missed edge cases and weak tests; it is weaker at challenging a design the same session has just agreed. Design-level challenge stays with Cowork and Rob in step 5.
 
@@ -80,7 +80,8 @@ Rob reviews the plan and gives the go-ahead (or asks for adjustments). Last chec
 ### 4. Developer Implements and Raises a PR (Developer)
 Claude Code implements the plan, writes tests, ensures `dotnet build` and the unit tests pass, and creates a pull request against `main`. Within Claude Code this runs as `developer` → `tester` → `code-reviewer` (see *Claude Code Subagents* above), orchestrated by the main session:
 
-- If the `tester` reports bugs (failing tests), run the `developer` again to fix them, then re-run the `tester`. Repeat until it reports no new bugs.
+- If the `tester` reports bugs (failing tests), run the `developer` again to fix them, then re-run the `tester`. Repeat until it reports no new bugs, **up to two fix rounds** — after that, stop and bring it to Rob.
+- If the `developer` says a failing test is wrong rather than fixing it, don't loop — bring the disagreement to Rob.
 - Address Must-fix findings from the `code-reviewer` the same way (developer, then tester if code changed).
 - Never raise a PR with failing unit tests. The main session raises the PR once all of the above is done; subagents do not.
 
@@ -151,7 +152,7 @@ Plain C# classes for configuration DTOs and domain results. No behaviour.
 - **Dataverse terminology:** Tables (not Entities), Choices (not OptionSets) — in code, comments, and generated output
 - **C# files:** PascalCase
 - **Executable:** kebab-case (`powerapps-cli`)
-- **Branches:** `feature/NNN-short-description` or `fix/NNN-short-description`
+- **Branches:** `feature/NNN-short-description` or `fix/NNN-short-description`; `docs/short-description` or `chore/short-description` for changes with no code impact (issue number optional)
 
 ### Authentication (priority order)
 1. `--client-id` / `--client-secret` command-line arguments
