@@ -1024,6 +1024,46 @@ public class RecordComparerTests
     }
 
     [Fact]
+    public void CompareRecords_EmptyImageVersusMissing_ReportsZeroBytesAndNull()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_image", Array.Empty<byte>(), null);
+        var target = CreateEntity("rob_setting", id, "Setting");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("0 bytes", field.SourceValue);
+        Assert.Null(field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_AliasedChoiceSameValueDifferentLabels_ReturnsNoDifference()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "parent.rob_category",
+            new AliasedValue("rob_parent", "rob_category", new OptionSetValue(1)), "Standard");
+        var target = CreateSettingRecord(id, "parent.rob_category",
+            new AliasedValue("rob_parent", "rob_category", new OptionSetValue(1)), "Standard (EN-US)");
+
+        Assert.Empty(Compare(source, target).Differences);
+    }
+
+    [Fact]
+    public void CompareRecords_AliasedChoiceSameLabelDifferentValue_ReportIncludesStoredValue()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "parent.rob_category",
+            new AliasedValue("rob_parent", "rob_category", new OptionSetValue(1)), "Standard");
+        var target = CreateSettingRecord(id, "parent.rob_category",
+            new AliasedValue("rob_parent", "rob_category", new OptionSetValue(2)), "Standard");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("Standard (1)", field.SourceValue);
+        Assert.Equal("Standard (2)", field.TargetValue);
+    }
+
+    [Fact]
     public void CompareRecords_AliasedValueWithSameValue_ReturnsNoDifference()
     {
         var id = Guid.NewGuid();

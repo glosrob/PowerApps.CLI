@@ -1,4 +1,5 @@
 using System.Globalization;
+using PowerApps.CLI.Infrastructure;
 using Microsoft.Xrm.Sdk;
 using PowerApps.CLI.Services;
 using Xunit;
@@ -463,6 +464,161 @@ public class AttributeValuesTests
     public void FormatStoredValue_AliasedValue_UsesWrappedValue()
     {
         Assert.Equal("100000001", AttributeValues.FormatStoredValue(new AliasedValue("rob_parent", "rob_category", new OptionSetValue(100000001))));
+    }
+
+    #endregion
+
+    #region Display Fallback Parity Tests
+
+    /// <summary>
+    /// For every type the fix did not mean to change, FormatForDisplay must give exactly what
+    /// EntityExtensions.GetFormattedValue gives, with and without a formatted value.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(UnchangedDisplayTypes))]
+    public void FormatForDisplay_NonDateTypes_MatchGetFormattedValue(object value)
+    {
+        var withoutFormatted = new Entity("rob_setting", Guid.NewGuid());
+        withoutFormatted["rob_value"] = value;
+        var withFormatted = new Entity("rob_setting", Guid.NewGuid());
+        withFormatted["rob_value"] = value;
+        withFormatted.FormattedValues["rob_value"] = "Label";
+
+        Assert.Equal(withoutFormatted.GetFormattedValue("rob_value"), AttributeValues.FormatForDisplay(withoutFormatted, "rob_value"));
+        Assert.Equal(withFormatted.GetFormattedValue("rob_value"), AttributeValues.FormatForDisplay(withFormatted, "rob_value"));
+    }
+
+    [Theory]
+    [MemberData(nameof(UnchangedDisplayTypes))]
+    public void FormatForDisplay_NonDateTypes_MatchGetFormattedValueUnderAnotherCulture(object value)
+    {
+        // Money uses F2 and numbers use ToString() in the current culture, as GetFormattedValue does.
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+            var entity = new Entity("rob_setting", Guid.NewGuid());
+            entity["rob_value"] = value;
+
+            Assert.Equal(entity.GetFormattedValue("rob_value"), AttributeValues.FormatForDisplay(entity, "rob_value"));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    public static IEnumerable<object[]> UnchangedDisplayTypes()
+    {
+        yield return new object[] { "ABC" };
+        yield return new object[] { string.Empty };
+        yield return new object[] { 1234567 };
+        yield return new object[] { 1234567890123L };
+        yield return new object[] { 1234.5m };
+        yield return new object[] { 0.25d };
+        yield return new object[] { true };
+        yield return new object[] { Guid.Parse("6f9619ff-8b86-d011-b42d-00c04fc964ff") };
+        yield return new object[] { new OptionSetValue(100000001) };
+        yield return new object[] { new Money(1234.567m) };
+        yield return new object[] { new BooleanManagedProperty(true) };
+        yield return new object[] { new EntityReference("rob_parent", Guid.Parse("6f9619ff-8b86-d011-b42d-00c04fc964ff")) { Name = "Parent" } };
+        yield return new object[] { new EntityReference("rob_parent", Guid.Parse("6f9619ff-8b86-d011-b42d-00c04fc964ff")) };
+    }
+
+    #endregion
+
+    #region Aliased Value And Image Edge Case Tests
+
+    [Fact]
+    public void FormatForDisplay_AliasedValue_UsesFormattedValueKeyedUnderAlias()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["parent.rob_category"] = new AliasedValue("rob_parent", "rob_category", new OptionSetValue(100000001));
+        entity.FormattedValues["parent.rob_category"] = "Standard";
+        entity["parent.rob_ownerid"] = new AliasedValue("rob_parent", "rob_ownerid",
+            new EntityReference("rob_owner", Guid.NewGuid()) { Name = "Raw Name" });
+        entity.FormattedValues["parent.rob_ownerid"] = "Formatted Name";
+
+        Assert.Equal("Standard", AttributeValues.FormatForDisplay(entity, "parent.rob_category"));
+        Assert.Equal("Formatted Name", AttributeValues.FormatForDisplay(entity, "parent.rob_ownerid"));
+    }
+
+    [Fact]
+    public void FormatForDisplay_AliasedValue_WithoutFormattedValue_UsesWrappedFallback()
+    {
+        var parentId = Guid.NewGuid();
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["parent.rob_ownerid"] = new AliasedValue("rob_parent", "rob_ownerid", new EntityReference("rob_owner", parentId));
+        entity["parent.rob_price"] = new AliasedValue("rob_parent", "rob_price", new Money(5m));
+
+        Assert.Equal(parentId.ToString(), AttributeValues.FormatForDisplay(entity, "parent.rob_ownerid"));
+        Assert.Equal(5m.ToString("F2"), AttributeValues.FormatForDisplay(entity, "parent.rob_price"));
+    }
+
+    [Fact]
+    public void Unwrap_NestedAliasedValues_ReturnsInnermostValue()
+    {
+        var nested = new AliasedValue("rob_a", "rob_code", new AliasedValue("rob_b", "rob_code", "ABC"));
+
+        Assert.Equal("ABC", AttributeValues.Unwrap(nested));
+        Assert.Null(AttributeValues.Unwrap(new AliasedValue("rob_a", "rob_code", new AliasedValue("rob_b", "rob_code", null))));
+        Assert.Null(AttributeValues.Unwrap(null));
+    }
+
+    [Fact]
+    public void AreEqual_NestedAliasedValue_ComparesInnermostValues()
+    {
+        var nested = new AliasedValue("rob_a", "rob_code", new AliasedValue("rob_b", "rob_code", new OptionSetValue(1)));
+
+        Assert.True(AttributeValues.AreEqual(nested, new OptionSetValue(1)));
+        Assert.True(AttributeValues.AreEqual(new OptionSetValue(1), nested));
+        Assert.False(AttributeValues.AreEqual(nested, new OptionSetValue(2)));
+    }
+
+    [Fact]
+    public void FormatForDisplay_NestedAliasedDate_UsesIsoFormat()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["a.rob_effectivefrom"] = new AliasedValue("rob_a", "rob_effectivefrom",
+            new AliasedValue("rob_b", "rob_effectivefrom", new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Unspecified)));
+        entity.FormattedValues["a.rob_effectivefrom"] = "01/03/2026";
+
+        Assert.Equal("2026-03-01T00:00:00", AttributeValues.FormatForDisplay(entity, "a.rob_effectivefrom"));
+    }
+
+    [Fact]
+    public void FormatStoredValue_ImageHash_IsDeterministicAcrossInstances()
+    {
+        var first = AttributeValues.FormatStoredValue(new byte[] { 9, 8, 7, 6 });
+        var second = AttributeValues.FormatStoredValue(new byte[] { 9, 8, 7, 6 });
+
+        Assert.Equal(first, second);
+        Assert.Matches("^SHA-256 [0-9A-F]{12}$", first);
+    }
+
+    [Fact]
+    public void FormatStoredValue_EmptyImage_HashesEmptyInput()
+    {
+        // SHA-256 of no bytes is e3b0c442 98fc1c14...
+        Assert.Equal("SHA-256 E3B0C44298FC", AttributeValues.FormatStoredValue(Array.Empty<byte>()));
+    }
+
+    [Fact]
+    public void FormatForDisplay_EmptyImage_ShowsZeroBytes()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["rob_image"] = Array.Empty<byte>();
+
+        Assert.Equal("0 bytes", AttributeValues.FormatForDisplay(entity, "rob_image"));
+    }
+
+    [Fact]
+    public void FormatForDisplay_EmptyMultiSelectWithoutFormattedValue_ReturnsEmptyString()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["rob_regions"] = new OptionSetValueCollection();
+
+        Assert.Equal(string.Empty, AttributeValues.FormatForDisplay(entity, "rob_regions"));
     }
 
     #endregion

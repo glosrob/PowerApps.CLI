@@ -913,6 +913,55 @@ public class RefDataMigratorTests
         Assert.Equal(new[] { 1, 2 }, sent.Select(o => o.Value).ToArray());
     }
 
+    [Fact]
+    public async Task MigrateAsync_DiffMode_SkipsUnchangedImageColumn()
+    {
+        // byte[] used to be compared by reference, so an unchanged image always counted as a change.
+        var recordId = Guid.NewGuid();
+        SetupMetadata("rob_setting", CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_image"));
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["rob_image"] = new byte[] { 1, 2, 3 };
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_image"] = new byte[] { 1, 2, 3 };
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+
+        var result = await _migrator.MigrateAsync(CreateConfig("rob_setting"), dryRun: false, force: false);
+
+        Assert.Equal(1, result.TableResults[0].SkippedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_DiffMode_DetectsChangedImageColumn()
+    {
+        var recordId = Guid.NewGuid();
+        SetupMetadata("rob_setting", CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_image"));
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["rob_image"] = new byte[] { 1, 2, 3 };
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_image"] = new byte[] { 1, 2, 4 };
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(1));
+
+        var result = await _migrator.MigrateAsync(CreateConfig("rob_setting"), dryRun: false, force: false);
+
+        Assert.Equal(0, result.TableResults[0].SkippedCount);
+        Assert.Equal(1, result.TableResults[0].UpsertedCount);
+    }
+
     private static OptionSetValueCollection CreateOptions(params int[] values)
     {
         var options = new OptionSetValueCollection();
