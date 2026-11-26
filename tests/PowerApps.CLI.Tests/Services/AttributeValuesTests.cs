@@ -622,4 +622,47 @@ public class AttributeValuesTests
     }
 
     #endregion
+
+    #region Null Handling Tests
+
+    /// <summary>
+    /// Guards the order in AreEqual: the null check must run before any type-specific rule, so
+    /// a typed value against null (or an alias wrapping null) is never treated as equal.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(TypedValues))]
+    public void AreEqual_TypedValueVersusNull_ReturnsFalseInBothOrders(object value)
+    {
+        Assert.False(AttributeValues.AreEqual(value, null));
+        Assert.False(AttributeValues.AreEqual(null, value));
+    }
+
+    [Theory]
+    [MemberData(nameof(TypedValues))]
+    public void AreEqual_TypedValueVersusAliasedNull_ReturnsFalseInBothOrders(object value)
+    {
+        var aliasedNull = new AliasedValue("rob_parent", "rob_value", null);
+
+        Assert.False(AttributeValues.AreEqual(value, aliasedNull));
+        Assert.False(AttributeValues.AreEqual(aliasedNull, value));
+    }
+
+    public static IEnumerable<object[]> TypedValues()
+    {
+        yield return new object[] { new EntityReference("rob_parent", Guid.NewGuid()) { Name = "Parent" } };
+        yield return new object[] { new OptionSetValue(100000001) };
+        yield return new object[] { new Money(10m) };
+        yield return new object[] { new BooleanManagedProperty(true) };
+        yield return new object[] { false };
+        yield return new object[] { new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Utc) };
+        yield return new object[] { new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Unspecified) };
+        yield return new object[] { 0m };
+        yield return new object[] { new OptionSetValueCollection { new OptionSetValue(1) } };
+        yield return new object[] { new OptionSetValueCollection() };
+        yield return new object[] { new byte[] { 1, 2, 3 } };
+        yield return new object[] { Array.Empty<byte>() };
+        yield return new object[] { new AliasedValue("rob_parent", "rob_code", "ABC") };
+    }
+
+    #endregion
 }

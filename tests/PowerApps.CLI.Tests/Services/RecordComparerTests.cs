@@ -888,6 +888,66 @@ public class RecordComparerTests
         yield return new object?[] { new EntityReference("rob_parent", lookupId) { Name = "A" }, new EntityReference("rob_parent", Guid.NewGuid()) { Name = "A" } };
         yield return new object?[] { new OptionSetValueCollection { new OptionSetValue(1), new OptionSetValue(2) }, new OptionSetValueCollection { new OptionSetValue(2), new OptionSetValue(1) } };
         yield return new object?[] { new OptionSetValueCollection { new OptionSetValue(1) }, new OptionSetValueCollection { new OptionSetValue(2) } };
+
+        // Typed value against null, both orders.
+        object[] typed =
+        {
+            new EntityReference("rob_parent", lookupId) { Name = "A" },
+            new OptionSetValue(1),
+            new Money(5m),
+            new OptionSetValueCollection { new OptionSetValue(1) },
+            new byte[] { 1, 2, 3 },
+            utc
+        };
+        foreach (var value in typed)
+        {
+            yield return new object?[] { value, null };
+            yield return new object?[] { null, value };
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(LabelledValueVersusEmpty))]
+    public void CompareRecords_LabelledValueVersusNullOrMissing_ReportsLabelAndNullWithoutSuffix(
+        string column, object value, string label, bool targetHasValue, bool emptySideIsMissing)
+    {
+        var id = Guid.NewGuid();
+        var withValue = CreateSettingRecord(id, column, value, label);
+        var empty = emptySideIsMissing
+            ? CreateEntity("rob_setting", id, "Setting")
+            : CreateSettingRecord(id, column, null, null);
+
+        var result = targetHasValue ? Compare(empty, withValue) : Compare(withValue, empty);
+
+        var field = Assert.Single(GetFieldDifferences(result));
+        Assert.Equal(column, field.FieldName);
+        var shown = targetHasValue ? field.TargetValue : field.SourceValue;
+        var other = targetHasValue ? field.SourceValue : field.TargetValue;
+        Assert.Equal(label, shown);
+        Assert.Null(other);
+        Assert.DoesNotContain(" (", shown);
+        Assert.DoesNotContain(" {", shown);
+    }
+
+    public static IEnumerable<object[]> LabelledValueVersusEmpty()
+    {
+        var columns = new (string Column, Func<object> Value, string Label)[]
+        {
+            ("rob_parentid", () => new EntityReference("rob_parent", Guid.NewGuid()) { Name = "Parent A" }, "Parent A"),
+            ("rob_category", () => new OptionSetValue(100000001), "Standard"),
+            ("rob_price", () => new Money(12.5m), "£12.50")
+        };
+
+        foreach (var (column, value, label) in columns)
+        {
+            foreach (var targetHasValue in new[] { false, true })
+            {
+                foreach (var emptySideIsMissing in new[] { false, true })
+                {
+                    yield return new object[] { column, value(), label, targetHasValue, emptySideIsMissing };
+                }
+            }
+        }
     }
 
     [Fact]
