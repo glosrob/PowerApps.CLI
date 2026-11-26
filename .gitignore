@@ -29,7 +29,8 @@ bld/
 .vscode/
 
 # Claude Code
-.claude/
+.claude/*
+!.claude/agents/
 
 # Test Results
 [Tt]est[Rr]esult*/
