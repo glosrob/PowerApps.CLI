@@ -301,7 +301,7 @@ public class SchemaExportTests(DataverseFixture fixture)
         // export path rather than the extractor directly.
         var service = new SchemaService(
             new ConsoleLogger(),
-            new SchemaExporter(new FileWriter()),
+            new SchemaExporter(new FileWriter(), new ConsoleLogger()),
             _fixture.Client,
             new SchemaExtractor(new MetadataMapper(), _fixture.Client));
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-prefix-{Guid.NewGuid():N}.json");
@@ -350,7 +350,7 @@ public class SchemaExportTests(DataverseFixture fixture)
 
         // Arrange — exercises the real write path: SchemaExporter (JSON serialize) + FileWriter
         var schema = await _fixture.GetSolutionSchemaAsync(IntegrationSolution);
-        var exporter = new SchemaExporter(new FileWriter());
+        var exporter = new SchemaExporter(new FileWriter(), new ConsoleLogger());
         var outputPath = Path.Combine(Path.GetTempPath(), $"schema-roundtrip-{Guid.NewGuid():N}.json");
 
         try

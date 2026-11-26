@@ -157,7 +157,7 @@ public class SchemaCommand
 
             var logger = new ConsoleLogger { IsVerboseEnabled = verbose };
             var fileWriter = new FileWriter();
-            var schemaExporter = new SchemaExporter(fileWriter);
+            var schemaExporter = new SchemaExporter(fileWriter, logger);
             var dataverseClient = new DataverseClient(url ?? string.Empty, clientId, clientSecret, connectionString);
             var metadataMapper = new MetadataMapper();
             var schemaExtractor = new SchemaExtractor(metadataMapper, dataverseClient);

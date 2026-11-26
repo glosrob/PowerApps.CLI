@@ -15,10 +15,12 @@ public class SchemaExporter : ISchemaExporter
     private const string RelationshipsSheetName = "Relationships";
 
     private readonly IFileWriter _fileWriter;
+    private readonly IConsoleLogger _logger;
 
-    public SchemaExporter(IFileWriter fileWriter)
+    public SchemaExporter(IFileWriter fileWriter, IConsoleLogger logger)
     {
         _fileWriter = fileWriter ?? throw new ArgumentNullException(nameof(fileWriter));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public async Task ExportAsync(PowerAppsSchema schema, string outputPath, string format)
@@ -57,6 +59,7 @@ public class SchemaExporter : ISchemaExporter
     private async Task ExportToExcelAsync(PowerAppsSchema schema, string outputPath)
     {
         using var workbook = new XLWorkbook();
+        var cells = new CellWriter(_logger);
 
         // Allocate every table's sheet name up front. Names are needed twice - once to create the
         // sheet and once for the Summary hyperlinks - and allocation is stateful, so both passes
@@ -65,18 +68,18 @@ public class SchemaExporter : ISchemaExporter
 
         // Summary sheet with all entities
         var summarySheet = workbook.Worksheets.Add(SummarySheetName);
-        CreateSummarySheet(summarySheet, schema, entitySheets);
+        CreateSummarySheet(summarySheet, schema, entitySheets, cells);
 
         // Create individual entity worksheets
         foreach (var (entity, sheetName) in entitySheets)
         {
             var entitySheet = workbook.Worksheets.Add(sheetName);
-            CreateEntitySheet(entitySheet, entity);
+            CreateEntitySheet(entitySheet, entity, cells);
         }
 
         // Attributes sheet with all attributes from all entities
         var attributesSheet = workbook.Worksheets.Add(AttributesSheetName);
-        CreateAttributesSheet(attributesSheet, schema);
+        CreateAttributesSheet(attributesSheet, schema, cells);
 
         // Relationships sheet
         if (schema.Relationships?.Any() == true)
@@ -93,28 +96,27 @@ public class SchemaExporter : ISchemaExporter
     private static void CreateSummarySheet(
         IXLWorksheet sheet,
         PowerAppsSchema schema,
-        IReadOnlyList<(EntitySchema Entity, string SheetName)> entitySheets)
+        IReadOnlyList<(EntitySchema Entity, string SheetName)> entitySheets,
+        CellWriter cells)
     {
         int currentRow = 1;
-        
+
         // Metadata section at top
         sheet.Cell(currentRow, 1).Value = "Environment:";
         sheet.Cell(currentRow, 1).Style.Font.Bold = true;
-        sheet.Cell(currentRow, 2).Value = schema.EnvironmentUrl;
+        cells.SetText(sheet.Cell(currentRow, 2), schema.EnvironmentUrl, "Environment URL");
         currentRow++;
-        
+
         sheet.Cell(currentRow, 1).Value = "Organisation:";
         sheet.Cell(currentRow, 1).Style.Font.Bold = true;
-        sheet.Cell(currentRow, 2).Value = schema.OrganisationName;
+        cells.SetText(sheet.Cell(currentRow, 2), schema.OrganisationName, "Organisation name");
         currentRow++;
-        
+
         // Solution label - use plural if multiple solutions
         var solutionLabel = (schema.SolutionNames?.Count ?? 0) > 1 ? "Solutions:" : "Solution:";
         sheet.Cell(currentRow, 1).Value = solutionLabel;
         sheet.Cell(currentRow, 1).Style.Font.Bold = true;
-        sheet.Cell(currentRow, 2).Value = schema.SolutionNames != null && schema.SolutionNames.Any()
-            ? string.Join(", ", schema.SolutionNames)
-            : string.Empty;
+        cells.SetList(sheet.Cell(currentRow, 2), schema.SolutionNames, "Solution names on the Summary sheet");
         currentRow++;
         
         sheet.Cell(currentRow, 1).Value = "Extracted:";
@@ -173,18 +175,16 @@ public class SchemaExporter : ISchemaExporter
             sheet.Cell(row, 1).Style.Font.Underline = XLFontUnderlineValues.Single;
 
             // Display Name with hyperlink to entity sheet
-            sheet.Cell(row, 2).Value = entity.DisplayName ?? string.Empty;
+            cells.SetText(sheet.Cell(row, 2), entity.DisplayName, $"Display Name of table {entity.LogicalName}");
             sheet.Cell(row, 2).SetHyperlink(new XLHyperlink($"'{sheetName}'!A1"));
             sheet.Cell(row, 2).Style.Font.FontColor = XLColor.Blue;
             sheet.Cell(row, 2).Style.Font.Underline = XLFontUnderlineValues.Single;
 
-            sheet.Cell(row, 3).Value = entity.SchemaName ?? string.Empty;
+            cells.SetText(sheet.Cell(row, 3), entity.SchemaName, $"Schema Name of table {entity.LogicalName}");
             sheet.Cell(row, 4).Value = entity.PrimaryIdAttribute ?? string.Empty;
             sheet.Cell(row, 5).Value = entity.IsCustomEntity.ToString();
             sheet.Cell(row, 6).Value = entity.IsAuditEnabled.ToString();
-            sheet.Cell(row, 7).Value = entity.FoundInSolutions != null && entity.FoundInSolutions.Any()
-                ? string.Join(", ", entity.FoundInSolutions)
-                : string.Empty;
+            cells.SetList(sheet.Cell(row, 7), entity.FoundInSolutions, $"Solutions for table {entity.LogicalName}");
             row++;
         }
 
@@ -202,7 +202,7 @@ public class SchemaExporter : ISchemaExporter
         sheet.Columns().AdjustToContents();
     }
 
-    private static void CreateAttributesSheet(IXLWorksheet sheet, PowerAppsSchema schema)
+    private static void CreateAttributesSheet(IXLWorksheet sheet, PowerAppsSchema schema, CellWriter cells)
     {
         // Headers
         sheet.Cell(1, 1).Value = "Entity";
@@ -238,11 +238,12 @@ public class SchemaExporter : ISchemaExporter
                     foreach (var attr in OrderForDisplay(entity.Attributes))
                     {
                         sheet.Cell(row, 1).Value = entity.LogicalName ?? string.Empty;
+                        var columnName = $"{entity.LogicalName}.{attr.LogicalName}";
                         sheet.Cell(row, 2).Value = attr.LogicalName ?? string.Empty;
-                        sheet.Cell(row, 3).Value = attr.DisplayName ?? string.Empty;
-                        sheet.Cell(row, 4).Value = attr.SchemaName ?? string.Empty;
+                        cells.SetText(sheet.Cell(row, 3), attr.DisplayName, $"Display Name of column {columnName}");
+                        cells.SetText(sheet.Cell(row, 4), attr.SchemaName, $"Schema Name of column {columnName}");
                         sheet.Cell(row, 5).Value = attr.AttributeType ?? string.Empty;
-                        sheet.Cell(row, 6).Value = attr.Description ?? string.Empty;
+                        cells.SetText(sheet.Cell(row, 6), attr.Description, $"Description of column {columnName}");
                         sheet.Cell(row, 7).Value = attr.IsPrimaryId.ToString();
                         sheet.Cell(row, 8).Value = attr.IsPrimaryName.ToString();
                         sheet.Cell(row, 9).Value = attr.IsCustomAttribute.ToString();
@@ -252,9 +253,7 @@ public class SchemaExporter : ISchemaExporter
                         sheet.Cell(row, 13).Value = attr.MinValue?.ToString() ?? string.Empty;
                         sheet.Cell(row, 14).Value = attr.MaxValue?.ToString() ?? string.Empty;
                         sheet.Cell(row, 15).Value = attr.Precision?.ToString() ?? string.Empty;
-                        sheet.Cell(row, 16).Value = attr.Targets != null && attr.Targets.Any()
-                            ? string.Join(", ", attr.Targets)
-                            : string.Empty;
+                        cells.SetList(sheet.Cell(row, 16), attr.Targets, $"Targets of column {columnName}");
                         row++;
                     }
                 }
@@ -389,7 +388,7 @@ public class SchemaExporter : ISchemaExporter
         return safeName;
     }
 
-    private static void CreateEntitySheet(IXLWorksheet sheet, EntitySchema entity)
+    private static void CreateEntitySheet(IXLWorksheet sheet, EntitySchema entity, CellWriter cells)
     {
         // Back to Summary link
         sheet.Cell(1, 1).Value = "« Back to Summary";
@@ -406,17 +405,20 @@ public class SchemaExporter : ISchemaExporter
         // Entity properties
         var row = 4;
         AddPropertyRow(sheet, ref row, "Logical Name", entity.LogicalName);
-        AddPropertyRow(sheet, ref row, "Display Name", entity.DisplayName);
-        AddPropertyRow(sheet, ref row, "Schema Name", entity.SchemaName);
-        AddPropertyRow(sheet, ref row, "Description", entity.Description);
+        AddPropertyRow(sheet, ref row, "Display Name", entity.DisplayName, cells, $"Display Name of table {entity.LogicalName}");
+        AddPropertyRow(sheet, ref row, "Schema Name", entity.SchemaName, cells, $"Schema Name of table {entity.LogicalName}");
+        AddPropertyRow(sheet, ref row, "Description", entity.Description, cells, $"Description of table {entity.LogicalName}");
         AddPropertyRow(sheet, ref row, "Primary ID", entity.PrimaryIdAttribute);
         AddPropertyRow(sheet, ref row, "Primary Name", entity.PrimaryNameAttribute);
         AddPropertyRow(sheet, ref row, "Is Custom", entity.IsCustomEntity.ToString());
         AddPropertyRow(sheet, ref row, "Is Audit Enabled", entity.IsAuditEnabled.ToString());
-        
+
         if (entity.FoundInSolutions != null && entity.FoundInSolutions.Any())
         {
-            AddPropertyRow(sheet, ref row, "Found In Solutions", string.Join(", ", entity.FoundInSolutions));
+            sheet.Cell(row, 1).Value = "Found In Solutions";
+            sheet.Cell(row, 1).Style.Font.Bold = true;
+            cells.SetList(sheet.Cell(row, 2), entity.FoundInSolutions, $"Solutions for table {entity.LogicalName}");
+            row++;
         }
 
         // Attributes section
@@ -447,10 +449,11 @@ public class SchemaExporter : ISchemaExporter
             var attributeStartRow = row;
             foreach (var attr in OrderForDisplay(entity.Attributes))
             {
+                var columnName = $"{entity.LogicalName}.{attr.LogicalName}";
                 sheet.Cell(row, 1).Value = attr.LogicalName ?? string.Empty;
-                sheet.Cell(row, 2).Value = attr.DisplayName ?? string.Empty;
+                cells.SetText(sheet.Cell(row, 2), attr.DisplayName, $"Display Name of column {columnName}");
                 sheet.Cell(row, 3).Value = attr.AttributeType ?? string.Empty;
-                sheet.Cell(row, 4).Value = attr.Description ?? string.Empty;
+                cells.SetText(sheet.Cell(row, 4), attr.Description, $"Description of column {columnName}");
                 sheet.Cell(row, 5).Value = attr.RequiredLevel ?? string.Empty;
                 sheet.Cell(row, 6).Value = attr.IsAuditEnabled.ToString();
                 sheet.Cell(row, 7).Value = attr.MaxLength?.ToString() ?? string.Empty;
@@ -477,5 +480,69 @@ public class SchemaExporter : ISchemaExporter
         sheet.Cell(row, 1).Style.Font.Bold = true;
         sheet.Cell(row, 2).Value = value ?? string.Empty;
         row++;
+    }
+
+    private static void AddPropertyRow(
+        IXLWorksheet sheet, ref int row, string label, string? value, CellWriter cells, string context)
+    {
+        sheet.Cell(row, 1).Value = label;
+        sheet.Cell(row, 1).Style.Font.Bold = true;
+        cells.SetText(sheet.Cell(row, 2), value, context);
+        row++;
+    }
+
+    /// <summary>
+    /// Writes free-text and list values to cells, cutting them short to fit Excel's cell limit.
+    /// One instance is used per export so a value shown on more than one sheet (such as a
+    /// table's solutions) is only reported once.
+    /// </summary>
+    private sealed class CellWriter
+    {
+        private readonly IConsoleLogger _logger;
+        private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
+
+        public CellWriter(IConsoleLogger logger)
+        {
+            _logger = logger;
+        }
+
+        public void SetText(IXLCell cell, string? value, string context)
+        {
+            var fitted = ExcelCellText.FitText(value ?? string.Empty, out var droppedChars);
+            cell.Value = fitted;
+
+            if (droppedChars > 0)
+            {
+                Report(context,
+                    $"{ExcelCellText.FormatCount(droppedChars)} of {ExcelCellText.FormatCount(value!.Length)} characters dropped");
+            }
+        }
+
+        public void SetList(IXLCell cell, IReadOnlyList<string>? items, string context)
+        {
+            if (items == null || items.Count == 0)
+            {
+                cell.Value = string.Empty;
+                return;
+            }
+
+            var fitted = ExcelCellText.FitList(items, out var droppedItems);
+            cell.Value = fitted;
+
+            if (droppedItems > 0)
+            {
+                Report(context,
+                    $"showing {ExcelCellText.FormatCount(items.Count - droppedItems)} of {ExcelCellText.FormatCount(items.Count)} items");
+            }
+        }
+
+        private void Report(string context, string detail)
+        {
+            if (_reported.Add(context))
+            {
+                _logger.LogWarning(
+                    $"XLSX: {context} cut short to fit Excel's {ExcelCellText.FormatCount(ExcelCellText.MaxCellLength)}-character cell limit ({detail}). JSON export keeps the full value.");
+            }
+        }
     }
 }

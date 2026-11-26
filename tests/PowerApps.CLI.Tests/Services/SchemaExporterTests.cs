@@ -11,13 +11,15 @@ namespace PowerApps.CLI.Tests.Services;
 public class SchemaExporterTests : IDisposable
 {
     private readonly Mock<IFileWriter> _mockFileWriter;
+    private readonly Mock<IConsoleLogger> _mockLogger;
     private readonly SchemaExporter _exporter;
     private readonly string _tempDirectory;
 
     public SchemaExporterTests()
     {
         _mockFileWriter = new Mock<IFileWriter>();
-        _exporter = new SchemaExporter(_mockFileWriter.Object);
+        _mockLogger = new Mock<IConsoleLogger>();
+        _exporter = new SchemaExporter(_mockFileWriter.Object, _mockLogger.Object);
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"PowerAppsCLI_Tests_{Guid.NewGuid()}");
         Directory.CreateDirectory(_tempDirectory);
         
@@ -69,6 +71,13 @@ public class SchemaExporterTests : IDisposable
         // Act & Assert
         await Assert.ThrowsAsync<ArgumentException>(() =>
             _exporter.ExportAsync(schema, "output.txt", "invalid"));
+    }
+
+    [Fact]
+    public void Constructor_WithNullLogger_ShouldThrowArgumentNullException()
+    {
+        // Act & Assert
+        Assert.Throws<ArgumentNullException>(() => new SchemaExporter(_mockFileWriter.Object, null!));
     }
 
     #endregion
@@ -270,6 +279,86 @@ public class SchemaExporterTests : IDisposable
         Assert.True(workbook.Worksheets.Contains("Summary~2"));
     }
 
+    [Fact]
+    public async Task ExportAsync_ToXlsx_TargetsOverCellLimit_ShouldCutShortAndWarnAsync()
+    {
+        // Arrange — mirrors syncerror.regardingobjectid, a lookup targeting ~2,000 tables
+        var targets = CreateLongTargets(2000);
+        Assert.True(string.Join(", ", targets).Length > ExcelCellText.MaxCellLength);
+        var schema = CreateSchemaWithLookup("syncerror", "regardingobjectid", targets);
+        var outputPath = Path.Combine(_tempDirectory, "long-targets.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        var targetsCell = workbook.Worksheet("Attributes").Cell(2, 16).GetString();
+        Assert.True(targetsCell.Length <= ExcelCellText.MaxCellLength);
+        Assert.Matches(@" … \(\+[\d,]+ more\)$", targetsCell);
+        Assert.StartsWith(targets[0] + ", " + targets[1], targetsCell);
+
+        _mockLogger.Verify(
+            x => x.LogWarning(It.Is<string>(m =>
+                m.Contains("Targets of column syncerror.regardingobjectid") && m.Contains("of 2,000 items"))),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExportAsync_ToXlsx_DescriptionOverCellLimit_ShouldCutShortWithCharCountAsync()
+    {
+        // Arrange
+        var schema = CreateSchemaWithLookup("account", "description", Array.Empty<string>());
+        var attr = schema.Entities![0].Attributes![0];
+        attr.Description = new string('x', ExcelCellText.MaxCellLength + 500);
+        var outputPath = Path.Combine(_tempDirectory, "long-description.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert
+        using var workbook = new XLWorkbook(outputPath);
+        var description = workbook.Worksheet("Attributes").Cell(2, 6).GetString();
+        Assert.True(description.Length <= ExcelCellText.MaxCellLength);
+        Assert.Matches(@" … \(\+[\d,]+ chars\)$", description);
+
+        // The same description appears on the Attributes sheet and the table sheet; warn once.
+        _mockLogger.Verify(
+            x => x.LogWarning(It.Is<string>(m => m.Contains("Description of column account.description"))),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ExportAsync_ToXlsx_NormalValues_ShouldNotWarnAsync()
+    {
+        // Arrange
+        var schema = CreateTestSchema();
+        var outputPath = Path.Combine(_tempDirectory, "normal.xlsx");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "xlsx");
+
+        // Assert
+        _mockLogger.Verify(x => x.LogWarning(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ExportAsync_ToJson_TargetsOverCellLimit_ShouldKeepFullListAsync()
+    {
+        // Arrange
+        var targets = CreateLongTargets(2000);
+        var schema = CreateSchemaWithLookup("syncerror", "regardingobjectid", targets);
+        var outputPath = Path.Combine(_tempDirectory, "long-targets.json");
+
+        // Act
+        await _exporter.ExportAsync(schema, outputPath, "json");
+
+        // Assert
+        var roundTripped = JsonSerializer.Deserialize<PowerAppsSchema>(await File.ReadAllTextAsync(outputPath));
+        Assert.Equal(targets, roundTripped!.Entities![0].Attributes![0].Targets);
+        _mockLogger.Verify(x => x.LogWarning(It.IsAny<string>()), Times.Never);
+    }
+
     #endregion
 
     #region Helper Methods
@@ -304,6 +393,39 @@ public class SchemaExporterTests : IDisposable
         var attributesSheet = workbook.Worksheet("Attributes");
         Assert.Equal("rob_aname", attributesSheet.Cell(2, 2).GetString());
         Assert.Equal("rob_zname", attributesSheet.Cell(3, 2).GetString());
+    }
+
+    private static string[] CreateLongTargets(int count) =>
+        Enumerable.Range(1, count).Select(i => $"rob_longtablename{i:D5}").ToArray();
+
+    private static PowerAppsSchema CreateSchemaWithLookup(string table, string column, string[] targets)
+    {
+        return new PowerAppsSchema
+        {
+            EnvironmentUrl = "https://test.crm.dynamics.com",
+            OrganisationName = "Test Org",
+            ExtractedDate = new DateTime(2026, 1, 1),
+            Entities = new List<EntitySchema>
+            {
+                new()
+                {
+                    LogicalName = table,
+                    DisplayName = table,
+                    SchemaName = table,
+                    Attributes = new List<AttributeSchema>
+                    {
+                        new()
+                        {
+                            LogicalName = column,
+                            DisplayName = column,
+                            SchemaName = column,
+                            AttributeType = "Lookup",
+                            Targets = targets
+                        }
+                    }
+                }
+            }
+        };
     }
 
     private static PowerAppsSchema CreateTestSchema()
