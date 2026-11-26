@@ -105,22 +105,52 @@ public class RecordComparer : IRecordComparer
 
         foreach (var attributeName in allAttributes)
         {
-            var sourceValue = sourceEntity.GetFormattedValue(attributeName);
-            var targetValue = targetEntity.GetFormattedValue(attributeName);
+            // Compare stored values, not formatted strings: formatted values depend on the
+            // settings of the user who queried each environment.
+            var sourceRaw = sourceEntity.Attributes.TryGetValue(attributeName, out var s) ? s : null;
+            var targetRaw = targetEntity.Attributes.TryGetValue(attributeName, out var t) ? t : null;
 
-            // Compare values (case-sensitive for precision)
-            if (!string.Equals(sourceValue, targetValue, StringComparison.Ordinal))
+            if (AttributeValues.AreEqual(sourceRaw, targetRaw))
             {
-                differences.Add(new FieldDifference
-                {
-                    FieldName = attributeName,
-                    SourceValue = sourceValue,
-                    TargetValue = targetValue
-                });
+                continue;
             }
+
+            var sourceDisplay = AttributeValues.FormatForDisplay(sourceEntity, attributeName);
+            var targetDisplay = AttributeValues.FormatForDisplay(targetEntity, attributeName);
+
+            // The values differ but read the same (e.g. two lookups to records with the same
+            // name): add the stored value so the report shows what changed.
+            if (string.Equals(sourceDisplay, targetDisplay, StringComparison.Ordinal))
+            {
+                sourceDisplay = WithStoredValue(sourceDisplay, sourceRaw);
+                targetDisplay = WithStoredValue(targetDisplay, targetRaw);
+            }
+
+            differences.Add(new FieldDifference
+            {
+                FieldName = attributeName,
+                SourceValue = sourceDisplay,
+                TargetValue = targetDisplay
+            });
         }
 
         return differences;
+    }
+
+    private static string? WithStoredValue(string? display, object? raw)
+    {
+        var stored = AttributeValues.FormatStoredValue(raw);
+        if (stored is null)
+        {
+            return display;
+        }
+
+        if (raw is EntityReference)
+        {
+            return $"{display} {{{stored}}}";
+        }
+
+        return $"{display} ({stored})";
     }
 
     public RelationshipComparisonResult CompareAssociations(

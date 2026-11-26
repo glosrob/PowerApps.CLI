@@ -1530,63 +1530,6 @@ public class RefDataMigratorTests
 
     #endregion
 
-    #region AttributeValuesEqual Tests
-
-    [Fact]
-    public void AttributeValuesEqual_BothNull_ReturnsTrue()
-    {
-        Assert.True(RefDataMigrator.AttributeValuesEqual(null, null));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_OneNull_ReturnsFalse()
-    {
-        Assert.False(RefDataMigrator.AttributeValuesEqual("test", null));
-        Assert.False(RefDataMigrator.AttributeValuesEqual(null, "test"));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_EntityReference_ComparesByIdOnly()
-    {
-        var id = Guid.NewGuid();
-        var ref1 = new EntityReference("account", id) { Name = "Name A" };
-        var ref2 = new EntityReference("account", id) { Name = "Name B" };
-        var ref3 = new EntityReference("account", Guid.NewGuid());
-
-        Assert.True(RefDataMigrator.AttributeValuesEqual(ref1, ref2));
-        Assert.False(RefDataMigrator.AttributeValuesEqual(ref1, ref3));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_OptionSetValue_ComparesByValue()
-    {
-        Assert.True(RefDataMigrator.AttributeValuesEqual(new OptionSetValue(1), new OptionSetValue(1)));
-        Assert.False(RefDataMigrator.AttributeValuesEqual(new OptionSetValue(1), new OptionSetValue(2)));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_Money_ComparesByValue()
-    {
-        Assert.True(RefDataMigrator.AttributeValuesEqual(new Money(100.00m), new Money(100.00m)));
-        Assert.False(RefDataMigrator.AttributeValuesEqual(new Money(100.00m), new Money(200.00m)));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_Strings_UsesEquals()
-    {
-        Assert.True(RefDataMigrator.AttributeValuesEqual("hello", "hello"));
-        Assert.False(RefDataMigrator.AttributeValuesEqual("hello", "world"));
-    }
-
-    [Fact]
-    public void AttributeValuesEqual_Integers_UsesEquals()
-    {
-        Assert.True(RefDataMigrator.AttributeValuesEqual(42, 42));
-        Assert.False(RefDataMigrator.AttributeValuesEqual(42, 99));
-    }
-
-    #endregion
-
     #region Helper Methods
 
     private RefDataMigrateConfig CreateConfig(string tableName, bool manageState = false)

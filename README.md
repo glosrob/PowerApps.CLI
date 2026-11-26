@@ -646,6 +646,8 @@ Generates C# constants from Dataverse metadata.
 
 Compares reference data between source and target Dataverse environments.
 
+Columns are compared by their stored values, not by the formatted text Dataverse returns, so the result doesn't depend on each connection's date, time zone, language or currency settings. Dates are shown in ISO 8601 (`2026-03-01T09:00:00Z`), with a `Z` only for UTC values; Date Only and Time-Zone Independent values are shown without one and are never shifted. A lookup is compared by record ID, so renaming the referenced record isn't reported as a difference. Multi-select Choices are compared by the options selected, in any order.
+
 #### Options
 
 | Option | Description | Required | Default |

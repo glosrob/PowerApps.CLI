@@ -271,7 +271,7 @@ public class RefDataMigrator : IRefDataMigrator
                     if (!isNewRecord && !hasLookupChanges)
                     {
                         var targetValue = targetRecord!.Contains(attr.Key) ? targetRecord[attr.Key] : null;
-                        if (!AttributeValuesEqual(attr.Value, targetValue))
+                        if (!AttributeValues.AreEqual(attr.Value, targetValue))
                         {
                             hasLookupChanges = true;
                         }
@@ -285,7 +285,7 @@ public class RefDataMigrator : IRefDataMigrator
                     if (!isNewRecord && !hasFlatChanges)
                     {
                         var targetValue = targetRecord!.Contains(attr.Key) ? targetRecord[attr.Key] : null;
-                        if (!AttributeValuesEqual(attr.Value, targetValue))
+                        if (!AttributeValues.AreEqual(attr.Value, targetValue))
                         {
                             hasFlatChanges = true;
                         }
@@ -566,21 +566,6 @@ public class RefDataMigrator : IRefDataMigrator
         return record.Contains(attributeName) && record[attributeName] is OptionSetValue option
             ? option.Value
             : null;
-    }
-
-    public static bool AttributeValuesEqual(object? source, object? target)
-    {
-        if (source is null && target is null) return true;
-        if (source is null || target is null) return false;
-
-        return (source, target) switch
-        {
-            (EntityReference s, EntityReference t) => s.Id == t.Id,
-            (OptionSetValue s, OptionSetValue t) => s.Value == t.Value,
-            (Money s, Money t) => s.Value == t.Value,
-            (BooleanManagedProperty s, BooleanManagedProperty t) => s.Value == t.Value,
-            _ => source.Equals(target)
-        };
     }
 
     private HashSet<string> GetWritableColumns(EntityMetadata metadata, List<string> excludeColumns, List<string> includeColumns)
