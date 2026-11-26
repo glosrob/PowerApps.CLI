@@ -646,7 +646,7 @@ Generates C# constants from Dataverse metadata.
 
 Compares reference data between source and target Dataverse environments.
 
-Columns are compared by their stored values, not by the formatted text Dataverse returns, so the result doesn't depend on each connection's date, time zone, language or currency settings. Dates are shown in ISO 8601 (`2026-03-01T09:00:00Z`), with a `Z` only for UTC values; Date Only and Time-Zone Independent values are shown without one and are never shifted. A lookup is compared by record ID, so renaming the referenced record isn't reported as a difference. Multi-select Choices are compared by the options selected, in any order.
+Columns are compared by their stored values, not by the formatted text Dataverse returns, so the result doesn't depend on each connection's date, time zone, language or currency settings. Dates are shown in ISO 8601 (`2026-03-01T09:00:00Z`), with a `Z` only for UTC values; Date Only and Time-Zone Independent values are shown without one and are never shifted. A lookup is compared by record ID, so renaming the referenced record isn't reported as a difference. Multi-select Choices are compared by the options selected, in any order. Image columns are compared by content and shown as a byte count.
 
 #### Options
 
@@ -667,6 +667,8 @@ Columns are compared by their stored values, not by the formatted text Dataverse
 ### refdata-migrate
 
 Migrates reference data from a source to a target Dataverse environment.
+
+Without `--force`, an existing record is only updated when a column's stored value differs from the target (new records are always created). It uses the same rules as `refdata-compare`, so unchanged multi-select Choices and image columns don't cause an upsert.
 
 #### Options
 
