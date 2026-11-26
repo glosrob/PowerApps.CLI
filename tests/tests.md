@@ -80,7 +80,7 @@ tests/scripts/
 
 ## Integration Tests
 
-Integration tests require a real Dataverse environment with specific solution artefacts in place. They are opt-in — all tests are tagged `[Trait("Category", "Integration")]` and excluded from the default test run.
+Integration tests require a real Dataverse environment with specific solution artefacts in place. All tests are tagged `[Trait("Category", "Integration")]` and skip themselves when no connection details are configured. They are **not** excluded from a plain `dotnet test`: if `tests/scripts/connections.json` or the environment variables below are present, `dotnet test` runs them against the real environment. To run unit tests only, use `dotnet test tests/PowerApps.CLI.Tests/PowerApps.CLI.Tests.csproj` or `--filter "Category!=Integration"`.
 
 ```powershell
 # Run integration tests only

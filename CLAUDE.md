@@ -23,7 +23,7 @@ Claude Code's job is to **build**. When acting as Developer:
 - Write, modify, and refactor C# code following the conventions in this file
 - Implement new commands following the established constructor-injection pattern
 - Write unit tests for all new functionality (xUnit + Moq)
-- Run `dotnet build` and `dotnet test` before considering work done
+- Run `dotnet build` and the unit tests (`dotnet test tests/PowerApps.CLI.Tests/PowerApps.CLI.Tests.csproj`) before considering work done. Plain `dotnet test` also runs the integration tests against real Dataverse environments — only run those when Rob asks
 - Keep the interface-based DI pattern intact — no shortcuts
 - Never commit credential files or real connection strings
 - Treat current coverage (~60% line / ~55% branch) as a floor, not a target
@@ -44,6 +44,24 @@ Cowork's job is to **challenge**. When acting as Reviewer:
 
 The split exists because Rob wants a genuine separation between "build it" and "should we build it like that?" — two voices that can productively disagree.
 
+### Claude Code Subagents — Developer, Tester, Code Reviewer
+
+Inside Claude Code, the Developer role is split further across three subagents defined in `.claude/agents/`. The main Claude Code session runs them in sequence (subagents can't call each other). The flow is for `feature/` and `fix/` work with an issue and an agreed plan; `docs/` and `chore/` changes are made by the main session directly.
+
+| Agent | File | May edit | Job |
+|---|---|---|---|
+| `developer` | `developer.md` | `src/`, `tests/`, `README.md` | Implements the agreed plan; builds and runs unit tests |
+| `tester` | `tester.md` | `tests/PowerApps.CLI.Tests/` only | Tries to break the change; adds missing tests; leaves failing tests for bugs it finds rather than fixing `src/` |
+| `code-reviewer` | `code-reviewer.md` | No source files (builds and runs unit tests only) | First-pass review against the plan and this file; gives a verdict |
+
+The "May edit" limits are instructions in each agent file, not enforced by tooling — the agents have the tools to edit elsewhere, so the main session should check `git status` after each run, and the `code-reviewer` checks that the tester's `test:` commits only touched `tests/`. The `developer` and `tester` each commit their work to the feature branch before reporting back — the next agent only sees committed changes. Changes to this file, `.claude/agents/` and `.github/` (including release notes in `release.yml`) are made by the main session, not a subagent.
+
+**Subagents start with no conversation history.** They only know what the main session passes them and what they can read from the repo or GitHub. The agreed plan must therefore be posted as a comment on the issue (step 3), and each agent is pointed at it: *"Use the developer agent to implement the plan in the most recent **Agreed plan** comment on #NNN, then the tester, then the code-reviewer."*
+
+The `code-reviewer` agent is a **first pass, not a replacement** for the Cowork Reviewer. It is good at catching convention drift, missed edge cases and weak tests; it is weaker at challenging a design the same session has just agreed. Design-level challenge stays with Cowork and Rob in step 5.
+
+The agent files are the detailed brief for each role; this file stays authoritative if the two ever disagree.
+
 ---
 
 ## Development Workflow
@@ -57,10 +75,15 @@ Cowork reviews the problem or idea with Rob. Scope is defined, edge cases are ra
 Claude Code creates a feature branch (e.g. `feature/123-description`) and proposes an implementation plan — which files change, what new types look like, what tests are needed. The plan is shared with Rob before any code is written.
 
 ### 3. Rob Agrees the Plan
-Rob reviews the plan and gives the go-ahead (or asks for adjustments). Last checkpoint before implementation begins. No surprises.
+Rob reviews the plan and gives the go-ahead (or asks for adjustments). Last checkpoint before implementation begins. No surprises. Once agreed, Claude Code posts the final plan as a comment on the issue (`gh issue comment`), headed **Agreed plan**, so subagents and the Reviewer work from the same text.
 
 ### 4. Developer Implements and Raises a PR (Developer)
-Claude Code implements the plan, writes tests, ensures `dotnet build` and `dotnet test` pass, and creates a pull request against `main`.
+Claude Code implements the plan, writes tests, ensures `dotnet build` and the unit tests pass, and creates a pull request against `main`. Within Claude Code this runs as `developer` → `tester` → `code-reviewer` (see *Claude Code Subagents* above), orchestrated by the main session:
+
+- If the `tester` reports bugs (failing tests), run the `developer` again to fix them, then re-run the `tester`. Repeat until it reports no new bugs, **up to two fix rounds** — after that, stop and bring it to Rob.
+- If the `developer` says a failing test is wrong rather than fixing it, don't loop — bring the disagreement to Rob.
+- Address Must-fix findings from the `code-reviewer` the same way (developer, then tester if code changed).
+- Never raise a PR with failing unit tests. The main session raises the PR once all of the above is done; subagents do not.
 
 ### 5. Reviewer Reviews the PR (Reviewer + Rob)
 Cowork reviews the PR — checking the implementation against the agreed plan, looking for gaps, testing weaknesses, naming issues, and convention drift. Rob participates in this review. Cowork gives a frank verdict and raises comments; the Developer addresses them.
@@ -129,7 +152,7 @@ Plain C# classes for configuration DTOs and domain results. No behaviour.
 - **Dataverse terminology:** Tables (not Entities), Choices (not OptionSets) — in code, comments, and generated output
 - **C# files:** PascalCase
 - **Executable:** kebab-case (`powerapps-cli`)
-- **Branches:** `feature/NNN-short-description` or `fix/NNN-short-description`
+- **Branches:** `feature/NNN-short-description` or `fix/NNN-short-description`; `docs/short-description` or `chore/short-description` for changes with no code impact (issue number optional)
 
 ### Authentication (priority order)
 1. `--client-id` / `--client-secret` command-line arguments
@@ -158,7 +181,7 @@ Plain C# classes for configuration DTOs and domain results. No behaviour.
 4. Add service(s) to `Services/` with `IXxx` interface + implementation
 5. Write unit tests in `tests/PowerApps.CLI.Tests/Commands/` and `Services/`
 6. Update `README.md` with usage examples and command reference table entry
-7. Update this file if architecture or conventions change
+7. Update this file if architecture or conventions change (and the agent files in `.claude/agents/` if a change affects how they should work)
 
 ---
 
@@ -180,8 +203,11 @@ Plain C# classes for configuration DTOs and domain results. No behaviour.
 # Build
 dotnet build
 
-# Run all tests
-dotnet test
+# Run unit tests (no Dataverse connection needed)
+dotnet test tests/PowerApps.CLI.Tests/PowerApps.CLI.Tests.csproj
+
+# Run integration tests (real Dataverse environments — only when asked)
+dotnet test --filter "Category=Integration"
 
 # Run with coverage (PowerShell)
 .\tests\scripts\run-coverage.ps1
@@ -191,6 +217,8 @@ dotnet run --project src/PowerApps.CLI -- [command] [options]
 ```
 
 Coverage reports are generated to `tests/coverage/report/index.html`.
+
+> **Plain `dotnet test` runs everything**, including the integration tests, whenever `tests/scripts/connections.json` (or the equivalent environment variables) is present — they are skippable, not excluded. Always name the unit-test project or pass `--filter "Category!=Integration"` unless integration tests are wanted.
 
 > **Plugin lib is not in the solution.** `tests/XRT.IntegrationTestPluginLib` is a .NET Framework 4.7.1, PFX-signed Dynamics plugin assembly used only to exercise `process-manage`'s plugin-step path. The .NET SDK cannot build PFX-signed .NET Framework projects, so it is deliberately **excluded from `PowerApps.CLI.sln`** — including it breaks `dotnet restore`/`build` and CI. Build it separately with full MSBuild / Visual Studio when the assembly needs regenerating; never add it back to the solution.
 
