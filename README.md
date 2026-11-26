@@ -609,6 +609,8 @@ Extracts metadata schema from PowerApps/Dataverse environments.
 
 Output order is deterministic, so exports from different environments can be diffed directly. JSON lists tables and columns by logical name and relationships by schema name, and lookup targets are sorted alphabetically. XLSX sheets are ordered by display name, with logical name as a tie-break. Choice options keep the order defined in Dataverse.
 
+Excel cells hold at most 32,767 characters. In XLSX output, a longer value is cut short instead of failing the export: lists such as lookup Targets or Solutions keep whole items and end with `… (+N more)`, and other text ends with `… (+N chars)`. A warning names each table and column affected. JSON output always keeps the full value.
+
 ### constants-generate
 
 Generates C# constants from Dataverse metadata.
