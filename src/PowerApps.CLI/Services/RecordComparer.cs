@@ -145,7 +145,7 @@ public class RecordComparer : IRecordComparer
             return display;
         }
 
-        if (raw is EntityReference)
+        if (AttributeValues.Unwrap(raw) is EntityReference)
         {
             return $"{display} {{{stored}}}";
         }

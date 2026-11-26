@@ -1,6 +1,6 @@
 using System.Globalization;
+using System.Security.Cryptography;
 using Microsoft.Xrm.Sdk;
-using PowerApps.CLI.Infrastructure;
 
 namespace PowerApps.CLI.Services;
 
@@ -18,10 +18,15 @@ public static class AttributeValues
     /// <summary>
     /// Returns true when two stored column values are the same.
     /// Lookups compare by record ID, Choices, Money and managed properties by value, and
-    /// multi-select Choices by their set of option values (order is ignored).
+    /// multi-select Choices by their set of option values (order is ignored), image columns
+    /// (<c>byte[]</c>) by their contents, and aliased values from linked tables by the value
+    /// they wrap.
     /// </summary>
     public static bool AreEqual(object? source, object? target)
     {
+        source = Unwrap(source);
+        target = Unwrap(target);
+
         if (source is null && target is null)
         {
             return true;
@@ -39,6 +44,7 @@ public static class AttributeValues
             (OptionSetValueCollection s, OptionSetValueCollection t) => ChoiceValues(s).SetEquals(ChoiceValues(t)),
             (Money s, Money t) => s.Value == t.Value,
             (BooleanManagedProperty s, BooleanManagedProperty t) => s.Value == t.Value,
+            (byte[] s, byte[] t) => s.AsSpan().SequenceEqual(t),
             _ => source.Equals(target)
         };
     }
@@ -57,7 +63,13 @@ public static class AttributeValues
             throw new ArgumentNullException(nameof(entity));
         }
 
-        if (!entity.Attributes.TryGetValue(attributeName, out var value) || value is null)
+        if (!entity.Attributes.TryGetValue(attributeName, out var stored))
+        {
+            return null;
+        }
+
+        var value = Unwrap(stored);
+        if (value is null)
         {
             return null;
         }
@@ -67,7 +79,35 @@ public static class AttributeValues
             return FormatDate(dateTime);
         }
 
-        return entity.GetFormattedValue(attributeName);
+        if (entity.FormattedValues.TryGetValue(attributeName, out var formatted))
+        {
+            return formatted;
+        }
+
+        return value switch
+        {
+            OptionSetValueCollection options => string.Join(", ", options.Select(FormatChoiceValue)),
+            byte[] bytes => FormatByteCount(bytes),
+            // Same fallback as EntityExtensions.GetFormattedValue, applied to the unwrapped value.
+            EntityReference entityRef => entityRef.Name ?? entityRef.Id.ToString(),
+            OptionSetValue option => option.Value.ToString(),
+            Money money => money.Value.ToString("F2"),
+            _ => value.ToString()
+        };
+    }
+
+    /// <summary>
+    /// Returns the value an <see cref="AliasedValue"/> (a column from a linked table) wraps,
+    /// unwrapping nested aliases; any other value is returned as it is.
+    /// </summary>
+    public static object? Unwrap(object? value)
+    {
+        while (value is AliasedValue aliased)
+        {
+            value = aliased.Value;
+        }
+
+        return value;
     }
 
     /// <summary>
@@ -76,19 +116,31 @@ public static class AttributeValues
     /// </summary>
     public static string? FormatStoredValue(object? value)
     {
-        return value switch
+        return Unwrap(value) switch
         {
             null => null,
             EntityReference entityRef => entityRef.Id.ToString(),
             OptionSetValue option => option.Value.ToString(CultureInfo.InvariantCulture),
-            OptionSetValueCollection options => string.Join(",",
-                options.Select(o => o?.Value.ToString(CultureInfo.InvariantCulture) ?? "null")),
+            OptionSetValueCollection options => string.Join(",", options.Select(FormatChoiceValue)),
+            byte[] bytes => "SHA-256 " + Convert.ToHexString(SHA256.HashData(bytes))[..12],
             Money money => money.Value.ToString(CultureInfo.InvariantCulture),
             BooleanManagedProperty managed => managed.Value.ToString(CultureInfo.InvariantCulture),
             DateTime dateTime => dateTime.ToString("o", CultureInfo.InvariantCulture),
             IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
-            _ => value.ToString()
+            var other => other.ToString()
         };
+    }
+
+    private static string FormatChoiceValue(OptionSetValue? option)
+    {
+        return option?.Value.ToString(CultureInfo.InvariantCulture) ?? "null";
+    }
+
+    private static string FormatByteCount(byte[] bytes)
+    {
+        return bytes.Length == 1
+            ? "1 byte"
+            : $"{bytes.Length.ToString(CultureInfo.InvariantCulture)} bytes";
     }
 
     private static string FormatDate(DateTime value)

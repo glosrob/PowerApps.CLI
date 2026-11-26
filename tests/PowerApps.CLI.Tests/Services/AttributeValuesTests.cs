@@ -392,4 +392,78 @@ public class AttributeValuesTests
     }
 
     #endregion
+
+    #region Image, Aliased and Multi-select Display Tests
+
+    [Fact]
+    public void AreEqual_ByteArrays_DifferentLengthsAndEmpty()
+    {
+        Assert.False(AttributeValues.AreEqual(new byte[] { 1, 2 }, new byte[] { 1, 2, 3 }));
+        Assert.True(AttributeValues.AreEqual(Array.Empty<byte>(), Array.Empty<byte>()));
+        Assert.False(AttributeValues.AreEqual(new byte[] { 1 }, null));
+    }
+
+    [Fact]
+    public void AreEqual_AliasedValue_ComparedWithItsWrappedValueRules()
+    {
+        var id = Guid.NewGuid();
+        var source = new AliasedValue("rob_parent", "rob_parentid", new EntityReference("rob_parent", id) { Name = "A" });
+        var target = new AliasedValue("rob_parent", "rob_parentid", new EntityReference("rob_parent", id) { Name = "B" });
+
+        Assert.True(AttributeValues.AreEqual(source, target));
+        Assert.True(AttributeValues.AreEqual(new AliasedValue("rob_parent", "rob_code", null), null));
+        Assert.False(AttributeValues.AreEqual(new AliasedValue("rob_parent", "rob_code", "ABC"), null));
+    }
+
+    [Fact]
+    public void FormatForDisplay_ImageColumn_ShowsByteCount()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["rob_image"] = new byte[] { 1, 2, 3 };
+
+        Assert.Equal("3 bytes", AttributeValues.FormatForDisplay(entity, "rob_image"));
+
+        entity["rob_image"] = new byte[] { 1 };
+        Assert.Equal("1 byte", AttributeValues.FormatForDisplay(entity, "rob_image"));
+    }
+
+    [Fact]
+    public void FormatStoredValue_ImageColumn_ShowsHashPrefix()
+    {
+        var stored = AttributeValues.FormatStoredValue(new byte[] { 1, 2, 3 });
+
+        Assert.Equal("SHA-256 039058C6F2C0", stored);
+        Assert.NotEqual(stored, AttributeValues.FormatStoredValue(new byte[] { 1, 2, 4 }));
+    }
+
+    [Fact]
+    public void FormatForDisplay_MultiSelectWithoutFormattedValue_ShowsOptionValues()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["rob_regions"] = new OptionSetValueCollection { new OptionSetValue(1), new OptionSetValue(2) };
+
+        Assert.Equal("1, 2", AttributeValues.FormatForDisplay(entity, "rob_regions"));
+    }
+
+    [Fact]
+    public void FormatForDisplay_AliasedValue_ShowsWrappedValue()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["parent.rob_code"] = new AliasedValue("rob_parent", "rob_code", "ABC");
+        entity["parent.rob_effectivefrom"] = new AliasedValue("rob_parent", "rob_effectivefrom",
+            new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Utc));
+        entity["parent.rob_empty"] = new AliasedValue("rob_parent", "rob_empty", null);
+
+        Assert.Equal("ABC", AttributeValues.FormatForDisplay(entity, "parent.rob_code"));
+        Assert.Equal("2026-03-01T09:00:00Z", AttributeValues.FormatForDisplay(entity, "parent.rob_effectivefrom"));
+        Assert.Null(AttributeValues.FormatForDisplay(entity, "parent.rob_empty"));
+    }
+
+    [Fact]
+    public void FormatStoredValue_AliasedValue_UsesWrappedValue()
+    {
+        Assert.Equal("100000001", AttributeValues.FormatStoredValue(new AliasedValue("rob_parent", "rob_category", new OptionSetValue(100000001))));
+    }
+
+    #endregion
 }

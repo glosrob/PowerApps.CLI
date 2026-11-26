@@ -1035,6 +1035,54 @@ public class RecordComparerTests
 
     #endregion
 
+    #region Image and Aliased Display Tests
+
+    [Fact]
+    public void CompareRecords_ImageColumnsSameLengthDifferentBytes_ReportShowsHash()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2, 3 }, null);
+        var target = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2, 4 }, null);
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("3 bytes (SHA-256 039058C6F2C0)", field.SourceValue);
+        Assert.StartsWith("3 bytes (SHA-256 ", field.TargetValue);
+        Assert.NotEqual(field.SourceValue, field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_ImageColumnsDifferentLength_ReportShowsByteCounts()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2, 3 }, null);
+        var target = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2 }, null);
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("3 bytes", field.SourceValue);
+        Assert.Equal("2 bytes", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_AliasedLookupDifferentIdSameName_ReportIncludesIds()
+    {
+        var id = Guid.NewGuid();
+        var sourceParentId = Guid.NewGuid();
+        var targetParentId = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "parent.rob_parentid",
+            new AliasedValue("rob_parent", "rob_parentid", new EntityReference("rob_parent", sourceParentId) { Name = "Parent" }), "Parent");
+        var target = CreateSettingRecord(id, "parent.rob_parentid",
+            new AliasedValue("rob_parent", "rob_parentid", new EntityReference("rob_parent", targetParentId) { Name = "Parent" }), "Parent");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal($"Parent {{{sourceParentId}}}", field.SourceValue);
+        Assert.Equal($"Parent {{{targetParentId}}}", field.TargetValue);
+    }
+
+    #endregion
+
     #region BuildNameLookup Tests
 
     [Fact]
