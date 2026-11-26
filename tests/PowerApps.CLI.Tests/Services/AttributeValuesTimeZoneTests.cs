@@ -108,6 +108,13 @@ public class AttributeValuesTimeZoneTests
     /// Runs <paramref name="action"/> with <see cref="TimeZoneInfo.Local"/> replaced, then restores
     /// the machine's zone. Fails rather than silently passing if the runtime's internals change.
     /// </summary>
+    /// <remarks>
+    /// Uses reflection on the private <c>TimeZoneInfo.s_cachedData._localTimeZone</c> field (.NET 8).
+    /// If these tests start failing on the <c>Assert.NotNull</c> checks after a .NET upgrade, the
+    /// runtime has renamed those fields: update the names here. This is the only test in the repo
+    /// that changes process-wide state; don't copy the pattern elsewhere without the same
+    /// non-parallel collection and restore-in-finally.
+    /// </remarks>
     private static T WithLocalTimeZone<T>(TimeZoneInfo zone, Func<T> action)
     {
         var cachedDataField = typeof(TimeZoneInfo).GetField("s_cachedData", BindingFlags.NonPublic | BindingFlags.Static);

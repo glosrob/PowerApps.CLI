@@ -159,7 +159,7 @@ public class AttributeValuesTests
     }
 
     [Fact]
-    public void FormatForDisplay_UnspecifiedDate_DoesNotMatchAnyShiftedValue()
+    public void FormatForDisplay_UnspecifiedMidnight_ShownWithoutZOrShift()
     {
         var value = new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Unspecified);
         var entity = new Entity("rob_setting", Guid.NewGuid());
@@ -167,12 +167,8 @@ public class AttributeValuesTests
 
         var display = AttributeValues.FormatForDisplay(entity, "rob_effectivefrom");
 
+        // Guarding against a time-zone shift on any machine is done in AttributeValuesTimeZoneTests.
         Assert.Equal("2026-07-01T00:00:00", display);
-        if (TimeZoneInfo.Local.GetUtcOffset(value) != TimeSpan.Zero)
-        {
-            Assert.NotEqual(value.ToUniversalTime().ToString("yyyy-MM-dd'T'HH:mm:ss"), display);
-            Assert.NotEqual(value.ToLocalTime().ToString("yyyy-MM-dd'T'HH:mm:ss"), display);
-        }
     }
 
     [Fact]

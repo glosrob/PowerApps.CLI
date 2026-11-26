@@ -17,7 +17,7 @@ public static class AttributeValues
 
     /// <summary>
     /// Returns true when two stored column values are the same.
-    /// Lookups compare by record ID, Choices, Money and managed properties by value, and
+    /// Lookups compare by record ID (the table is ignored), Choices, Money and managed properties by value, and
     /// multi-select Choices by their set of option values (order is ignored), image columns
     /// (<c>byte[]</c>) by their contents, and aliased values from linked tables by the value
     /// they wrap.
