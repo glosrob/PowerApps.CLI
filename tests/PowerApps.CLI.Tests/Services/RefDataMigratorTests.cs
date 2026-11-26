@@ -858,6 +858,72 @@ public class RefDataMigratorTests
         _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(new[] { 1, 2 }, new[] { 1, 2 })]
+    [InlineData(new[] { 1, 2 }, new[] { 2, 1 })]
+    public async Task MigrateAsync_DiffMode_SkipsUnchangedMultiSelectChoices(int[] sourceOptions, int[] targetOptions)
+    {
+        // Before #133 two OptionSetValueCollection instances were compared by reference, so an
+        // unchanged multi-select column always counted as a change.
+        var recordId = Guid.NewGuid();
+        SetupMetadata("rob_setting", CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_regions"));
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["rob_regions"] = CreateOptions(sourceOptions);
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_regions"] = CreateOptions(targetOptions);
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        SetupExecuteMultiple(CreateSuccessResponse(0));
+
+        var result = await _migrator.MigrateAsync(CreateConfig("rob_setting"), dryRun: false, force: false);
+
+        Assert.Equal(1, result.TableResults[0].SkippedCount);
+        Assert.Equal(0, result.TableResults[0].UpsertedCount);
+        _mockTargetClient.Verify(c => c.ExecuteMultiple(It.IsAny<OrganizationRequestCollection>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task MigrateAsync_DiffMode_DetectsChangedMultiSelectChoices()
+    {
+        var recordId = Guid.NewGuid();
+        SetupMetadata("rob_setting", CreateMetadata("rob_setting", "rob_settingid", "rob_name", "rob_regions"));
+
+        var sourceRecord = new Entity("rob_setting", recordId);
+        sourceRecord["rob_name"] = "Setting";
+        sourceRecord["rob_regions"] = CreateOptions(1, 2);
+        SetupSourceRecords("rob_setting", sourceRecord);
+
+        var targetRecord = new Entity("rob_setting", recordId);
+        targetRecord["rob_name"] = "Setting";
+        targetRecord["rob_regions"] = CreateOptions(1);
+        SetupTargetRecords("rob_setting", targetRecord);
+
+        var captured = CaptureExecuteMultiple();
+
+        var result = await _migrator.MigrateAsync(CreateConfig("rob_setting"), dryRun: false, force: false);
+
+        Assert.Equal(0, result.TableResults[0].SkippedCount);
+        var upsert = Assert.IsType<UpsertRequest>(Assert.Single(captured.SelectMany(r => r)));
+        var sent = Assert.IsType<OptionSetValueCollection>(upsert.Target["rob_regions"]);
+        Assert.Equal(new[] { 1, 2 }, sent.Select(o => o.Value).ToArray());
+    }
+
+    private static OptionSetValueCollection CreateOptions(params int[] values)
+    {
+        var options = new OptionSetValueCollection();
+        foreach (var value in values)
+        {
+            options.Add(new OptionSetValue(value));
+        }
+
+        return options;
+    }
+
     [Fact]
     public async Task MigrateAsync_DiffMode_IncludesNewRecords()
     {

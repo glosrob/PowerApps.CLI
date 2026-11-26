@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Xrm.Sdk;
 using PowerApps.CLI.Services;
 using Xunit;
@@ -253,6 +254,141 @@ public class AttributeValuesTests
         Assert.Equal("1.5", AttributeValues.FormatStoredValue(1.5m));
         Assert.Equal("2026-03-01T09:00:00.0010000Z",
             AttributeValues.FormatStoredValue(new DateTime(2026, 3, 1, 9, 0, 0, 1, DateTimeKind.Utc)));
+    }
+
+    #endregion
+
+    #region Edge Case Tests
+
+    [Fact]
+    public void AreEqual_MultiSelectChoices_DuplicateOptions_TreatedAsSet()
+    {
+        // Deliberate: Dataverse cannot store the same option twice in a multi-select column, so
+        // the comparison is by set. A change to count duplicates should be a conscious decision.
+        var withDuplicate = new OptionSetValueCollection { new OptionSetValue(1), new OptionSetValue(1), new OptionSetValue(2) };
+        var distinct = new OptionSetValueCollection { new OptionSetValue(2), new OptionSetValue(1) };
+
+        Assert.True(AttributeValues.AreEqual(withDuplicate, distinct));
+        Assert.True(AttributeValues.AreEqual(distinct, withDuplicate));
+    }
+
+    [Fact]
+    public void AreEqual_MultiSelectChoices_NullElement_DoesNotThrow()
+    {
+        var source = new OptionSetValueCollection { null!, new OptionSetValue(1) };
+        var target = new OptionSetValueCollection { new OptionSetValue(1), null! };
+
+        Assert.True(AttributeValues.AreEqual(source, target));
+        Assert.False(AttributeValues.AreEqual(source, new OptionSetValueCollection { new OptionSetValue(1) }));
+    }
+
+    [Fact]
+    public void AreEqual_MultiSelectVersusSingleChoice_ReturnsFalse()
+    {
+        Assert.False(AttributeValues.AreEqual(
+            new OptionSetValueCollection { new OptionSetValue(1) }, new OptionSetValue(1)));
+    }
+
+    [Fact]
+    public void AreEqual_DecimalsWithDifferentScale_ReturnsTrue()
+    {
+        Assert.True(AttributeValues.AreEqual(1.0m, 1.00m));
+        Assert.True(AttributeValues.AreEqual(new Money(1.0m), new Money(1.00m)));
+    }
+
+    [Fact]
+    public void AreEqual_Guids_ComparesByValue()
+    {
+        var id = Guid.NewGuid();
+
+        Assert.True(AttributeValues.AreEqual(id, new Guid(id.ToString())));
+        Assert.False(AttributeValues.AreEqual(id, Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void AreEqual_ByteArraysWithSameContent_ReturnsTrue()
+    {
+        // Image columns come back as byte[] from an all-columns query. Reference equality would
+        // report every record with an image as changed.
+        Assert.True(AttributeValues.AreEqual(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 3 }));
+        Assert.False(AttributeValues.AreEqual(new byte[] { 1, 2, 3 }, new byte[] { 1, 2, 4 }));
+    }
+
+    [Fact]
+    public void AreEqual_AliasedValuesWithSameValue_ReturnsTrue()
+    {
+        // A table filter can contain a link-entity, which returns AliasedValue columns.
+        var source = new AliasedValue("rob_parent", "rob_code", "ABC");
+        var target = new AliasedValue("rob_parent", "rob_code", "ABC");
+
+        Assert.True(AttributeValues.AreEqual(source, target));
+        Assert.False(AttributeValues.AreEqual(source, new AliasedValue("rob_parent", "rob_code", "XYZ")));
+    }
+
+    [Fact]
+    public void FormatStoredValue_UsesInvariantCultureWhenCurrentCultureDiffers()
+    {
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+
+            Assert.Equal("1234.5", AttributeValues.FormatStoredValue(new Money(1234.5m)));
+            Assert.Equal("1.5", AttributeValues.FormatStoredValue(1.5m));
+            Assert.Equal("0.25", AttributeValues.FormatStoredValue(0.25d));
+            Assert.Equal("1234567", AttributeValues.FormatStoredValue(1234567));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void FormatStoredValue_UnspecifiedDate_HasNoZ()
+    {
+        Assert.Equal("2026-03-01T09:00:00.5000000",
+            AttributeValues.FormatStoredValue(new DateTime(2026, 3, 1, 9, 0, 0, 500, DateTimeKind.Unspecified)));
+    }
+
+    [Fact]
+    public void FormatStoredValue_StringAndGuid_ReturnedAsIs()
+    {
+        var id = Guid.NewGuid();
+
+        Assert.Equal("abc", AttributeValues.FormatStoredValue("abc"));
+        Assert.Equal(id.ToString(), AttributeValues.FormatStoredValue(id));
+    }
+
+    [Fact]
+    public void FormatForDisplay_Dates_UseGregorianDigitsWhenCurrentCultureUsesAnotherCalendar()
+    {
+        // th-TH uses the Buddhist calendar (2026 is 2569); the ISO output must not follow it.
+        var original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("th-TH");
+            var entity = new Entity("rob_setting", Guid.NewGuid());
+            entity["rob_effectivefrom"] = new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Utc);
+            entity["rob_validuntil"] = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Unspecified);
+
+            Assert.Equal("2026-03-01T09:00:00Z", AttributeValues.FormatForDisplay(entity, "rob_effectivefrom"));
+            Assert.Equal("2026-03-01T00:00:00", AttributeValues.FormatForDisplay(entity, "rob_validuntil"));
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Fact]
+    public void FormatForDisplay_Date_IgnoresFormattedValue()
+    {
+        var entity = new Entity("rob_setting", Guid.NewGuid());
+        entity["rob_effectivefrom"] = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Unspecified);
+        entity.FormattedValues["rob_effectivefrom"] = "01/03/2026";
+
+        Assert.Equal("2026-03-01T00:00:00", AttributeValues.FormatForDisplay(entity, "rob_effectivefrom"));
     }
 
     #endregion

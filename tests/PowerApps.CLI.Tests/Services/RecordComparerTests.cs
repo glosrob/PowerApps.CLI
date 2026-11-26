@@ -890,6 +890,149 @@ public class RecordComparerTests
         yield return new object?[] { new OptionSetValueCollection { new OptionSetValue(1) }, new OptionSetValueCollection { new OptionSetValue(2) } };
     }
 
+    [Fact]
+    public void CompareRecords_NullOnOneSideMissingOnOther_ReturnsNoDifference()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, DateColumn, null, null);
+        var target = CreateEntity("rob_setting", id, "Setting");
+
+        Assert.Empty(Compare(source, target).Differences);
+        Assert.Empty(Compare(target, source).Differences);
+    }
+
+    [Fact]
+    public void CompareRecords_ColumnOnTargetOnly_ReturnsDifferenceWithNullSource()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateEntity("rob_setting", id, "Setting");
+        var target = CreateSettingRecord(id, "rob_category", new OptionSetValue(100000001), "Standard");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("rob_category", field.FieldName);
+        Assert.Null(field.SourceValue);
+        Assert.Equal("Standard", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_MoneyWithDifferentScale_ReturnsNoDifference()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_price", new Money(10.0m), "£10.00");
+        var target = CreateSettingRecord(id, "rob_price", new Money(10.0000m), "10,00 €");
+
+        Assert.Empty(Compare(source, target).Differences);
+    }
+
+    [Fact]
+    public void CompareRecords_DecimalWithDifferentScale_NoFormattedValues_ReturnsNoDifference()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_rate", 1.0m, null);
+        var target = CreateSettingRecord(id, "rob_rate", 1.00m, null);
+
+        Assert.Empty(Compare(source, target).Differences);
+    }
+
+    [Fact]
+    public void CompareRecords_MoneySameLabelDifferentValue_ReportIncludesStoredValue()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_price", new Money(1.001m), "£1.00");
+        var target = CreateSettingRecord(id, "rob_price", new Money(1.004m), "£1.00");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("£1.00 (1.001)", field.SourceValue);
+        Assert.Equal("£1.00 (1.004)", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_UnspecifiedDateDifferingOnlyBySubSecond_StoredValueHasNoZ()
+    {
+        var id = Guid.NewGuid();
+        var stored = new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Unspecified);
+        var source = CreateSettingRecord(id, DateColumn, stored, null);
+        var target = CreateSettingRecord(id, DateColumn, stored.AddMilliseconds(250), null);
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("2026-03-01T09:00:00 (2026-03-01T09:00:00.0000000)", field.SourceValue);
+        Assert.Equal("2026-03-01T09:00:00 (2026-03-01T09:00:00.2500000)", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_LookupSameNameDifferentId_NoFormattedValues_ReportIncludesIds()
+    {
+        var id = Guid.NewGuid();
+        var sourceParentId = Guid.NewGuid();
+        var targetParentId = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_parentid", new EntityReference("rob_parent", sourceParentId) { Name = "Parent" }, null);
+        var target = CreateSettingRecord(id, "rob_parentid", new EntityReference("rob_parent", targetParentId) { Name = "Parent" }, null);
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal($"Parent {{{sourceParentId}}}", field.SourceValue);
+        Assert.Equal($"Parent {{{targetParentId}}}", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_MultiSelectSameLabelDifferentOptions_ReportIncludesStoredValues()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_regions",
+            new OptionSetValueCollection { new OptionSetValue(1), new OptionSetValue(2) }, "North; South");
+        var target = CreateSettingRecord(id, "rob_regions",
+            new OptionSetValueCollection { new OptionSetValue(1), new OptionSetValue(3) }, "North; South");
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("North; South (1,2)", field.SourceValue);
+        Assert.Equal("North; South (1,3)", field.TargetValue);
+    }
+
+    [Fact]
+    public void CompareRecords_OnlyDifferingColumnsReported_WhenSeveralColumnsCompared()
+    {
+        var id = Guid.NewGuid();
+        var parentId = Guid.NewGuid();
+        var source = CreateEntity("rob_setting", id, "Setting");
+        source["rob_parentid"] = new EntityReference("rob_parent", parentId) { Name = "Old" };
+        source["rob_category"] = new OptionSetValue(1);
+        source["rob_code"] = "A";
+        var target = CreateEntity("rob_setting", id, "Setting");
+        target["rob_parentid"] = new EntityReference("rob_parent", parentId) { Name = "New" };
+        target["rob_category"] = new OptionSetValue(1);
+        target["rob_code"] = "B";
+
+        var field = Assert.Single(GetFieldDifferences(Compare(source, target)));
+
+        Assert.Equal("rob_code", field.FieldName);
+    }
+
+    [Fact]
+    public void CompareRecords_ImageColumnWithSameBytes_ReturnsNoDifference()
+    {
+        // An all-columns query returns image columns as byte[]. Before #133 the formatted value
+        // ("System.Byte[]") was compared; comparing by reference reports every such record.
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2, 3 }, null);
+        var target = CreateSettingRecord(id, "rob_image", new byte[] { 1, 2, 3 }, null);
+
+        Assert.Empty(Compare(source, target).Differences);
+    }
+
+    [Fact]
+    public void CompareRecords_AliasedValueWithSameValue_ReturnsNoDifference()
+    {
+        var id = Guid.NewGuid();
+        var source = CreateSettingRecord(id, "parent.rob_code", new AliasedValue("rob_parent", "rob_code", "ABC"), "ABC");
+        var target = CreateSettingRecord(id, "parent.rob_code", new AliasedValue("rob_parent", "rob_code", "ABC"), "ABC");
+
+        Assert.Empty(Compare(source, target).Differences);
+    }
+
     #endregion
 
     #region BuildNameLookup Tests
